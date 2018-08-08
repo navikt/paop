@@ -1,0 +1,98 @@
+buildscript {
+    ext.kotlin_version = '1.2.51'
+    ext.io_prometheus_version = '0.4.0'
+    ext.jetty_version = '9.4.11.v20180605'
+    ext.ktor_version = '0.9.3'
+    ext.logback_version = '1.2.3'
+    ext.logstash_encoder_version = '5.1'
+    ext.okhttp_version = '3.11.0'
+    ext.coroutines_version = '0.23.4'
+    ext.jackson_version = '2.9.6'
+
+}
+
+plugins {
+    id 'com.github.ben-manes.versions' version '0.20.0'
+    id 'org.jetbrains.kotlin.jvm' version "1.2.51"
+    id 'application'
+    id 'java'
+    id 'idea'
+    id 'org.jmailen.kotlinter' version '1.14.0'
+}
+
+group 'no.nav.paop'
+version '1.0-SNAPSHOT'
+
+mainClassName = 'no.nav.paop.PaopApplicationKt'
+
+applicationDefaultJvmArgs = [
+        '-Dcom.ibm.mq.cfg.useIBMCipherMappings=false',
+        '-Djavax.net.ssl.trustStore=${NAV_TRUSTSTORE_PATH}',
+        '-Djavax.net.ssl.trustStorePassword=${NAV_TRUSTSTORE_PASSWORD}',
+        '-Djavax.net.ssl.trustStoreType=JKS',
+        '-XX:+UnlockExperimentalVMOptions',
+        '-XX:+UseCGroupMemoryLimitForHeap',
+        '-XX:+UseG1GC',
+        '-XshowSettings:vm'/*,
+        '-Dlogback.configurationFile=logback-remote.xml'*/
+]
+
+startScripts {
+    doLast {
+        unixScript.text = unixScript.text.replace('\\${NAV_TRUSTSTORE_PATH}', '${NAV_TRUSTSTORE_PATH}')
+        unixScript.text = unixScript.text.replace('\\${NAV_TRUSTSTORE_PASSWORD}', '${NAV_TRUSTSTORE_PASSWORD}')
+    }
+}
+
+test {
+    testLogging {
+        showStandardStreams = true
+    }
+}
+
+task printVersion() {
+    doLast {
+        println(version)
+    }
+}
+
+
+compileKotlin {
+    kotlinOptions.jvmTarget = "1.8"
+}
+
+compileTestKotlin {
+    kotlinOptions.jvmTarget = "1.8"
+}
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+    jcenter()
+    maven { url "https://dl.bintray.com/kotlin/ktor" }
+    maven { url 'https://repo.adeo.no/repository/maven-releases/' }
+    maven { url 'https://repo.adeo.no/repository/maven-snapshots/' }
+    maven { url  "https://dl.bintray.com/spekframework/spek-dev" }
+}
+
+dependencies {
+
+    // General application flow
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
+
+    implementation "com.squareup.okhttp3:okhttp:$okhttp_version"
+
+    // Everything used for HTTP stats and selftest
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutines_version"
+    implementation "io.prometheus:simpleclient_hotspot:$io_prometheus_version"
+    implementation "io.prometheus:simpleclient_common:$io_prometheus_version"
+    implementation "io.ktor:ktor-server-netty:$ktor_version"
+
+    implementation "com.fasterxml.jackson.module:jackson-module-jaxb-annotations:$jackson_version"
+    implementation "com.fasterxml.jackson.module:jackson-module-kotlin:$jackson_version"
+    implementation "com.fasterxml.jackson.dataformat:jackson-dataformat-xml:$jackson_version"
+    implementation "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:$jackson_version"
+
+    implementation "ch.qos.logback:logback-classic:$logback_version"
+    implementation "net.logstash.logback:logstash-logback-encoder:$logstash_encoder_version"
+}
