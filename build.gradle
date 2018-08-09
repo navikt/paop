@@ -87,7 +87,7 @@ class Jaxb2Task extends DefaultTask {
 
         ant.xjc(
                 'destdir': outputDir,
-                'package': 'no.nav.model.pale',
+                'package': 'no.nav.model.paop',
                 'schema': "$sourceDir/genericbatch.2013.06.xsd",
                 'encoding': 'UTF-8',
                 'fork': 'true'
