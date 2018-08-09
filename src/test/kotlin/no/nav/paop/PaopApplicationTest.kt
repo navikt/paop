@@ -11,8 +11,8 @@ object PaopApplicationTest : Spek({
     describe("tests the functions in PaopApplication") {
 
         it("Should set databatch.schemaVersion") {
-           val dataBatch = extractDataBatchFromString(getFileAsString(
-                   "src/test/resources/oppfolging_2913_04.xml"))
+            val dataBatch = extractDataBatchFromString(getFileAsString(
+                    "src/test/resources/oppfolging_2913_04.xml"))
             dataBatch.schemaVersion shouldEqual 1.0.toBigDecimal()
         }
         it("Should set databatch.attachments") {
@@ -38,7 +38,7 @@ object PaopApplicationTest : Spek({
         it("Should set databatch.dataUnits.dataUnit[0].archiveTimeStamp") {
             val dataBatch = extractDataBatchFromString(getFileAsString(
                     "src/test/resources/oppfolging_2913_04.xml"))
-            val expectedDate = LocalDateTime.of(2017, Month.MARCH, 14,12,52)
+            val expectedDate = LocalDateTime.of(2017, Month.MARCH, 14, 12, 52)
             dataBatch.dataUnits.dataUnit.first().archiveTimeStamp.year shouldEqual expectedDate.year
             dataBatch.dataUnits.dataUnit.first().archiveTimeStamp.month shouldEqual expectedDate.month.value
             dataBatch.dataUnits.dataUnit.first().archiveTimeStamp.day shouldEqual expectedDate.dayOfMonth
@@ -53,7 +53,7 @@ object PaopApplicationTest : Spek({
         it("Should set databatch.dataUnits.dataUnit[0]formTask.serviceEditionCode") {
             val dataBatch = extractDataBatchFromString(getFileAsString(
                     "src/test/resources/oppfolging_2913_04.xml"))
-            dataBatch.dataUnits.dataUnit.first().formTask.serviceEditionCode  shouldEqual "4"
+            dataBatch.dataUnits.dataUnit.first().formTask.serviceEditionCode shouldEqual "4"
         }
         it("Should set databatch.dataUnits.dataUnit[0].formTask.form[0].dataFormatId") {
             val dataBatch = extractDataBatchFromString(getFileAsString(
@@ -75,6 +75,5 @@ object PaopApplicationTest : Spek({
                     "src/test/resources/oppfolging_2913_04.xml"))
             dataBatch.dataUnits.dataUnit.first().formTask.form.first().parentReference shouldEqual "0"
         }
-
     }
 })

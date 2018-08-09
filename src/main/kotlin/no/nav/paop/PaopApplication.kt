@@ -6,7 +6,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.prometheus.client.hotspot.DefaultExports
 import kotlinx.coroutines.experimental.runBlocking
-import no.nav.model.paop.DataBatch
+import no.nav.model.dataBatch.DataBatch
 import org.slf4j.LoggerFactory
 import java.io.StringReader
 import javax.xml.bind.JAXBContext
@@ -30,11 +30,10 @@ fun main(args: Array<String>) = runBlocking {
     // TODO read for kafak topic
     // aapen-altinn-oppfolgingsplan-Mottatt
     // all of the diffrent types of oppfolgingsplan comes throw here
-    //val dataBatch = extractDataBatchFromString(inputMessageText)
-
+    // val dataBatch = extractDataBatchFromString(inputMessageText)
 }
 
-fun extractDataBatchFromString(dataBatchString: String): DataBatch{
+fun extractDataBatchFromString(dataBatchString: String): DataBatch {
     val dataBatchJaxBContext: JAXBContext = JAXBContext.newInstance(DataBatch::class.java)
     val dataBatchUnmarshaller: Unmarshaller = dataBatchJaxBContext.createUnmarshaller()
     return dataBatchUnmarshaller.unmarshal(StringReader(dataBatchString)) as DataBatch
