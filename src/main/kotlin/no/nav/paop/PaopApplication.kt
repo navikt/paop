@@ -7,17 +7,14 @@ import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.prometheus.client.hotspot.DefaultExports
 import kotlinx.coroutines.experimental.runBlocking
 import org.slf4j.LoggerFactory
-import java.io.StringReader
-import javax.xml.bind.JAXBContext
-import javax.xml.bind.Unmarshaller
 
 val objectMapper: ObjectMapper = ObjectMapper()
         .registerModule(JavaTimeModule())
         .registerKotlinModule()
         .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
 
-//val dataBatchJaxBContext: JAXBContext = JAXBContext.newInstance(DataBatch::class.java)
-//val dataBatchUnmarshaller: Unmarshaller = dataBatchJaxBContext.createUnmarshaller()
+// val dataBatchJaxBContext: JAXBContext = JAXBContext.newInstance(DataBatch::class.java)
+// val dataBatchUnmarshaller: Unmarshaller = dataBatchJaxBContext.createUnmarshaller()
 
 private val log = LoggerFactory.getLogger("nav.paop-application")
 
@@ -32,6 +29,5 @@ fun main(args: Array<String>) = runBlocking {
     // aapen-altinn-oppfolgingsplan-Mottatt
     // all of the diffrent types of oppfolgingsplan comes throw here
     val inputMessageText = ""
-    //val fellesformat = dataBatchUnmarshaller.unmarshal(StringReader(inputMessageText)) as DataBatch
-
+    // val fellesformat = dataBatchUnmarshaller.unmarshal(StringReader(inputMessageText)) as DataBatch
 }

@@ -1,6 +1,3 @@
 package no.nav.paop.extractor
 
-
-class FormDataExtractor(xmlFile: String) {
-
-}
+class FormDataExtractor(xmlFile: String)
