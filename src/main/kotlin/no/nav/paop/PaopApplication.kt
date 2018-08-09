@@ -10,8 +10,18 @@ import no.nav.model.dataBatch.DataBatch
 import no.nav.model.navOppfPlan.OppfolgingsplanMetadata
 import no.nav.model.oppfolgingsplan2014.Oppfoelgingsplan2M
 import no.nav.model.oppfolgingsplan2016.Oppfoelgingsplan4UtfyllendeInfoM
+import no.nav.paop.sts.configureSTSFor
+import no.nav.tjeneste.virksomhet.organisasjonenhet.v2.binding.OrganisasjonEnhetV2
+import no.nav.virksomhet.tjenester.arkiv.journalbehandling.v1.binding.Journalbehandling
+import org.apache.cxf.ext.logging.LoggingFeature
+import org.apache.cxf.jaxws.JaxWsProxyFactoryBean
+import org.apache.cxf.ws.security.wss4j.WSS4JOutInterceptor
+import org.apache.wss4j.common.ext.WSPasswordCallback
+import org.apache.wss4j.dom.WSConstants
+import org.apache.wss4j.dom.handler.WSHandlerConstants
 import org.slf4j.LoggerFactory
 import java.io.StringReader
+import javax.security.auth.callback.CallbackHandler
 import javax.xml.bind.JAXBContext
 import javax.xml.bind.Unmarshaller
 import javax.xml.transform.stream.StreamSource
@@ -33,7 +43,33 @@ fun main(args: Array<String>) = runBlocking {
     // TODO read for kafak topic
     // aapen-altinn-oppfolgingsplan-Mottatt
     // all of the diffrent types of oppfolgingsplan comes throw here
-    // val dataBatch = extractDataBatchFromString(inputMessageText)
+    val dataBatch = extractDataBatch(args.first())
+    val op2016 = extractOppfolginsplan2016(dataBatch.dataUnits.dataUnit.first().formTask.form.first().formData)
+
+    // calls Old arreg
+    val orgnaisasjonEnhet = JaxWsProxyFactoryBean().apply {
+        address = fasitProperties.organisasjonEnhetV2EndpointURL
+        features.add(LoggingFeature())
+        serviceClass = OrganisasjonEnhetV2::class.java
+    }.create() as OrganisasjonEnhetV2
+    configureSTSFor(orgnaisasjonEnhet, fasitProperties.srvPaopUsername,
+            fasitProperties.srvPaopPassword, fasitProperties.securityTokenServiceUrl)
+
+    val interceptorProperties = mapOf(
+            WSHandlerConstants.USER to fasitProperties.srvPaopUsername,
+            WSHandlerConstants.ACTION to WSHandlerConstants.USERNAME_TOKEN,
+            WSHandlerConstants.PASSWORD_TYPE to WSConstants.PW_TEXT,
+            WSHandlerConstants.PW_CALLBACK_REF to CallbackHandler {
+                (it[0] as WSPasswordCallback).password = fasitProperties.srvPaopPassword
+            }
+    )
+
+    val journalbehandling = JaxWsProxyFactoryBean().apply {
+        address = fasitProperties.journalbehandlingEndpointURL
+        features.add(LoggingFeature())
+        outInterceptors.add(WSS4JOutInterceptor(interceptorProperties))
+        serviceClass = Journalbehandling::class.java
+    }.create() as Journalbehandling
 }
 
 fun extractDataBatch(dataBatchString: String): DataBatch {

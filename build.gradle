@@ -14,6 +14,9 @@ buildscript {
     ext.jaxb_basic_ant_version = '1.11.1'
     ext.jaxb_version = '2.3.0.1'
     ext.ibm_mq_version = '9.0.5.0'
+    ext.nav_journalbehandling = '1.3.3'
+    ext.nav_organisasjonEnhet_v2 = '2.1.0'
+    ext.cxf_version = '3.2.5'
 
     ext.jaxb2SourceDir = file("$buildDir/generated-sources/jaxb2")
 }
@@ -188,6 +191,12 @@ dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
     implementation "com.squareup.okhttp3:okhttp:$okhttp_version"
 
+    // Communication libraries
+    implementation "org.apache.cxf:cxf-rt-frontend-jaxws:$cxf_version"
+    implementation "org.apache.cxf:cxf-rt-features-logging:$cxf_version"
+    implementation "org.apache.cxf:cxf-rt-transports-http:$cxf_version"
+    implementation "org.apache.cxf:cxf-rt-ws-security:$cxf_version"
+
     // Everything used for HTTP stats and selftest
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutines_version"
     implementation "io.prometheus:simpleclient_hotspot:$io_prometheus_version"
@@ -202,6 +211,8 @@ dependencies {
     implementation "ch.qos.logback:logback-classic:$logback_version"
     implementation "net.logstash.logback:logstash-logback-encoder:$logstash_encoder_version"
     implementation "com.ibm.mq:com.ibm.mq.allclient:$ibm_mq_version"
+    implementation "no.nav.tjenester:nav-journalbehandling-tjenestespesifikasjon:$nav_journalbehandling:jaxws"
+    implementation "no.nav.tjenester:nav-organisasjonEnhet-v2-tjenestespesifikasjon:$nav_organisasjonEnhet_v2:jaxws"
 
     testImplementation "org.spekframework.spek2:spek-dsl-jvm:$spek2_version"
     testImplementation "org.amshove.kluent:kluent:$kluent_version"
