@@ -35,10 +35,10 @@ fasitResources:
     - alias: srvpaop
       resourceType: Credential
     - alias: securityTokenService
-          resourceType: BaseUrl
+      resourceType: BaseUrl
     - alias: joark_journalbehandling_ws_endpoint
-          resourceType: BaseUrl
+      resourceType: BaseUrl
     - alias: virksomhet:OrganisasjonEnhet_v2
-          resourceType: Webserviceendpoint
-          propertyMap:
-            url: VIRKSOMHET_ORGANISASJONENHET_V2_ENDPOINTURL
+      resourceType: Webserviceendpoint
+      propertyMap:
+        url: VIRKSOMHET_ORGANISASJONENHET_V2_ENDPOINTURL
