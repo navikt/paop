@@ -30,3 +30,7 @@ resources:
   requests:
     cpu: 100m
     memory: 128Mi
+fasitResources:
+  used:
+    - alias: srvpaop
+      resourceType: Credential
