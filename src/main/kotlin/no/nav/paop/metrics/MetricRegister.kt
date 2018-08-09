@@ -1,4 +1,4 @@
-package no.nav.pale.metrics
+package no.nav.paop.metrics
 
 import io.prometheus.client.Counter
 import io.prometheus.client.Summary
