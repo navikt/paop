@@ -126,4 +126,13 @@ object PaopApplicationTest : Spek({
             navOppfPlan.fodselsNr shouldEqual "01010112345"
         }
     }
+
+    describe("tests the functions findOppfolingsplanType") {
+        it("Should find the type of oppfolginsplan") {
+
+            val oppfolginsplanType = findOppfolingsplanType("2913", "2")
+
+            oppfolginsplanType shouldEqual Oppfolginsplan.OP2012
+        }
+    }
 })

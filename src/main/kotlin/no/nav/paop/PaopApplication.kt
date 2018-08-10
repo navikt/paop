@@ -10,8 +10,6 @@ import no.nav.model.dataBatch.DataBatch
 import no.nav.model.navOppfPlan.OppfolgingsplanMetadata
 import no.nav.model.oppfolgingsplan2014.Oppfoelgingsplan2M
 import no.nav.model.oppfolgingsplan2016.Oppfoelgingsplan4UtfyllendeInfoM
-import no.nav.paop.sts.configureSTSFor
-import no.nav.tjeneste.virksomhet.organisasjonenhet.v2.binding.OrganisasjonEnhetV2
 import no.nav.virksomhet.tjenester.arkiv.journalbehandling.v1.binding.Journalbehandling
 import org.apache.cxf.ext.logging.LoggingFeature
 import org.apache.cxf.jaxws.JaxWsProxyFactoryBean
@@ -43,17 +41,46 @@ fun main(args: Array<String>) = runBlocking {
     // TODO read for kafak topic
     // aapen-altinn-oppfolgingsplan-Mottatt
     // all of the diffrent types of oppfolgingsplan comes throw here
-    val dataBatch = extractDataBatch(args.first())
-    val op2016 = extractOppfolginsplan2016(dataBatch.dataUnits.dataUnit.first().formTask.form.first().formData)
 
-    // calls Old arreg
-    val orgnaisasjonEnhet = JaxWsProxyFactoryBean().apply {
-        address = fasitProperties.organisasjonEnhetV2EndpointURL
-        features.add(LoggingFeature())
-        serviceClass = OrganisasjonEnhetV2::class.java
-    }.create() as OrganisasjonEnhetV2
-    configureSTSFor(orgnaisasjonEnhet, fasitProperties.srvPaopUsername,
-            fasitProperties.srvPaopPassword, fasitProperties.securityTokenServiceUrl)
+    // Then ckeck the input if it is duplicate
+    val dataBatch = extractDataBatch(args.first())
+    val serviceCode = dataBatch.dataUnits.dataUnit.first().formTask.serviceCode
+    val serviceEditionCode = dataBatch.dataUnits.dataUnit.first().formTask.serviceEditionCode
+    val formData = dataBatch.dataUnits.dataUnit.first().formTask.form.first().formData
+    val oppfolgingslplanType = findOppfolingsplanType(serviceCode, serviceEditionCode)
+
+    if (oppfolgingslplanType == Oppfolginsplan.OP2012) {
+        val extractOppfolginsplan = extractOppfolginsplan2012(formData)
+        // brev to general practitioner
+        val letterToGP = extractOppfolginsplan.skjemainnhold.mottaksInformasjon.value.oppfolgingsplanSendesTilFastlege
+        if (letterToGP != null && letterToGP.value == true) // TODO this may not work
+        {
+            val patientFnr = extractOppfolginsplan.skjemainnhold.sykmeldtArbeidstaker.value.fnr
+            // TODO do call to FLR and check if the patient has a GP
+            // if(patientHasGP)
+            // {    call KUHR SAR and get the GP adresse and TSS_ID
+            // }
+        }
+        val letterToNAV = extractOppfolginsplan.skjemainnhold.mottaksInformasjon.value.oppfolgingsplanSendesTiNav
+        if (letterToNAV != null && letterToNAV.value == true) // TODO this may not work
+        {
+            // check if
+        }
+    } else if (oppfolgingslplanType == Oppfolginsplan.OP2014) {
+        val extractOppfolginsplan = extractOppfolginsplan2014(formData)
+        // brev to general practitioner
+        val letterToGP = extractOppfolginsplan.skjemainnhold.mottaksInformasjon.value.oppfolgingsplanSendesTilFastlege
+    } else if (oppfolgingslplanType == Oppfolginsplan.OP2016) {
+        val extractOppfolginsplan = extractOppfolginsplan2016(formData)
+        // brev to general practitioner
+        val letterToGP = extractOppfolginsplan.skjemainnhold.mottaksInformasjon.value.oppfolgingsplanSendesTilFastlege
+    } else if (oppfolgingslplanType == Oppfolginsplan.NAVOPPFPLAN) {
+        val extractOppfolginsplan = extractNavOppfPlan(formData)
+        // brev to general practitioner
+        val letterToGP = extractOppfolginsplan.mottaksinformasjon.isOppfoelgingsplanSendesTilFastlege
+    }
+
+    // calls FLR, to check if person has a doctor
 
     val interceptorProperties = mapOf(
             WSHandlerConstants.USER to fasitProperties.srvPaopUsername,
