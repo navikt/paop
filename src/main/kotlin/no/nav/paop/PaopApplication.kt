@@ -19,9 +19,12 @@ import org.apache.wss4j.dom.WSConstants
 import org.apache.wss4j.dom.handler.WSHandlerConstants
 import org.slf4j.LoggerFactory
 import java.io.StringReader
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import javax.security.auth.callback.CallbackHandler
 import javax.xml.bind.JAXBContext
 import javax.xml.bind.Unmarshaller
+import javax.xml.datatype.DatatypeFactory
 import javax.xml.transform.stream.StreamSource
 
 val objectMapper: ObjectMapper = ObjectMapper()
@@ -30,6 +33,7 @@ val objectMapper: ObjectMapper = ObjectMapper()
         .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
 
 private val log = LoggerFactory.getLogger("nav.paop-application")
+val newInstance: DatatypeFactory = DatatypeFactory.newInstance()
 
 class PaopApplication
 
@@ -48,12 +52,14 @@ fun main(args: Array<String>) = runBlocking {
     val serviceEditionCode = dataBatch.dataUnits.dataUnit.first().formTask.serviceEditionCode
     val formData = dataBatch.dataUnits.dataUnit.first().formTask.form.first().formData
     val oppfolgingslplanType = findOppfolingsplanType(serviceCode, serviceEditionCode)
+    val archiveReference = dataBatch.dataUnits.dataUnit.first().archiveReference
+    val edilogg = "${LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm"))}-paop-$archiveReference"
 
     if (oppfolgingslplanType == Oppfolginsplan.OP2012) {
         val extractOppfolginsplan = extractOppfolginsplan2012(formData)
         // brev to general practitioner
         val letterToGP = extractOppfolginsplan.skjemainnhold.mottaksInformasjon.value.oppfolgingsplanSendesTilFastlege
-        if (letterToGP != null && letterToGP.value == true) // TODO this may not work
+        if (letterToGP.value == true) // TODO this may not work
         {
             val patientFnr = extractOppfolginsplan.skjemainnhold.sykmeldtArbeidstaker.value.fnr
             // TODO do call to FLR and check if the patient has a GP
@@ -62,9 +68,33 @@ fun main(args: Array<String>) = runBlocking {
             // }
         }
         val letterToNAV = extractOppfolginsplan.skjemainnhold.mottaksInformasjon.value.oppfolgingsplanSendesTiNav
-        if (letterToNAV != null && letterToNAV.value == true) // TODO this may not work
+        if (letterToNAV.value == true) // TODO this may not work
         {
-            // check if
+
+            // if (Oppfolginsplan.NAVOPPFL)
+            // {
+            //       // calls joark and saves the dokument
+            // val joarkrequest = createJoarkRequest(dataBatch,formData,Oppfolginsplan.OP2012,  byte64pdf )
+            // }
+            // Do call to AAREG
+            // if ( extractOppfolginsplan.skjemainnhold.arbeidsgiver.value.orgnr is in AAREG && orgstruktur is ok,
+            // look at bankkontonummerkanal )
+            // {
+            // calls joark and saves the dokument
+            // val joarkrequest = createJoarkRequest(dataBatch,formData,Oppfolginsplan.OP2012,  byte64pdf )
+            // }
+            // Send message to ARENA
+        } else {
+            if (letterToGP.value == true) {
+                // if(fastlegefunnet)
+                // {
+                //        kjør FINN_FASTLEGE_REGEL og send brev ti SYFO Fastlege
+                // }
+                // else {
+                //      kjør følgende regler: OP_KONTROLL_REGEL
+                //      og send brev til SYFO arbeisgiver
+                // }
+            }
         }
     } else if (oppfolgingslplanType == Oppfolginsplan.OP2014) {
         val extractOppfolginsplan = extractOppfolginsplan2014(formData)
