@@ -24,6 +24,7 @@ buildscript {
 }
 
 plugins {
+    id 'no.nils.wsdl2java' version '0.10'
     id 'com.github.ben-manes.versions' version '0.20.0'
     id 'org.jetbrains.kotlin.jvm' version "1.2.51"
     id 'application'
@@ -57,6 +58,9 @@ startScripts {
 }
 
 configurations {
+    navWsdl {
+        transitive = false
+    }
     generateJaxb2
 }
 
@@ -151,6 +155,29 @@ class Jaxb2Task extends DefaultTask {
     }
 }
 
+wsdl2java {
+    wsdlDir = file("$buildDir/schema")
+    wsdlsToGenerate = [
+            ["$buildDir/schema/fastlegeinformasjon.wsdl"]
+    ]
+
+    wsdlDir = file("$buildDir/schema/no/nav/virksomhet/tjenester/arbeidsgiver/v2")
+    wsdlsToGenerate = [
+             ["$buildDir/schema/no/nav/virksomhet/tjenester/arbeidsgiver/v2/Binding.wsdl"]
+    ]
+}
+
+task copyWsdlFromArtifacts(type: Copy) {
+    includeEmptyDirs = false
+    from {
+        configurations.navWsdl.asFileTree.forEach { artifact ->
+            from zipTree(artifact)
+        }
+    }
+    into "$buildDir/schema/"
+    include '**/*.xsd', '**/*.wsdl'
+}
+
 task generateJaxb2(type: Jaxb2Task) {
     outputDir = jaxb2SourceDir
     sourceDir = file("$projectDir/src/main/resources/xsd")
@@ -165,6 +192,7 @@ sourceSets {
 }
 
 compileKotlin {
+    dependsOn wsdl2java
     dependsOn generateJaxb2
     kotlinOptions.jvmTarget = "1.8"
 }
@@ -179,8 +207,12 @@ repositories {
     jcenter()
     maven { url "https://dl.bintray.com/kotlin/ktor" }
     maven { url  "https://dl.bintray.com/spekframework/spek-dev" }
-    maven { url 'https://repo.adeo.no/repository/maven-releases/' }
-    maven { url 'https://repo.adeo.no/repository/maven-snapshots/' }
+    maven {
+        url 'https://repo.adeo.no/repository/maven-releases/'
+        metadataSources {
+            artifact()
+        }
+    }
 }
 
 dependencies {
@@ -221,8 +253,8 @@ dependencies {
     testRuntimeOnly "org.spekframework.spek2:spek-runtime-jvm:$spek2_version"
     testRuntimeOnly "org.spekframework.spek2:spek-runner-junit5:$spek2_version"
 
-    //TODO unzip, and use wsdl2java
-    //wsdl "no.nav.tjenester:ekstern-helse-fastlegeinformasjon-tjenestespesifikasjon:$ekstern_helse_fastlegeinformasjon_tjenestespesifikasjon_version"
-    //wsdl "no.nav.esb:nav-arbeidsgiver-tjenestespesifikasjon:$nav_arbeidsgiver_tjenestespesifikasjon_version"
+    //TODO use wsdl2java
+    navWsdl "no.nav.tjenester:ekstern-helse-fastlegeinformasjon-tjenestespesifikasjon:$ekstern_helse_fastlegeinformasjon_tjenestespesifikasjon_version@zip"
+    navWsdl "no.nav.esb:nav-arbeidsgiver-tjenestespesifikasjon:$nav_arbeidsgiver_tjenestespesifikasjon_version"
 
 }
