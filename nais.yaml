@@ -38,10 +38,6 @@ fasitResources:
       resourceType: BaseUrl
     - alias: joark_journalbehandling_ws_endpoint
       resourceType: BaseUrl
-    - alias: aareg-hent-organisasjon
-      resourceType: webserviceendpoint
-    - alias: AARegPolicyUser
-      resourceType: credential
     - alias: eia_queue_arena_ia_outbound
       resourceType: Queue
       propertyMap:
