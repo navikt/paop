@@ -118,23 +118,22 @@ fun listen(
     val edilogg = "${LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm"))}-paop-$archiveReference"
 
     if (oppfolgingslplanType == Oppfolginsplan.OP2012) {
+        // Do call to AAREG and validateOrgStruktur
+        // Org is in AAREG && orgstruktur is ok,
+        // look at bankkontonummerkanal )
+        val validorgStruktur = true
+        if (validorgStruktur) {
+            // calls joark and saves the dokument
+            // call pdfgen and create a PDF
+            // val joarkrequest = createJoarkRequest(dataBatch,formData,Oppfolginsplan.OP2012,  byte64pdf )
+            //
+            // Send message to ARENA
+
         val extractOppfolginsplan = extractOppfolginsplan2012(formData)
         val letterToGP = extractOppfolginsplan.skjemainnhold.mottaksInformasjon.value.oppfolgingsplanSendesTilFastlege
         val letterToNAV = extractOppfolginsplan.skjemainnhold.mottaksInformasjon.value.oppfolgingsplanSendesTiNav
 
         if (letterToNAV.value == true) {
-            // Do call to AAREG and validateOrgStruktur
-            // Org is in AAREG && orgstruktur is ok,
-            // look at bankkontonummerkanal )
-            val validorgStruktur = true
-            if (validorgStruktur) {
-                // calls joark and saves the dokument
-                // val joarkrequest = createJoarkRequest(dataBatch,formData,Oppfolginsplan.OP2012,  byte64pdf )
-                //
-                // Send message to ARENA
-            } else {
-                // send to backout que
-            }
         }
         if (letterToGP.value == true) {
                 val patientFnr = extractOppfolginsplan.skjemainnhold.sykmeldtArbeidstaker.value.fnr
@@ -158,9 +157,12 @@ fun listen(
                 //      og send brev ti SYFO Fastlege(SYFO_BREV_OP_FASTLEGE)
             } else {
                 //      og kjør så regele OP_KONTROLL_REGEL
-                //                //      og send brev ti SYFO Fastlege(SYFO_BREV_OP_ARBEIDSGIVER)
-                // Vent på svar send så melding til ARENA(ARENA_IA_MELDING)
+                //      og send brev ti SYFO Fastlege(SYFO_BREV_OP_ARBEIDSGIVER)
+                //      Vent på svar send så melding til ARENA(ARENA_IA_MELDING)
             }
+        } else {
+                // send to backout que
+        }
     } else if (oppfolgingslplanType == Oppfolginsplan.OP2014) {
         val extractOppfolginsplan = extractOppfolginsplan2014(formData)
     } else if (oppfolgingslplanType == Oppfolginsplan.OP2016) {

@@ -17,7 +17,7 @@ buildscript {
     ext.nav_organisasjonEnhet_v2 = '2.1.0'
     ext.cxf_version = '3.2.5'
     ext.ekstern_helse_fastlegeinformasjon_tjenestespesifikasjon_version = '2.1.3'
-    ext.nav_arbeidsgiver_tjenestespesifikasjon_version = '2.0.0'
+    ext.nav_fim_organisasjon_v4_tjenestespesifikasjon_version =  '1.0.4'
 
     ext.jaxb2SourceDir = file("$buildDir/generated-sources/jaxb2")
 }
@@ -255,4 +255,6 @@ dependencies {
     testImplementation 'org.junit.platform:junit-platform-runner:1.2.0'
 
     navWsdl "no.nav.tjenester:ekstern-helse-fastlegeinformasjon-tjenestespesifikasjon:$ekstern_helse_fastlegeinformasjon_tjenestespesifikasjon_version@zip"
+    implementation "no.nav.tjenester.fim:nav-fim-organisasjon-v4-tjenestespesifikasjon:$nav_fim_organisasjon_v4_tjenestespesifikasjon_version:jaxws"
+
 }
