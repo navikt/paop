@@ -41,7 +41,7 @@ fasitResources:
     - alias: eia_queue_arena_ia_outbound
       resourceType: Queue
       propertyMap:
-      queueName: EIA_QUEUE_ARENA_IA_QUEUENAME
+        queueName: EIA_QUEUE_ARENA_IA_QUEUENAME
     - alias: paop_channel
       resourceType: Channel
     - alias: mqGateway03
