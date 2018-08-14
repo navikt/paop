@@ -177,6 +177,7 @@ fun listen(
         val extractOppfolginsplan = extractOppfolginsplan2016(formData)
     } else if (oppfolgingslplanType == Oppfolginsplan.NAVOPPFPLAN) {
         val extractOppfolginsplan = extractNavOppfPlan(formData)
+        dataBatch.attachments.attachment.first().value //the pdf to store in joark
     }
 }
 
