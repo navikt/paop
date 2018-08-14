@@ -4,13 +4,21 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import com.ibm.mq.jms.MQConnectionFactory
+import com.ibm.msg.client.wmq.WMQConstants
+import com.ibm.msg.client.wmq.compat.base.internal.MQC
 import io.prometheus.client.hotspot.DefaultExports
+import kotlinx.coroutines.experimental.launch
 import kotlinx.coroutines.experimental.runBlocking
 import no.nav.model.dataBatch.DataBatch
 import no.nav.model.navOppfPlan.OppfolgingsplanMetadata
 import no.nav.model.oppfolgingsplan2014.Oppfoelgingsplan2M
 import no.nav.model.oppfolgingsplan2016.Oppfoelgingsplan4UtfyllendeInfoM
+import no.nav.paop.client.PdfClient
+import no.nav.paop.client.SarClient
+import no.nav.paop.sts.configureSTSFor
 import no.nav.virksomhet.tjenester.arkiv.journalbehandling.v1.binding.Journalbehandling
+import no.nhn.schemas.reg.flr.IFlrReadOperations
 import org.apache.cxf.ext.logging.LoggingFeature
 import org.apache.cxf.jaxws.JaxWsProxyFactoryBean
 import org.apache.cxf.ws.security.wss4j.WSS4JOutInterceptor
@@ -21,6 +29,8 @@ import org.slf4j.LoggerFactory
 import java.io.StringReader
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import javax.jms.Connection
+import javax.jms.Queue
 import javax.security.auth.callback.CallbackHandler
 import javax.xml.bind.JAXBContext
 import javax.xml.bind.Unmarshaller
@@ -46,8 +56,60 @@ fun main(args: Array<String>) = runBlocking {
     // aapen-altinn-oppfolgingsplan-Mottatt
     // all of the diffrent types of oppfolgingsplan comes throw here
 
+    connectionFactory(fasitProperties).createConnection(fasitProperties.mqUsername, fasitProperties.mqPassword).use {
+        connection ->
+        connection.start()
+
+        val session = connection.createSession()
+        val arenaQueue = session.createQueue(fasitProperties.arenaIAQueue)
+        session.close()
+
+        // FLR
+        val fastlegeregisteret = JaxWsProxyFactoryBean().apply {
+            address = fasitProperties.fastlegeregiserHdirURL
+            features.add(LoggingFeature())
+            serviceClass = IFlrReadOperations::class.java
+        }.create() as IFlrReadOperations
+        configureSTSFor(fastlegeregisteret, fasitProperties.srvPaopUsername,
+                fasitProperties.srvPaopPassword, fasitProperties.securityTokenServiceUrl)
+
+        val interceptorProperties = mapOf(
+                WSHandlerConstants.USER to fasitProperties.srvPaopUsername,
+                WSHandlerConstants.ACTION to WSHandlerConstants.USERNAME_TOKEN,
+                WSHandlerConstants.PASSWORD_TYPE to WSConstants.PW_TEXT,
+                WSHandlerConstants.PW_CALLBACK_REF to CallbackHandler {
+                    (it[0] as WSPasswordCallback).password = fasitProperties.srvPaopPassword
+                }
+        )
+
+        // JOARK
+        val journalbehandling = JaxWsProxyFactoryBean().apply {
+            address = fasitProperties.journalbehandlingEndpointURL
+            features.add(LoggingFeature())
+            outInterceptors.add(WSS4JOutInterceptor(interceptorProperties))
+            serviceClass = Journalbehandling::class.java
+        }.create() as Journalbehandling
+
+        val sarClient = SarClient(fasitProperties.kuhrSarApiURL, fasitProperties.srvPaopUsername,
+                fasitProperties.srvPaopPassword)
+
+        listen(PdfClient(fasitProperties.pdfGeneratorURL),
+                journalbehandling, sarClient, fastlegeregisteret, arenaQueue, connection)
+                .join()
+    }
+}
+
+fun listen(
+    pdfClient: PdfClient,
+    journalbehandling: Journalbehandling,
+    sarClient: SarClient,
+    fastlegeClient: IFlrReadOperations,
+    arenaQueue: Queue,
+    connection: Connection
+) = launch {
+
     // Then ckeck the input if it is duplicate
-    val dataBatch = extractDataBatch(args.first())
+    val dataBatch = extractDataBatch("asd")
     val serviceCode = dataBatch.dataUnits.dataUnit.first().formTask.serviceCode
     val serviceEditionCode = dataBatch.dataUnits.dataUnit.first().formTask.serviceEditionCode
     val formData = dataBatch.dataUnits.dataUnit.first().formTask.form.first().formData
@@ -109,24 +171,6 @@ fun main(args: Array<String>) = runBlocking {
         // brev to general practitioner
         val letterToGP = extractOppfolginsplan.mottaksinformasjon.isOppfoelgingsplanSendesTilFastlege
     }
-
-    // calls FLR, to check if person has a doctor
-
-    val interceptorProperties = mapOf(
-            WSHandlerConstants.USER to fasitProperties.srvPaopUsername,
-            WSHandlerConstants.ACTION to WSHandlerConstants.USERNAME_TOKEN,
-            WSHandlerConstants.PASSWORD_TYPE to WSConstants.PW_TEXT,
-            WSHandlerConstants.PW_CALLBACK_REF to CallbackHandler {
-                (it[0] as WSPasswordCallback).password = fasitProperties.srvPaopPassword
-            }
-    )
-
-    val journalbehandling = JaxWsProxyFactoryBean().apply {
-        address = fasitProperties.journalbehandlingEndpointURL
-        features.add(LoggingFeature())
-        outInterceptors.add(WSS4JOutInterceptor(interceptorProperties))
-        serviceClass = Journalbehandling::class.java
-    }.create() as Journalbehandling
 }
 
 fun extractDataBatch(dataBatchString: String): DataBatch {
@@ -160,4 +204,17 @@ fun extractNavOppfPlan(formdataString: String): OppfolgingsplanMetadata {
     val oppfolgingsplanMetadataJaxBContext: JAXBContext = JAXBContext.newInstance(OppfolgingsplanMetadata::class.java)
     val oppfolgingsplanMetadataUnmarshaller: Unmarshaller = oppfolgingsplanMetadataJaxBContext.createUnmarshaller()
     return oppfolgingsplanMetadataUnmarshaller.unmarshal(StringReader(formdataString)) as OppfolgingsplanMetadata
+}
+
+fun connectionFactory(fasitProperties: FasitProperties) = MQConnectionFactory().apply {
+    hostName = fasitProperties.mqHostname
+    port = fasitProperties.mqPort
+    queueManager = fasitProperties.mqQueueManagerName
+    transportType = WMQConstants.WMQ_CM_CLIENT
+    // TODO mq crypo
+    // sslCipherSuite = "TLS_RSA_WITH_AES_256_CBC_SHA"
+    channel = fasitProperties.mqChannelName
+    ccsid = 1208
+    setIntProperty(WMQConstants.JMS_IBM_ENCODING, MQC.MQENC_NATIVE)
+    setIntProperty(WMQConstants.JMS_IBM_CHARACTER_SET, 1208)
 }

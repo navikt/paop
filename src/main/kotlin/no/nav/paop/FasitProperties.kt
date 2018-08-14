@@ -16,7 +16,10 @@ data class FasitProperties(
     val mqQueueManagerName: String = getEnvVar("MQGATEWAY03_NAME"),
     val mqChannelName: String = getEnvVar("PAOP_CHANNEL_NAME"),
     val mqUsername: String = getEnvVar("SRVAPPSERVER_USERNAME", "srvappserver"),
-    val mqPassword: String = getEnvVar("SRVAPPSERVER_PASSWORD", "")
+    val mqPassword: String = getEnvVar("SRVAPPSERVER_PASSWORD", ""),
+    val fastlegeregiserHdirURL: String = getEnvVar("FASTLEGEREGISTER_HDIR_ENDPOINTURL"),
+    val pdfGeneratorURL: String = getEnvVar("PDF_GENERATOR_URL", "http://pdf-gen/api"),
+    val kuhrSarApiURL: String = getEnvVar("KUHR_SAR_API_URL", "http://kuhr-sar-api")
 )
 
 fun getEnvVar(name: String, default: String? = null): String =

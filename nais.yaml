@@ -50,3 +50,5 @@ fasitResources:
       resourceType: Channel
     - alias: mqGateway03
       resourceType: QueueManager
+    - alias : fastlegeregister_hdir
+      resourceType: webserviceendpoint

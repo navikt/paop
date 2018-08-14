@@ -160,11 +160,6 @@ wsdl2java {
     wsdlsToGenerate = [
             ["$buildDir/schema/fastlegeinformasjon.wsdl"]
     ]
-
-    wsdlDir = file("$buildDir/schema/no/nav/virksomhet/tjenester/arbeidsgiver/v2")
-    wsdlsToGenerate = [
-             ["$buildDir/schema/no/nav/virksomhet/tjenester/arbeidsgiver/v2/Binding.wsdl"]
-    ]
 }
 
 task copyWsdlFromArtifacts(type: Copy) {
@@ -253,8 +248,5 @@ dependencies {
     testRuntimeOnly "org.spekframework.spek2:spek-runtime-jvm:$spek2_version"
     testRuntimeOnly "org.spekframework.spek2:spek-runner-junit5:$spek2_version"
 
-    //TODO use wsdl2java
     navWsdl "no.nav.tjenester:ekstern-helse-fastlegeinformasjon-tjenestespesifikasjon:$ekstern_helse_fastlegeinformasjon_tjenestespesifikasjon_version@zip"
-    navWsdl "no.nav.esb:nav-arbeidsgiver-tjenestespesifikasjon:$nav_arbeidsgiver_tjenestespesifikasjon_version"
-
 }
