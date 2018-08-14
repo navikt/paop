@@ -15,7 +15,8 @@ data class FasitProperties(
     val mqUsername: String = getEnvVar("SRVAPPSERVER_USERNAME", "srvappserver"),
     val mqPassword: String = getEnvVar("SRVAPPSERVER_PASSWORD", ""),
     val fastlegeregiserHdirURL: String = getEnvVar("FASTLEGEREGISTER_HDIR_ENDPOINTURL"),
-    val pdfGeneratorURL: String = getEnvVar("PDF_GENERATOR_URL", "http://pdf-gen/api")
+    val pdfGeneratorURL: String = getEnvVar("PDF_GENERATOR_URL", "http://pdf-gen/api"),
+    val kuhrSarApiURL: String = getEnvVar("KUHR_SAR_API_URL", "http://kuhr-sar-api")
 )
 
 fun getEnvVar(name: String, default: String? = null): String =

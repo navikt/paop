@@ -15,6 +15,7 @@ import no.nav.model.navOppfPlan.OppfolgingsplanMetadata
 import no.nav.model.oppfolgingsplan2014.Oppfoelgingsplan2M
 import no.nav.model.oppfolgingsplan2016.Oppfoelgingsplan4UtfyllendeInfoM
 import no.nav.paop.client.PdfClient
+import no.nav.paop.client.SarClient
 import no.nav.paop.sts.configureSTSFor
 import no.nav.virksomhet.tjenester.arkiv.journalbehandling.v1.binding.Journalbehandling
 import no.nhn.schemas.reg.flr.IFlrReadOperations
@@ -89,8 +90,11 @@ fun main(args: Array<String>) = runBlocking {
             serviceClass = Journalbehandling::class.java
         }.create() as Journalbehandling
 
+        val sarClient = SarClient(fasitProperties.kuhrSarApiURL, fasitProperties.srvPaopUsername,
+                fasitProperties.srvPaopPassword)
+
         listen(PdfClient(fasitProperties.pdfGeneratorURL),
-                journalbehandling, fastlegeregisteret, arenaQueue, connection)
+                journalbehandling, fastlegeregisteret, sarClient, arenaQueue, connection)
                 .join()
     }
 }
@@ -99,6 +103,7 @@ fun listen(
     pdfClient: PdfClient,
     journalbehandling: Journalbehandling,
     fastlegeClient: IFlrReadOperations,
+    sarClient: SarClient,
     arenaQueue: Queue,
     connection: Connection
 ) = launch {
@@ -114,65 +119,54 @@ fun listen(
 
     if (oppfolgingslplanType == Oppfolginsplan.OP2012) {
         val extractOppfolginsplan = extractOppfolginsplan2012(formData)
-        // brev to general practitioner
         val letterToGP = extractOppfolginsplan.skjemainnhold.mottaksInformasjon.value.oppfolgingsplanSendesTilFastlege
-        if (letterToGP.value == true) // TODO this may not work
-        {
-            val patientFnr = extractOppfolginsplan.skjemainnhold.sykmeldtArbeidstaker.value.fnr
-            // TODO do call to FLR and check if the patient has a GP
-            try {
-
-                val patientToGPContractAssociation = fastlegeClient.getPatientGPDetails(extractOppfolginsplan.skjemainnhold.sykmeldtArbeidstaker.value.fnr)
-            } catch (e: Exception) {
-                log.error("Call to flr failed", e)
-            }
-
-            // if(patientHasGP)
-            // {    call KUHR SAR and get the GP adresse and TSS_ID
-
-            // }
-        }
         val letterToNAV = extractOppfolginsplan.skjemainnhold.mottaksInformasjon.value.oppfolgingsplanSendesTiNav
-        if (letterToNAV.value == true) // TODO this may not work
-        {
 
-            // if (Oppfolginsplan.NAVOPPFL)
-            // {
-            //       // calls joark and saves the dokument
-            // val joarkrequest = createJoarkRequest(dataBatch,formData,Oppfolginsplan.OP2012,  byte64pdf )
-            // }
-            // Do call to AAREG
-            // if ( extractOppfolginsplan.skjemainnhold.arbeidsgiver.value.orgnr is in AAREG && orgstruktur is ok,
+        if (letterToNAV.value == true) {
+            // Do call to AAREG and validateOrgStruktur
+            // Org is in AAREG && orgstruktur is ok,
             // look at bankkontonummerkanal )
-            // {
-            // calls joark and saves the dokument
-            // val joarkrequest = createJoarkRequest(dataBatch,formData,Oppfolginsplan.OP2012,  byte64pdf )
-            // }
-            // Send message to ARENA
-        } else {
-            if (letterToGP.value == true) {
-                // if(fastlegefunnet)
-                // {
-                //        kjør FINN_FASTLEGE_REGEL og send brev ti SYFO Fastlege
-                // }
-                // else {
-                //      kjør følgende regler: OP_KONTROLL_REGEL
-                //      og send brev til SYFO arbeisgiver
-                // }
+            val validorgStruktur = true
+            if (validorgStruktur) {
+                // calls joark and saves the dokument
+                // val joarkrequest = createJoarkRequest(dataBatch,formData,Oppfolginsplan.OP2012,  byte64pdf )
+                //
+                // Send message to ARENA
+            } else {
+                // send to backout que
             }
         }
+        if (letterToGP.value == true) {
+                val patientFnr = extractOppfolginsplan.skjemainnhold.sykmeldtArbeidstaker.value.fnr
+                try {
+
+                    val patientToGPContractAssociation = fastlegeClient.getPatientGPDetails(patientFnr)
+                } catch (e: Exception) {
+                    log.error("Call to flr failed", e)
+                }
+
+                val fastlegefunnet = true
+                if (fastlegefunnet) {
+                    // CALL KUHR SAR
+                    // And get the TSSID
+                    // and the adress for the samhandler
+                }
+                // dersom validerInnserderIASKJEMA feiler, sendt til backoutkø
+                //      kjør FINN_FASTLEGE_REGEL(ligger her: nav-eia-applikasjon\nav-eia-prosessmotor\eia-message-services\src\main\java\no\nav\eia\kontroll\rules\FinnFastlegeRegel.java)
+                //      Setter TSS ID, dersom den er god nokk
+                //      og kjør så regele OP_KONTROLL_REGEL
+                //      og send brev ti SYFO Fastlege(SYFO_BREV_OP_FASTLEGE)
+            } else {
+                //      og kjør så regele OP_KONTROLL_REGEL
+                //                //      og send brev ti SYFO Fastlege(SYFO_BREV_OP_ARBEIDSGIVER)
+                // Vent på svar send så melding til ARENA(ARENA_IA_MELDING)
+            }
     } else if (oppfolgingslplanType == Oppfolginsplan.OP2014) {
         val extractOppfolginsplan = extractOppfolginsplan2014(formData)
-        // brev to general practitioner
-        val letterToGP = extractOppfolginsplan.skjemainnhold.mottaksInformasjon.value.oppfolgingsplanSendesTilFastlege
     } else if (oppfolgingslplanType == Oppfolginsplan.OP2016) {
         val extractOppfolginsplan = extractOppfolginsplan2016(formData)
-        // brev to general practitioner
-        val letterToGP = extractOppfolginsplan.skjemainnhold.mottaksInformasjon.value.oppfolgingsplanSendesTilFastlege
     } else if (oppfolgingslplanType == Oppfolginsplan.NAVOPPFPLAN) {
         val extractOppfolginsplan = extractNavOppfPlan(formData)
-        // brev to general practitioner
-        val letterToGP = extractOppfolginsplan.mottaksinformasjon.isOppfoelgingsplanSendesTilFastlege
     }
 }
 
