@@ -15,7 +15,6 @@ import no.nav.model.navOppfPlan.OppfolgingsplanMetadata
 import no.nav.model.oppfolgingsplan2014.Oppfoelgingsplan2M
 import no.nav.model.oppfolgingsplan2016.Oppfoelgingsplan4UtfyllendeInfoM
 import no.nav.paop.client.PdfClient
-import no.nav.paop.client.SarClient
 import no.nav.paop.sts.configureSTSFor
 import no.nav.virksomhet.tjenester.arkiv.journalbehandling.v1.binding.Journalbehandling
 import no.nhn.schemas.reg.flr.IFlrReadOperations
@@ -90,11 +89,8 @@ fun main(args: Array<String>) = runBlocking {
             serviceClass = Journalbehandling::class.java
         }.create() as Journalbehandling
 
-        val sarClient = SarClient(fasitProperties.kuhrSarApiURL, fasitProperties.srvPaopUsername,
-                fasitProperties.srvPaopPassword)
-
         listen(PdfClient(fasitProperties.pdfGeneratorURL),
-                journalbehandling, sarClient, fastlegeregisteret, arenaQueue, connection)
+                journalbehandling, fastlegeregisteret, arenaQueue, connection)
                 .join()
     }
 }
@@ -102,7 +98,6 @@ fun main(args: Array<String>) = runBlocking {
 fun listen(
     pdfClient: PdfClient,
     journalbehandling: Journalbehandling,
-    sarClient: SarClient,
     fastlegeClient: IFlrReadOperations,
     arenaQueue: Queue,
     connection: Connection
@@ -125,8 +120,16 @@ fun listen(
         {
             val patientFnr = extractOppfolginsplan.skjemainnhold.sykmeldtArbeidstaker.value.fnr
             // TODO do call to FLR and check if the patient has a GP
+            try {
+
+                val patientToGPContractAssociation = fastlegeClient.getPatientGPDetails(extractOppfolginsplan.skjemainnhold.sykmeldtArbeidstaker.value.fnr)
+            } catch (e: Exception) {
+                log.error("Call to flr failed", e)
+            }
+
             // if(patientHasGP)
             // {    call KUHR SAR and get the GP adresse and TSS_ID
+
             // }
         }
         val letterToNAV = extractOppfolginsplan.skjemainnhold.mottaksInformasjon.value.oppfolgingsplanSendesTiNav

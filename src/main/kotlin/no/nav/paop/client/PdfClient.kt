@@ -6,10 +6,12 @@ import okhttp3.MediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody
+import org.slf4j.LoggerFactory
 import java.io.IOException
 
 class PdfClient(private val baseUrl: String) {
     private val client: OkHttpClient = OkHttpClient()
+    private val log = LoggerFactory.getLogger("nav.pdfClient")
 
     fun generatePDF(pdfType: PdfType, domainObject: Any): ByteArray {
         val request = Request.Builder()
