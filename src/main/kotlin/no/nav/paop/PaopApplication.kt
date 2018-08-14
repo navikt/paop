@@ -17,6 +17,7 @@ import no.nav.model.oppfolgingsplan2016.Oppfoelgingsplan4UtfyllendeInfoM
 import no.nav.paop.client.PdfClient
 import no.nav.paop.client.SarClient
 import no.nav.paop.sts.configureSTSFor
+import no.nav.tjeneste.virksomhet.organisasjon.v4.binding.OrganisasjonV4
 import no.nav.virksomhet.tjenester.arkiv.journalbehandling.v1.binding.Journalbehandling
 import no.nhn.schemas.reg.flr.IFlrReadOperations
 import org.apache.cxf.ext.logging.LoggingFeature
@@ -64,7 +65,6 @@ fun main(args: Array<String>) = runBlocking {
         val arenaQueue = session.createQueue(fasitProperties.arenaIAQueue)
         session.close()
 
-        // FLR
         val fastlegeregisteret = JaxWsProxyFactoryBean().apply {
             address = fasitProperties.fastlegeregiserHdirURL
             features.add(LoggingFeature())
@@ -82,7 +82,14 @@ fun main(args: Array<String>) = runBlocking {
                 }
         )
 
-        // JOARK
+        val organisasjonV4 = JaxWsProxyFactoryBean().apply {
+            address = fasitProperties.organisasjonv4EndpointURL
+            features.add(LoggingFeature())
+            serviceClass = OrganisasjonV4::class.java
+        }.create() as OrganisasjonV4
+        configureSTSFor(organisasjonV4, fasitProperties.srvPaopUsername,
+                fasitProperties.srvPaopPassword, fasitProperties.securityTokenServiceUrl)
+
         val journalbehandling = JaxWsProxyFactoryBean().apply {
             address = fasitProperties.journalbehandlingEndpointURL
             features.add(LoggingFeature())
@@ -94,7 +101,7 @@ fun main(args: Array<String>) = runBlocking {
                 fasitProperties.srvPaopPassword)
 
         listen(PdfClient(fasitProperties.pdfGeneratorURL),
-                journalbehandling, fastlegeregisteret, sarClient, arenaQueue, connection)
+                journalbehandling, fastlegeregisteret, organisasjonV4, sarClient, arenaQueue, connection)
                 .join()
     }
 }
@@ -102,7 +109,8 @@ fun main(args: Array<String>) = runBlocking {
 fun listen(
     pdfClient: PdfClient,
     journalbehandling: Journalbehandling,
-    fastlegeClient: IFlrReadOperations,
+    fastlegeregisteret: IFlrReadOperations,
+    organisasjonV4: OrganisasjonV4,
     sarClient: SarClient,
     arenaQueue: Queue,
     connection: Connection
@@ -139,7 +147,7 @@ fun listen(
                 val patientFnr = extractOppfolginsplan.skjemainnhold.sykmeldtArbeidstaker.value.fnr
                 try {
 
-                    val patientToGPContractAssociation = fastlegeClient.getPatientGPDetails(patientFnr)
+                    val patientToGPContractAssociation = fastlegeregisteret.getPatientGPDetails(patientFnr)
                 } catch (e: Exception) {
                     log.error("Call to flr failed", e)
                 }
