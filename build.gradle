@@ -8,8 +8,7 @@ buildscript {
     ext.okhttp_version = '3.11.0'
     ext.coroutines_version = '0.23.4'
     ext.jackson_version = '2.9.6'
-    ext.spek2_dsl_jvm_version = '2.0.0-alpha.1'
-    ext.spek2_version = '2.0.0-alpha.1'
+    ext.spek_version = '1.2.0'
     ext.kluent_version = '1.39'
     ext.jaxb_basic_ant_version = '1.11.1'
     ext.jaxb_version = '2.3.0.1'
@@ -66,7 +65,7 @@ configurations {
 
 test {
     useJUnitPlatform {
-        includeEngines 'spek2'
+        includeEngines 'spek'
     }
     testLogging {
         showStandardStreams = true
@@ -155,13 +154,6 @@ class Jaxb2Task extends DefaultTask {
     }
 }
 
-wsdl2java {
-    wsdlDir = file("$buildDir/schema")
-    wsdlsToGenerate = [
-            ["$buildDir/schema/fastlegeinformasjon.wsdl"]
-    ]
-}
-
 task copyWsdlFromArtifacts(type: Copy) {
     includeEmptyDirs = false
     from {
@@ -171,6 +163,14 @@ task copyWsdlFromArtifacts(type: Copy) {
     }
     into "$buildDir/schema/"
     include '**/*.xsd', '**/*.wsdl'
+}
+
+wsdl2java {
+    dependsOn copyWsdlFromArtifacts
+    wsdlDir = file("$buildDir/schema")
+    wsdlsToGenerate = [
+            ["$buildDir/schema/fastlegeinformasjon.wsdl"]
+    ]
 }
 
 task generateJaxb2(type: Jaxb2Task) {
@@ -243,10 +243,16 @@ dependencies {
     implementation "no.nav.tjenester:nav-journalbehandling-tjenestespesifikasjon:$nav_journalbehandling:jaxws"
     implementation "no.nav.tjenester:nav-organisasjonEnhet-v2-tjenestespesifikasjon:$nav_organisasjonEnhet_v2:jaxws"
 
-    testImplementation "org.spekframework.spek2:spek-dsl-jvm:$spek2_version"
     testImplementation "org.amshove.kluent:kluent:$kluent_version"
-    testRuntimeOnly "org.spekframework.spek2:spek-runtime-jvm:$spek2_version"
-    testRuntimeOnly "org.spekframework.spek2:spek-runner-junit5:$spek2_version"
+    testRuntimeOnly "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"
+    testImplementation ("org.jetbrains.spek:spek-api:$spek_version") {
+        exclude group: 'org.jetbrains.kotlin'
+    }
+    testRuntime ("org.jetbrains.spek:spek-junit-platform-engine:$spek_version") {
+        exclude group: 'org.junit.platform'
+        exclude group: 'org.jetbrains.kotlin'
+    }
+    testImplementation 'org.junit.platform:junit-platform-runner:1.2.0'
 
     navWsdl "no.nav.tjenester:ekstern-helse-fastlegeinformasjon-tjenestespesifikasjon:$ekstern_helse_fastlegeinformasjon_tjenestespesifikasjon_version@zip"
 }
