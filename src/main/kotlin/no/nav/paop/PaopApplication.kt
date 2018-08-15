@@ -15,9 +15,13 @@ import no.nav.model.navOppfPlan.OppfolgingsplanMetadata
 import no.nav.model.oppfolgingsplan2014.Oppfoelgingsplan2M
 import no.nav.model.oppfolgingsplan2016.Oppfoelgingsplan4UtfyllendeInfoM
 import no.nav.paop.client.PdfClient
+import no.nav.paop.client.PdfType
 import no.nav.paop.client.SarClient
+import no.nav.paop.client.createJoarkRequest
+import no.nav.paop.mapping.mapFormdataToFagmelding
 import no.nav.paop.sts.configureSTSFor
 import no.nav.tjeneste.virksomhet.organisasjon.v4.binding.OrganisasjonV4
+import no.nav.tjeneste.virksomhet.organisasjon.v4.meldinger.ValiderOrganisasjonRequest
 import no.nav.virksomhet.tjenester.arkiv.journalbehandling.v1.binding.Journalbehandling
 import no.nhn.schemas.reg.flr.IFlrReadOperations
 import org.apache.cxf.ext.logging.LoggingFeature
@@ -126,15 +130,17 @@ fun listen(
     val edilogg = "${LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm"))}-paop-$archiveReference"
 
     if (oppfolgingslplanType == Oppfolginsplan.OP2012) {
-        // Do call to AAREG and validateOrgStruktur
-        // Org is in AAREG && orgstruktur is ok,
-        // look at bankkontonummerkanal )
-        val validorgStruktur = true
-        if (validorgStruktur) {
-            // calls joark and saves the dokument
-            // call pdfgen and create a PDF
-            // val joarkrequest = createJoarkRequest(dataBatch,formData,Oppfolginsplan.OP2012,  byte64pdf )
-            //
+
+        val organisasjonRequest = ValiderOrganisasjonRequest().apply {
+            orgnummer = dataBatch.dataUnits.dataUnit.first().reportee
+        }
+
+        val validorgStruktur = organisasjonV4.validerOrganisasjon(organisasjonRequest)
+        if (validorgStruktur.isGyldigOrgnummer) {
+            val fagmelding = pdfClient.generatePDF(PdfType.FAGMELDING, mapFormdataToFagmelding(formData))
+            val joarkRequest = createJoarkRequest(dataBatch, formData,Oppfolginsplan.OP2012, edilogg,archiveReference,fagmelding)
+            journalbehandling.lagreDokumentOgOpprettJournalpost(joarkRequest)
+
             // Send message to ARENA
 
         val extractOppfolginsplan = extractOppfolginsplan2012(formData)
@@ -177,7 +183,7 @@ fun listen(
         val extractOppfolginsplan = extractOppfolginsplan2016(formData)
     } else if (oppfolgingslplanType == Oppfolginsplan.NAVOPPFPLAN) {
         val extractOppfolginsplan = extractNavOppfPlan(formData)
-        dataBatch.attachments.attachment.first().value //the pdf to store in joark
+        dataBatch.attachments.attachment.first().value // the pdf to store in joark
     }
 }
 
