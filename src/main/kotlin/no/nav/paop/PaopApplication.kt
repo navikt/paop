@@ -124,9 +124,9 @@ fun listen(
         val letterToGP = extractOppfolginsplan.skjemainnhold.mottaksInformasjon.value.oppfolgingsplanSendesTilFastlege
         val letterToNAV = extractOppfolginsplan.skjemainnhold.mottaksInformasjon.value.oppfolgingsplanSendesTiNav
 
-        if (letterToNAV.value == true) {
+        if (letterToNAV.value) {
         }
-        if (letterToGP.value == true) {
+        if (letterToGP.value) {
                 val patientFnr = extractOppfolginsplan.skjemainnhold.sykmeldtArbeidstaker.value.fnr
                 try {
 
