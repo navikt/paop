@@ -10,9 +10,15 @@ import com.ibm.msg.client.wmq.compat.base.internal.MQC
 import io.prometheus.client.hotspot.DefaultExports
 import kotlinx.coroutines.experimental.launch
 import kotlinx.coroutines.experimental.runBlocking
+import no.nav.model.arenaBrevTilArbeidsgiver.ArenaBrevTilArbeidsgiver
+import no.nav.model.arenaOppfolging.ArenaOppfolgingPlan
+import no.nav.model.dataBatch.DataBatch
 import no.nav.paop.client.PdfClient
 import no.nav.paop.client.PdfType
+import no.nav.paop.client.Samhandler
+import no.nav.paop.client.SamhandlerPraksis
 import no.nav.paop.client.SarClient
+import no.nav.paop.client.createArenaBrevTilArbeidsgiver
 import no.nav.paop.client.createJoarkRequest
 import no.nav.paop.mapping.mapFormdataToFagmelding
 import no.nav.paop.sts.configureSTSFor
@@ -20,6 +26,7 @@ import no.nav.tjeneste.virksomhet.organisasjon.v4.binding.OrganisasjonV4
 import no.nav.tjeneste.virksomhet.organisasjon.v4.meldinger.ValiderOrganisasjonRequest
 import no.nav.virksomhet.tjenester.arkiv.journalbehandling.v1.binding.Journalbehandling
 import no.nhn.schemas.reg.flr.IFlrReadOperations
+import no.nhn.schemas.reg.flr.PatientToGPContractAssociation
 import org.apache.cxf.ext.logging.LoggingFeature
 import org.apache.cxf.jaxws.JaxWsProxyFactoryBean
 import org.apache.cxf.ws.security.wss4j.WSS4JOutInterceptor
@@ -27,17 +34,28 @@ import org.apache.wss4j.common.ext.WSPasswordCallback
 import org.apache.wss4j.dom.WSConstants
 import org.apache.wss4j.dom.handler.WSHandlerConstants
 import org.slf4j.LoggerFactory
+import java.io.StringWriter
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import javax.jms.Connection
+import javax.jms.MessageProducer
 import javax.jms.Queue
+import javax.jms.Session
 import javax.security.auth.callback.CallbackHandler
+import javax.xml.bind.JAXBContext
+import javax.xml.bind.Marshaller
 
 private val log = LoggerFactory.getLogger("nav.paop-application")
 val objectMapper: ObjectMapper = ObjectMapper()
         .registerModule(JavaTimeModule())
         .registerKotlinModule()
         .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
+
+val arenaEiaInfoJaxBContext: JAXBContext = JAXBContext.newInstance(ArenaOppfolgingPlan::class.java)
+val arenaMarshaller: Marshaller = arenaEiaInfoJaxBContext.createMarshaller()
+
+val arenabrevnfoJaxBContext: JAXBContext = JAXBContext.newInstance(ArenaBrevTilArbeidsgiver::class.java)
+val arenabrevMarshaller: Marshaller = arenabrevnfoJaxBContext.createMarshaller()
 
 fun main(args: Array<String>) = runBlocking {
     DefaultExports.initialize()
@@ -54,6 +72,7 @@ fun main(args: Array<String>) = runBlocking {
 
         val session = connection.createSession()
         val arenaQueue = session.createQueue(fasitProperties.arenaIAQueue)
+        val arenaQueueIA = session.createQueue(fasitProperties.arenaIAQueue)
         session.close()
 
         val fastlegeregisteret = JaxWsProxyFactoryBean().apply {
@@ -113,51 +132,49 @@ fun listen(
     val oppfolgingslplanType = findOppfolingsplanType(serviceCode, serviceEditionCode)
     val archiveReference = dataBatch.dataUnits.dataUnit.first().archiveReference
     val edilogg = "${LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm"))}-paop-$archiveReference"
+    val session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE)
+    val arenaProducer = session.createProducer(arenaQueue)
 
     if (oppfolgingslplanType == Oppfolginsplan.OP2012) {
-
+        val extractOppfolginsplan = extractOppfolginsplan2012(formData)
         val organisasjonRequest = ValiderOrganisasjonRequest().apply {
-            orgnummer = dataBatch.dataUnits.dataUnit.first().reportee
+            orgnummer = extractOppfolginsplan.skjemainnhold.arbeidsgiver.value.orgnr
         }
+        if (organisasjonV4.validerOrganisasjon(organisasjonRequest).isGyldigOrgnummer) {
+            val letterToGP = extractOppfolginsplan.skjemainnhold.mottaksInformasjon.value.oppfolgingsplanSendesTilFastlege
+            val letterToNAV = extractOppfolginsplan.skjemainnhold.mottaksInformasjon.value.oppfolgingsplanSendesTiNav
 
-        val validorgStruktur = organisasjonV4.validerOrganisasjon(organisasjonRequest)
-        if (validorgStruktur.isGyldigOrgnummer) {
+        if (letterToNAV.value) {
             val fagmelding = pdfClient.generatePDF(PdfType.FAGMELDING, mapFormdataToFagmelding(formData, oppfolgingslplanType))
             val joarkRequest = createJoarkRequest(dataBatch, formData, oppfolgingslplanType, edilogg, archiveReference, fagmelding)
             journalbehandling.lagreDokumentOgOpprettJournalpost(joarkRequest)
 
-            // Send message to ARENA
-
-        val extractOppfolginsplan = extractOppfolginsplan2012(formData)
-        val letterToGP = extractOppfolginsplan.skjemainnhold.mottaksInformasjon.value.oppfolgingsplanSendesTilFastlege
-        val letterToNAV = extractOppfolginsplan.skjemainnhold.mottaksInformasjon.value.oppfolgingsplanSendesTiNav
-
-        if (letterToNAV.value) {
+            sendArenaOppfolginsplan(arenaProducer, session, formData, dataBatch, edilogg)
         }
         if (letterToGP.value) {
+                var fastlegefunnet = false
                 val patientFnr = extractOppfolginsplan.skjemainnhold.sykmeldtArbeidstaker.value.fnr
+                var patientToGPContractAssociation = PatientToGPContractAssociation()
                 try {
-
-                    val patientToGPContractAssociation = fastlegeregisteret.getPatientGPDetails(patientFnr)
+                    patientToGPContractAssociation = fastlegeregisteret.getPatientGPDetails(patientFnr)
+                    fastlegefunnet = true
                 } catch (e: Exception) {
-                    log.error("Call to flr failed", e)
+                        log.error("Call to flr returned Exception", e)
                 }
 
-                val fastlegefunnet = true
-                if (fastlegefunnet) {
+                if (fastlegefunnet && patientToGPContractAssociation.gpContract != null) {
+                    val gpFNR = patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first().gp.value.nin
+                    val orgnrGp = patientToGPContractAssociation.gpContract.value.gpOffice.value.organizationNumber
                     // CALL KUHR SAR
-                    // And get the TSSID
-                    // and the adress for the samhandler
+                    val samhandler = sarClient.getSamhandler(gpFNR.toString())
+                    val samhandlerPraksis = findSamhandlerPraksis(samhandler, orgnrGp)
+                    val tssid = samhandlerPraksis?.tss_ident
+                    // TODO send fysisk brev til Fastlege
+                    sendArenaBrevTilArbeidsgiver(arenaProducer, session, formData, dataBatch, edilogg)
                 }
-                // dersom validerInnserderIASKJEMA feiler, sendt til backoutkø
-                //      kjør FINN_FASTLEGE_REGEL(ligger her: nav-eia-applikasjon\nav-eia-prosessmotor\eia-message-services\src\main\java\no\nav\eia\kontroll\rules\FinnFastlegeRegel.java)
-                //      Setter TSS ID, dersom den er god nokk
-                //      og kjør så regele OP_KONTROLL_REGEL
-                //      og send brev ti SYFO Fastlege(SYFO_BREV_OP_FASTLEGE)
             } else {
-                //      og kjør så regele OP_KONTROLL_REGEL
-                //      og send brev ti SYFO Fastlege(SYFO_BREV_OP_ARBEIDSGIVER)
-                //      Vent på svar send så melding til ARENA(ARENA_IA_MELDING)
+                    // TODO send fysisk brev til Fastlege
+                    sendArenaBrevTilArbeidsgiver(arenaProducer, session, formData, dataBatch, edilogg)
             }
         } else {
                 // send to backout que
@@ -184,3 +201,50 @@ fun connectionFactory(fasitProperties: FasitProperties) = MQConnectionFactory().
     setIntProperty(WMQConstants.JMS_IBM_ENCODING, MQC.MQENC_NATIVE)
     setIntProperty(WMQConstants.JMS_IBM_CHARACTER_SET, 1208)
 }
+
+fun sendArenaOppfolginsplan(
+    producer: MessageProducer,
+    session: Session,
+    formdata: String,
+    databatch: DataBatch,
+    edilogg: String
+) = producer.send(session.createTextMessage().apply {
+    val info = createArenaBrevTilArbeidsgiver(databatch, formdata, edilogg)
+    text = arenaMarshaller.toString(info)
+})
+
+fun sendArenaBrevTilArbeidsgiver(
+    producer: MessageProducer,
+    session: Session,
+    formdata: String,
+    databatch: DataBatch,
+    edilogg: String
+) = producer.send(session.createTextMessage().apply {
+    val info = createArenaBrevTilArbeidsgiver(databatch, formdata, edilogg)
+    text = arenabrevMarshaller.toString(info)
+})
+
+fun Marshaller.toString(input: Any): String = StringWriter().use {
+    marshal(input, it)
+    it.toString()
+}
+
+fun findSamhandlerPraksis(samhandlers: List<Samhandler>, orgnrGp: Int): SamhandlerPraksis? = samhandlers
+            .filter {
+                it.breg_hovedenhet?.organisasjonsnummer == orgnrGp.toString()
+            }
+            .flatMap {
+                it.samh_praksis
+            }
+            .filter {
+                it.samh_praksis_status_kode == "aktiv"
+            }
+            .filter {
+                it.samh_praksis_periode
+                        .filter { it.gyldig_fra <= LocalDateTime.now() }
+                        .filter { it.gyldig_til == null || it.gyldig_til >= LocalDateTime.now() }
+                        .any()
+            }
+            .firstOrNull {
+                it.samh_praksis_status_kode == "LE"
+            }

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- edited with XMLSpy v2010 rel. 3 sp1 (x64) (http://www.altova.com) by XMLSpy 2009 Enterprise Ed., Installed for 30 users (with SMP from 2009-06-19 to 2010-06-20) (NAV ØKONOMITJENESTER) -->
+<!-- edited with XMLSPY v5 rel. 3 U (http://www.xmlspy.com) by Trygdeetaten (Rikstrygdeverket) -->
+<xs:schema xmlns:eia="http://www.nav.no/xml/EiaDokumentInfo/1/" xmlns="http://www.nav.no/arena/brevtilarbeidsgiver_v1.xsd" xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://www.nav.no/arena/brevtilarbeidsgiver_v1.xsd" elementFormDefault="qualified" attributeFormDefault="unqualified">
+	<xs:import namespace="http://www.nav.no/xml/EiaDokumentInfo/1/" schemaLocation="./EiaDokumentInfo1-0.xsd"/>
+	<xs:element name="ArenaBrevTilArbeidsgiver">
+		<xs:annotation>
+			<xs:documentation>Melding til Arena om brev til arbeidsgiver når fastlege ikke finnes</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:all>
+				<xs:element ref="eia:EiaDokumentInfo"/>
+				<xs:element name="bedriftsNr" type="xs:string">
+					<xs:annotation>
+						<xs:documentation>Bedriftsnr</xs:documentation>
+					</xs:annotation>
+				</xs:element>
+				<xs:element name="fodselsNr" type="xs:string">
+					<xs:annotation>
+						<xs:documentation>Fødselsnummer</xs:documentation>
+					</xs:annotation>
+				</xs:element>
+			</xs:all>
+		</xs:complexType>
+	</xs:element>
+</xs:schema>
