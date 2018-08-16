@@ -8,15 +8,15 @@ data class Fagmelding(
         val opplysningerOmArbeidstakeren: OpplysningerOmArbeidstakeren,
         val opplysingerOmSykefravaeret: OpplysingerOmSykefravaeret,
         val tiltak: Tiltak,
-        val underskrift: Underskift
+        val underskrift: Underskift,
+        val utfyllendeInformasjon: UtfyllendeInformasjon
 
 )
 
 data class Nokkelopplysninger(
         val virksomhetensnavn: String,
         val organiasjonsnr: String,
-        val nearmestelederFornavn: String,
-        val nearmestelederEtternavn: String,
+        val nearmestelederFornavnEtternavn: FornavnEtternavn,
         val tlfnearmesteleder: String,
         val annenKontaktPersonFornavn: String?,
         val annenKontaktPersonEtternavn: String?,
@@ -26,8 +26,7 @@ data class Nokkelopplysninger(
 )
 
 data class OpplysningerOmArbeidstakeren(
-        val arbeidstakerenFornavn: String,
-        val arbeidstakerenEtternavn: String,
+        val arbeidstakerenFornavnEtternavn: FornavnEtternavn,
         val fodselsnummer: String,
         val tlf: String,
         val stillingAvdeling: String,
@@ -83,4 +82,16 @@ data class Underskift(
         val arbeidstaker: String,
         val arbeidsgiver: String,
         val signertPapirkopiForeliggerPaaArbeidsplasssen: Boolean
+)
+
+data class FornavnEtternavn(
+        val fornavn: String,
+        val Etternavn: String
+)
+
+data class UtfyllendeInformasjon(
+        val arbeidstakerMedvirkGjeonnforingOppfolginsplan: Boolean,
+        val hvorforHarIkkeArbeidstakerenMedvirket: String?,
+        val utfyllendeOpplysinger: String
+
 )
