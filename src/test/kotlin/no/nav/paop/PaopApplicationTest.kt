@@ -4,11 +4,8 @@ import org.amshove.kluent.shouldEqual
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.it
-import org.slf4j.LoggerFactory
 import java.time.LocalDateTime
 import java.time.Month
-
-private val log = LoggerFactory.getLogger("nav.paop-applicationTest")
 
 object PaopApplicationTest : Spek({
 

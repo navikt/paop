@@ -1,5 +1,9 @@
 package no.nav.paop
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.SerializationFeature
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
+import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.ibm.mq.jms.MQConnectionFactory
 import com.ibm.msg.client.wmq.WMQConstants
 import com.ibm.msg.client.wmq.compat.base.internal.MQC
@@ -30,6 +34,10 @@ import javax.jms.Queue
 import javax.security.auth.callback.CallbackHandler
 
 private val log = LoggerFactory.getLogger("nav.paop-application")
+val objectMapper: ObjectMapper = ObjectMapper()
+        .registerModule(JavaTimeModule())
+        .registerKotlinModule()
+        .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
 
 fun main(args: Array<String>) = runBlocking {
     DefaultExports.initialize()
@@ -115,7 +123,7 @@ fun listen(
         val validorgStruktur = organisasjonV4.validerOrganisasjon(organisasjonRequest)
         if (validorgStruktur.isGyldigOrgnummer) {
             val fagmelding = pdfClient.generatePDF(PdfType.FAGMELDING, mapFormdataToFagmelding(formData))
-            val joarkRequest = createJoarkRequest(dataBatch, formData,Oppfolginsplan.OP2012, edilogg,archiveReference,fagmelding)
+            val joarkRequest = createJoarkRequest(dataBatch, formData, Oppfolginsplan.OP2012, edilogg, archiveReference, fagmelding)
             journalbehandling.lagreDokumentOgOpprettJournalpost(joarkRequest)
 
             // Send message to ARENA

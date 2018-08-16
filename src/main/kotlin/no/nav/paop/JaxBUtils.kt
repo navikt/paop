@@ -34,9 +34,8 @@ fun extractDataBatch(dataBatchString: String): DataBatch =
 fun extractOppfolginsplan2016(formdataString: String): Oppfoelgingsplan4UtfyllendeInfoM =
         skjemainnholdUnmarshaller.unmarshal(StreamSource(StringReader(formdataString)), Oppfoelgingsplan4UtfyllendeInfoM::class.java).value
 
-
-fun extractOppfolginsplan2014(formdataString: String): Oppfoelgingsplan2M2012 =
-        oppfoelgingsplan2014Unmarshaller.unmarshal(StreamSource(StringReader(formdataString)), Oppfoelgingsplan2M2012::class.java).value
+fun extractOppfolginsplan2014(formdataString: String): Oppfoelgingsplan2M2014 =
+        oppfoelgingsplan2014Unmarshaller.unmarshal(StreamSource(StringReader(formdataString)), Oppfoelgingsplan2M2014::class.java).value
 
 fun extractOppfolginsplan2012(formdataString: String): no.nav.model.oppfolgingsplan2012.Oppfoelgingsplan2M {
     return oppfoelgingsplan2012Unmarshaller.unmarshal(StreamSource(StringReader(formdataString)), no.nav.model.oppfolgingsplan2012.Oppfoelgingsplan2M::class.java).value
