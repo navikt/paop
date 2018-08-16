@@ -15,16 +15,19 @@ data class Fagmelding(
 data class Nokkelopplysninger(
         val virksomhetensnavn: String,
         val organiasjonsnr: String,
-        val nearmestelederFornavnogEtternavn: String,
+        val nearmestelederFornavn: String,
+        val nearmestelederEtternavn: String,
         val tlfnearmesteleder: String,
-        val annenKontaktPersonFornavnogEtternavn: String?,
+        val annenKontaktPersonFornavn: String?,
+        val annenKontaktPersonEtternavn: String?,
         val tlfkontatkperson: String,
         val virksomhetenerIAVirksomhet: Boolean,
         val virksomhetenHarBedrifsHelseTjeneste: Boolean
 )
 
 data class OpplysningerOmArbeidstakeren(
-        val arbeidstakerenFornavnOgEtternavn: String,
+        val arbeidstakerenFornavn: String,
+        val arbeidstakerenEtternavn: String,
         val fodselsnummer: String,
         val tlf: String,
         val stillingAvdeling: String,
