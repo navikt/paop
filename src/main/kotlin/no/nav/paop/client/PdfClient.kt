@@ -1,7 +1,10 @@
 package no.nav.paop.client
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.SerializationFeature
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
+import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import net.logstash.logback.argument.StructuredArguments
-import no.nav.paop.objectMapper
 import okhttp3.MediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -12,6 +15,10 @@ import java.io.IOException
 class PdfClient(private val baseUrl: String) {
     private val client: OkHttpClient = OkHttpClient()
     private val log = LoggerFactory.getLogger("nav.pdfClient")
+    val objectMapper: ObjectMapper = ObjectMapper()
+            .registerModule(JavaTimeModule())
+            .registerKotlinModule()
+            .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
 
     fun generatePDF(pdfType: PdfType, domainObject: Any): ByteArray {
         val request = Request.Builder()
