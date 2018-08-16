@@ -1,5 +1,6 @@
 package no.nav.paop.mapping
 
+import no.nav.paop.Oppfolginsplan
 import no.nav.paop.extractOppfolginsplan2016
 import no.nav.paop.model.BehovForBistandFraAndre
 import no.nav.paop.model.BehovForBistandFraNav
@@ -14,8 +15,14 @@ import no.nav.paop.model.Underskift
 import no.nav.paop.model.UtfyllendeInformasjon
 import no.nav.paop.model.VurderingEffektAvTiltak
 
-fun mapFormdataToFagmelding(formData: String): Fagmelding {
-    val extractOppfolginsplan = extractOppfolginsplan2016(formData)
+fun mapFormdataToFagmelding(formData: String, oppfolgingPlanType: Oppfolginsplan): Fagmelding {
+    val extractOppfolginsplan =
+            when (oppfolgingPlanType) {
+                Oppfolginsplan.OP2012 -> extractOppfolginsplan2016(formData)
+                Oppfolginsplan.OP2014 -> extractOppfolginsplan2016(formData)
+                Oppfolginsplan.OP2016 -> extractOppfolginsplan2016(formData)
+                else -> throw RuntimeException("Incoming oppfolginsplanType does NOT exist in code")
+            }
 
     return Fagmelding(
             nokkelopplysninger = Nokkelopplysninger(
@@ -90,11 +97,14 @@ fun mapFormdataToFagmelding(formData: String): Fagmelding {
                     signertPapirkopiForeliggerPaaArbeidsplasssen = extractOppfolginsplan.skjemainnhold.tiltak.value.tiltaksinformasjon.first().signertPapirkopiForeligger.value
 
             ),
-            utfyllendeInformasjon = UtfyllendeInformasjon(
-                    arbeidstakerMedvirkGjeonnforingOppfolginsplan = extractOppfolginsplan.skjemainnhold.arbeidstakersDeltakelse.value.arbeidstakerMedvirketGjennomfoering.value,
-                    hvorforHarIkkeArbeidstakerenMedvirket = extractOppfolginsplan.skjemainnhold.arbeidstakersDeltakelse.value.arbeidstakerIkkeMedvirketGjennomfoeringBegrunnelse.value,
-                    utfyllendeOpplysinger = extractOppfolginsplan.skjemainnhold.utfyllendeOpplysninger.value
+            utfyllendeInformasjon = if (oppfolgingPlanType == Oppfolginsplan.OP2016) { UtfyllendeInformasjon(
+                        arbeidstakerMedvirkGjeonnforingOppfolginsplan = extractOppfolginsplan.skjemainnhold.arbeidstakersDeltakelse.value.arbeidstakerMedvirketGjennomfoering.value,
+                        hvorforHarIkkeArbeidstakerenMedvirket = extractOppfolginsplan.skjemainnhold.arbeidstakersDeltakelse.value.arbeidstakerIkkeMedvirketGjennomfoeringBegrunnelse.value,
+                        utfyllendeOpplysinger = extractOppfolginsplan.skjemainnhold.utfyllendeOpplysninger.value
             )
+            } else {
+                null
+            }
 
     )
 }

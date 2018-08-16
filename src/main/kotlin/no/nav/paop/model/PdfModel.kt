@@ -8,7 +8,7 @@ data class Fagmelding(
     val opplysingerOmSykefravaeret: OpplysingerOmSykefravaeret,
     val tiltak: Tiltak,
     val underskrift: Underskift,
-    val utfyllendeInformasjon: UtfyllendeInformasjon
+    val utfyllendeInformasjon: UtfyllendeInformasjon?
 
 )
 
