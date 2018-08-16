@@ -122,8 +122,8 @@ fun listen(
 
         val validorgStruktur = organisasjonV4.validerOrganisasjon(organisasjonRequest)
         if (validorgStruktur.isGyldigOrgnummer) {
-            val fagmelding = pdfClient.generatePDF(PdfType.FAGMELDING, mapFormdataToFagmelding(formData, Oppfolginsplan.OP2012))
-            val joarkRequest = createJoarkRequest(dataBatch, formData, Oppfolginsplan.OP2012, edilogg, archiveReference, fagmelding)
+            val fagmelding = pdfClient.generatePDF(PdfType.FAGMELDING, mapFormdataToFagmelding(formData, oppfolgingslplanType))
+            val joarkRequest = createJoarkRequest(dataBatch, formData, oppfolgingslplanType, edilogg, archiveReference, fagmelding)
             journalbehandling.lagreDokumentOgOpprettJournalpost(joarkRequest)
 
             // Send message to ARENA
