@@ -48,20 +48,15 @@ fun createArenaBrevTilArbeidsgiver(dataBatch: DataBatch, formData: String, edilo
     val extractOppfolginsplan = extractOppfolginsplan2012(formData)
     eiaDokumentInfo = eiaDokumentInfo.apply {
         dokumentInfo = dokumentInfo.apply {
-            dokumentType = PaopConstant.dokumentType2913.string
+            dokumentType = "EIA.OFP_AG"
+            dokumentTypeVersjon = "1.0"
             dokumentreferanse = dataBatch.dataUnits.dataUnit.first().archiveReference
             ediLoggId = edilogg
-            dokumentDato = newInstance.newXMLGregorianCalendar(GregorianCalendar())
         }
-        behandlingInfo = null
         avsender = avsender.apply {
             arbeidsgiver = arbeidsgiver.apply {
                 arbeidsgiverOrgNr = extractOppfolginsplan.skjemainnhold.arbeidsgiver.value.orgnr
             }
-        }
-        avsenderSystem = avsenderSystem.apply {
-            systemNavn = extractOppfolginsplan.skjemainnhold.avsenderSystem.value.systemNavn
-            systemVersjon = extractOppfolginsplan.skjemainnhold.avsenderSystem.value.systemVersjon
         }
     }
     bedriftsNr = extractOppfolginsplan.skjemainnhold.arbeidsgiver.value.orgnr

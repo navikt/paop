@@ -19,6 +19,7 @@ import no.nav.paop.client.Samhandler
 import no.nav.paop.client.SamhandlerPraksis
 import no.nav.paop.client.SarClient
 import no.nav.paop.client.createArenaBrevTilArbeidsgiver
+import no.nav.paop.client.createArenaOppfolgingsplan
 import no.nav.paop.client.createJoarkRequest
 import no.nav.paop.mapping.mapFormdataToFagmelding
 import no.nav.paop.sts.configureSTSFor
@@ -170,11 +171,11 @@ fun listen(
                     val samhandlerPraksis = findSamhandlerPraksis(samhandler, orgnrGp)
                     val tssid = samhandlerPraksis?.tss_ident
                     // TODO send fysisk brev til Fastlege
-                    sendArenaBrevTilArbeidsgiver(arenaProducer, session, formData, dataBatch, edilogg)
+                    letterSentNotificationToArena(arenaProducer, session, formData, dataBatch, edilogg)
                 }
             } else {
                     // TODO send fysisk brev til Fastlege
-                    sendArenaBrevTilArbeidsgiver(arenaProducer, session, formData, dataBatch, edilogg)
+                    letterSentNotificationToArena(arenaProducer, session, formData, dataBatch, edilogg)
             }
         } else {
                 // send to backout que
@@ -185,6 +186,7 @@ fun listen(
         val extractOppfolginsplan = extractOppfolginsplan2016(formData)
     } else if (oppfolgingslplanType == Oppfolginsplan.NAVOPPFPLAN) {
         val extractOppfolginsplan = extractNavOppfPlan(formData)
+        val navmal = !extractOppfolginsplan.isBistandHjelpemidler
         dataBatch.attachments.attachment.first().value // the pdf to store in joark
     }
 }
@@ -209,11 +211,11 @@ fun sendArenaOppfolginsplan(
     databatch: DataBatch,
     edilogg: String
 ) = producer.send(session.createTextMessage().apply {
-    val info = createArenaBrevTilArbeidsgiver(databatch, formdata, edilogg)
+    val info = createArenaOppfolgingsplan(databatch, formdata, edilogg)
     text = arenaMarshaller.toString(info)
 })
 
-fun sendArenaBrevTilArbeidsgiver(
+fun letterSentNotificationToArena(
     producer: MessageProducer,
     session: Session,
     formdata: String,
