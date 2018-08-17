@@ -73,7 +73,6 @@ fun main(args: Array<String>) = runBlocking {
 
         val session = connection.createSession()
         val arenaQueue = session.createQueue(fasitProperties.arenaIAQueue)
-        val arenaQueueIA = session.createQueue(fasitProperties.arenaIAQueue)
         session.close()
 
         val fastlegeregisteret = JaxWsProxyFactoryBean().apply {
@@ -81,8 +80,8 @@ fun main(args: Array<String>) = runBlocking {
             features.add(LoggingFeature())
             serviceClass = IFlrReadOperations::class.java
         }.create() as IFlrReadOperations
-        configureSTSFor(fastlegeregisteret, fasitProperties.srvPaopUsername,
-                fasitProperties.srvPaopPassword, fasitProperties.securityTokenServiceUrl)
+        configureSTSFor(fastlegeregisteret, fasitProperties.srvEiaUsername,
+                fasitProperties.srvEiaPassword, fasitProperties.securityTokenServiceUrl)
 
         val interceptorProperties = mapOf(
                 WSHandlerConstants.USER to fasitProperties.srvPaopUsername,
@@ -177,8 +176,6 @@ fun listen(
                     // TODO send fysisk brev til Fastlege
                     letterSentNotificationToArena(arenaProducer, session, formData, dataBatch, edilogg)
             }
-        } else {
-                // send to backout que
         }
     } else if (oppfolgingslplanType == Oppfolginsplan.OP2014) {
         val extractOppfolginsplan = extractOppfolginsplan2014(formData)
@@ -187,7 +184,55 @@ fun listen(
     } else if (oppfolgingslplanType == Oppfolginsplan.NAVOPPFPLAN) {
         val extractOppfolginsplan = extractNavOppfPlan(formData)
         val navmal = !extractOppfolginsplan.isBistandHjelpemidler
-        dataBatch.attachments.attachment.first().value // the pdf to store in joark
+        val letterToGP = extractOppfolginsplan.mottaksinformasjon.isOppfoelgingsplanSendesTilFastlege
+        val letterToNAV = extractOppfolginsplan.mottaksinformasjon.isOppfoelgingsplanSendesTiNav
+
+        if (navmal) {
+            val organisasjonRequest = ValiderOrganisasjonRequest().apply {
+                orgnummer = extractOppfolginsplan.bedriftsNr
+            }
+            if (organisasjonV4.validerOrganisasjon(organisasjonRequest).isGyldigOrgnummer) {
+
+                if (letterToNAV) {
+                    val fagmelding = dataBatch.attachments.attachment.first().value
+                    val joarkRequest = createJoarkRequest(dataBatch, formData, oppfolgingslplanType, edilogg, archiveReference, fagmelding)
+                    journalbehandling.lagreDokumentOgOpprettJournalpost(joarkRequest)
+
+                    sendArenaOppfolginsplan(arenaProducer, session, formData, dataBatch, edilogg)
+                }
+                if (letterToGP) {
+                    var fastlegefunnet = false
+                    val patientFnr = extractOppfolginsplan.fodselsNr
+                    var patientToGPContractAssociation = PatientToGPContractAssociation()
+                    try {
+                        patientToGPContractAssociation = fastlegeregisteret.getPatientGPDetails(patientFnr)
+                        fastlegefunnet = true
+                    } catch (e: Exception) {
+                        log.error("Call to flr returned Exception", e)
+                    }
+
+                    if (fastlegefunnet && patientToGPContractAssociation.gpContract != null) {
+                        val gpFNR = patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first().gp.value.nin
+                        val orgnrGp = patientToGPContractAssociation.gpContract.value.gpOffice.value.organizationNumber
+                        // CALL KUHR SAR
+                        val samhandler = sarClient.getSamhandler(gpFNR.toString())
+                        val samhandlerPraksis = findSamhandlerPraksis(samhandler, orgnrGp)
+                        val tssid = samhandlerPraksis?.tss_ident
+                        // TODO send fysisk brev til Fastlege
+                        letterSentNotificationToArena(arenaProducer, session, formData, dataBatch, edilogg)
+                    }
+                } else {
+                    // TODO send fysisk brev til Fastlege
+                    letterSentNotificationToArena(arenaProducer, session, formData, dataBatch, edilogg)
+                }
+            }
+        } else {
+            val fagmelding = dataBatch.attachments.attachment.first().value
+            val joarkRequest = createJoarkRequest(dataBatch, formData, oppfolgingslplanType, edilogg, archiveReference, fagmelding)
+            journalbehandling.lagreDokumentOgOpprettJournalpost(joarkRequest)
+
+            sendArenaOppfolginsplan(arenaProducer, session, formData, dataBatch, edilogg)
+        }
     }
 }
 

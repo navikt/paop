@@ -2,6 +2,8 @@ package no.nav.paop.mapping
 
 import no.nav.paop.Oppfolginsplan
 import no.nav.paop.extractOppfolginsplan2012
+import no.nav.paop.extractOppfolginsplan2014
+import no.nav.paop.extractOppfolginsplan2016
 import no.nav.paop.model.BehovForBistandFraAndre
 import no.nav.paop.model.BehovForBistandFraNav
 import no.nav.paop.model.Fagmelding
@@ -12,15 +14,15 @@ import no.nav.paop.model.OpplysningerOmArbeidstakeren
 import no.nav.paop.model.Tiltak
 import no.nav.paop.model.TiltaketGjennonforesIPerioden
 import no.nav.paop.model.Underskift
+import no.nav.paop.model.UtfyllendeInformasjon
 import no.nav.paop.model.VurderingEffektAvTiltak
 
 fun mapFormdataToFagmelding(formData: String, oppfolgingPlanType: Oppfolginsplan): Fagmelding {
-    val extractOppfolginsplan = extractOppfolginsplan2012(formData)
 
     return Fagmelding(
             nokkelopplysninger = Nokkelopplysninger(
-                    virksomhetensnavn = extractOppfolginsplan.skjemainnhold.arbeidsgiver.value.orgnavn,
-                    organiasjonsnr = extractOppfolginsplan.skjemainnhold.arbeidsgiver.value.orgnr,
+                    virksomhetensnavn = extractOrgnavn(formData, oppfolgingPlanType),
+                    organiasjonsnr = extractOrgNr(formData, oppfolgingPlanType),
                     nearmestelederFornavnEtternavn = FornavnEtternavn(
                             fornavn = extractOppfolginsplan.skjemainnhold.arbeidsgiver.value.naermesteLederFornavn.value,
                             etternavn = extractOppfolginsplan.skjemainnhold.arbeidsgiver.value.naermesteLederEtternavn.value
@@ -90,15 +92,46 @@ fun mapFormdataToFagmelding(formData: String, oppfolgingPlanType: Oppfolginsplan
                     signertPapirkopiForeliggerPaaArbeidsplasssen = extractOppfolginsplan.skjemainnhold.tiltak.value.tiltaksinformasjon.first().signertPapirkopiForeligger.value
 
             ),
-            utfyllendeInformasjon = /*if (oppfolgingPlanType == Oppfolginsplan.OP2016) { UtfyllendeInformasjon(
+            utfyllendeInformasjon = if (oppfolgingPlanType == Oppfolginsplan.OP2016) { UtfyllendeInformasjon(
                         arbeidstakerMedvirkGjeonnforingOppfolginsplan = extractOppfolginsplan.skjemainnhold.arbeidstakersDeltakelse.value.arbeidstakerMedvirketGjennomfoering.value,
                         hvorforHarIkkeArbeidstakerenMedvirket = extractOppfolginsplan.skjemainnhold.arbeidstakersDeltakelse.value.arbeidstakerIkkeMedvirketGjennomfoeringBegrunnelse.value,
                         utfyllendeOpplysinger = extractOppfolginsplan.skjemainnhold.utfyllendeOpplysninger.value
             )
             } else {
                 null
-            } */
-        null
+            }
 
     )
 }
+
+fun extractOrgnavn(formData: String, oppfolgingPlanType: Oppfolginsplan): String =
+     when (oppfolgingPlanType) {
+        Oppfolginsplan.OP2012 -> extractOppfolginsplan2012(formData).skjemainnhold.arbeidsgiver.value.orgnavn
+        Oppfolginsplan.OP2014 -> extractOppfolginsplan2014(formData).skjemainnhold.arbeidsgiver.value.orgnavn
+        Oppfolginsplan.OP2016 -> extractOppfolginsplan2016(formData).skjemainnhold.arbeidsgiver.value.orgnavn
+        else -> throw RuntimeException("Invalid oppfolginsplanType: $oppfolgingPlanType")
+    }
+
+fun extractOrgNr(formData: String, oppfolgingPlanType: Oppfolginsplan): String =
+        when (oppfolgingPlanType) {
+            Oppfolginsplan.OP2012 -> extractOppfolginsplan2012(formData).skjemainnhold.arbeidsgiver.value.orgnr
+            Oppfolginsplan.OP2014 -> extractOppfolginsplan2014(formData).skjemainnhold.arbeidsgiver.value.orgnr
+            Oppfolginsplan.OP2016 -> extractOppfolginsplan2016(formData).skjemainnhold.arbeidsgiver.value.orgnr
+            else -> throw RuntimeException("Invalid oppfolginsplanType: $oppfolgingPlanType")
+        }
+
+fun extractNermesteLederFornavn(formData: String, oppfolgingPlanType: Oppfolginsplan): String =
+        when (oppfolgingPlanType) {
+            Oppfolginsplan.OP2012 -> extractOppfolginsplan2012(formData).skjemainnhold.arbeidsgiver.value.naermesteLederFornavn.value
+            Oppfolginsplan.OP2014 -> extractOppfolginsplan2014(formData).skjemainnhold.arbeidsgiver.value.naermesteLederFornavn.value
+            Oppfolginsplan.OP2016 -> extractOppfolginsplan2016(formData).skjemainnhold.arbeidsgiver.value.naermesteLederFornavn.value
+            else -> throw RuntimeException("Invalid oppfolginsplanType: $oppfolgingPlanType")
+        }
+
+fun extractNermesteLederEtternavn(formData: String, oppfolgingPlanType: Oppfolginsplan): String =
+        when (oppfolgingPlanType) {
+            Oppfolginsplan.OP2012 -> extractOppfolginsplan2012(formData).skjemainnhold.arbeidsgiver.value.naermesteLederEtternavn.value
+            Oppfolginsplan.OP2014 -> extractOppfolginsplan2014(formData).skjemainnhold.arbeidsgiver.value.naermesteLederEtternavn.value
+            Oppfolginsplan.OP2016 -> extractOppfolginsplan2016(formData).skjemainnhold.arbeidsgiver.value.naermesteLederEtternavn.value
+            else -> throw RuntimeException("Invalid oppfolginsplanType: $oppfolgingPlanType")
+        }
