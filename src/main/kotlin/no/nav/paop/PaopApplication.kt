@@ -10,8 +10,6 @@ import com.ibm.msg.client.wmq.compat.base.internal.MQC
 import io.prometheus.client.hotspot.DefaultExports
 import kotlinx.coroutines.experimental.launch
 import kotlinx.coroutines.experimental.runBlocking
-import no.nav.model.arenaBrevTilArbeidsgiver.ArenaBrevTilArbeidsgiver
-import no.nav.model.arenaOppfolging.ArenaOppfolgingPlan
 import no.nav.model.dataBatch.DataBatch
 import no.nav.paop.client.PdfClient
 import no.nav.paop.client.PdfType
@@ -45,7 +43,6 @@ import javax.jms.MessageProducer
 import javax.jms.Queue
 import javax.jms.Session
 import javax.security.auth.callback.CallbackHandler
-import javax.xml.bind.JAXBContext
 import javax.xml.bind.Marshaller
 
 private val log = LoggerFactory.getLogger("nav.paop-application")
@@ -54,19 +51,13 @@ val objectMapper: ObjectMapper = ObjectMapper()
         .registerKotlinModule()
         .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
 
-val arenaEiaInfoJaxBContext: JAXBContext = JAXBContext.newInstance(ArenaOppfolgingPlan::class.java)
-val arenaMarshaller: Marshaller = arenaEiaInfoJaxBContext.createMarshaller()
-
-val arenabrevnfoJaxBContext: JAXBContext = JAXBContext.newInstance(ArenaBrevTilArbeidsgiver::class.java)
-val arenabrevMarshaller: Marshaller = arenabrevnfoJaxBContext.createMarshaller()
-
 fun main(args: Array<String>) = runBlocking {
     DefaultExports.initialize()
     val fasitProperties = FasitProperties()
     createHttpServer(applicationVersion = fasitProperties.appVersion)
 
     // TODO read from kafka topic
-    // aapen-altinn-oppfolgingsplan-Mottatt, maybe change routing in altinnkanal-2 for 3 different topics?
+    // aapen-altinn-oppfolgingsplan-Mottatt
     // all of the different types of oppfolgingsplan comes throguh here
 
     connectionFactory(fasitProperties).createConnection(fasitProperties.mqUsername, fasitProperties.mqPassword).use {

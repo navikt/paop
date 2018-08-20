@@ -1,5 +1,7 @@
 package no.nav.paop
 
+import no.nav.model.arenaBrevTilArbeidsgiver.ArenaBrevTilArbeidsgiver
+import no.nav.model.arenaOppfolging.ArenaOppfolgingPlan
 import no.nav.model.dataBatch.DataBatch
 import no.nav.model.navOppfPlan.OppfolgingsplanMetadata
 import no.nav.model.oppfolgingsplan2012.Oppfoelgingsplan2M as Oppfoelgingsplan2M2012
@@ -7,6 +9,7 @@ import no.nav.model.oppfolgingsplan2014.Oppfoelgingsplan2M as Oppfoelgingsplan2M
 import no.nav.model.oppfolgingsplan2016.Oppfoelgingsplan4UtfyllendeInfoM
 import java.io.StringReader
 import javax.xml.bind.JAXBContext
+import javax.xml.bind.Marshaller
 import javax.xml.bind.Unmarshaller
 import javax.xml.datatype.DatatypeFactory
 import javax.xml.transform.stream.StreamSource
@@ -27,6 +30,12 @@ val oppfoelgingsplan2012Unmarshaller: Unmarshaller = oppfoelgingsplan2012JaxBCon
 
 val oppfolgingsplanMetadataJaxBContext: JAXBContext = JAXBContext.newInstance(OppfolgingsplanMetadata::class.java)
 val oppfolgingsplanMetadataUnmarshaller: Unmarshaller = oppfolgingsplanMetadataJaxBContext.createUnmarshaller()
+
+val arenaEiaInfoJaxBContext: JAXBContext = JAXBContext.newInstance(ArenaOppfolgingPlan::class.java)
+val arenaMarshaller: Marshaller = arenaEiaInfoJaxBContext.createMarshaller()
+
+val arenabrevnfoJaxBContext: JAXBContext = JAXBContext.newInstance(ArenaBrevTilArbeidsgiver::class.java)
+val arenabrevMarshaller: Marshaller = arenabrevnfoJaxBContext.createMarshaller()
 
 fun extractDataBatch(dataBatchString: String): DataBatch =
         dataBatchUnmarshaller.unmarshal(StringReader(dataBatchString)) as DataBatch
