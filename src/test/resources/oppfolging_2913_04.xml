@@ -24,6 +24,7 @@
 						<ns4:telefonKontaktperson>12345678</ns4:telefonKontaktperson>
 						<ns4:naermesteLederEtternavn>Belafonte</ns4:naermesteLederEtternavn>
 						<ns4:annenKontaktpersonFornavn>Harry</ns4:annenKontaktpersonFornavn>
+						<ns4:virksomhetHarBedriftshelsetjeneste>true</ns4:virksomhetHarBedriftshelsetjeneste>
 					</ns4:arbeidsgiver>
 					<ns4:sykmeldtArbeidstaker>
 						<ns4:fnr>01010112345</ns4:fnr>
