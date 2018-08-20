@@ -21,6 +21,8 @@ import no.nav.paop.client.SarClient
 import no.nav.paop.client.createArenaBrevTilArbeidsgiver
 import no.nav.paop.client.createArenaOppfolgingsplan
 import no.nav.paop.client.createJoarkRequest
+import no.nav.paop.mapping.extractOrgNr
+import no.nav.paop.mapping.extractSykmeldtArbeidstakerFnr
 import no.nav.paop.mapping.mapFormdataToFagmelding
 import no.nav.paop.sts.configureSTSFor
 import no.nav.tjeneste.virksomhet.organisasjon.v4.binding.OrganisasjonV4
@@ -135,25 +137,24 @@ fun listen(
     val session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE)
     val arenaProducer = session.createProducer(arenaQueue)
 
-    if (oppfolgingslplanType == Oppfolginsplan.OP2012) {
-        val extractOppfolginsplan = extractOppfolginsplan2012(formData)
+    if (oppfolgingslplanType == Oppfolginsplan.OP2012 || oppfolgingslplanType == Oppfolginsplan.OP2014 || oppfolgingslplanType == Oppfolginsplan.OP2016) {
         val organisasjonRequest = ValiderOrganisasjonRequest().apply {
-            orgnummer = extractOppfolginsplan.skjemainnhold.arbeidsgiver.value.orgnr
+            orgnummer = extractOrgNr(formData, oppfolgingslplanType)
         }
         if (organisasjonV4.validerOrganisasjon(organisasjonRequest).isGyldigOrgnummer) {
-            val letterToGP = extractOppfolginsplan.skjemainnhold.mottaksInformasjon.value.oppfolgingsplanSendesTilFastlege
-            val letterToNAV = extractOppfolginsplan.skjemainnhold.mottaksInformasjon.value.oppfolgingsplanSendesTiNav
+            val letterToGP = extractOppfolgingsplanSendesTilFastlege(formData, oppfolgingslplanType)
+            val letterToNAV = extractOppfolgingsplanSendesTiNav(formData, oppfolgingslplanType)
 
-        if (letterToNAV.value) {
+        if (letterToNAV == true) {
             val fagmelding = pdfClient.generatePDF(PdfType.FAGMELDING, mapFormdataToFagmelding(formData, oppfolgingslplanType))
             val joarkRequest = createJoarkRequest(dataBatch, formData, oppfolgingslplanType, edilogg, archiveReference, fagmelding)
             journalbehandling.lagreDokumentOgOpprettJournalpost(joarkRequest)
 
             sendArenaOppfolginsplan(arenaProducer, session, formData, dataBatch, edilogg)
         }
-        if (letterToGP.value) {
+        if (letterToGP == true) {
                 var fastlegefunnet = false
-                val patientFnr = extractOppfolginsplan.skjemainnhold.sykmeldtArbeidstaker.value.fnr
+                val patientFnr = extractSykmeldtArbeidstakerFnr(formData, oppfolgingslplanType)
                 var patientToGPContractAssociation = PatientToGPContractAssociation()
                 try {
                     patientToGPContractAssociation = fastlegeregisteret.getPatientGPDetails(patientFnr)
@@ -177,10 +178,6 @@ fun listen(
                     letterSentNotificationToArena(arenaProducer, session, formData, dataBatch, edilogg)
             }
         }
-    } else if (oppfolgingslplanType == Oppfolginsplan.OP2014) {
-        val extractOppfolginsplan = extractOppfolginsplan2014(formData)
-    } else if (oppfolgingslplanType == Oppfolginsplan.OP2016) {
-        val extractOppfolginsplan = extractOppfolginsplan2016(formData)
     } else if (oppfolgingslplanType == Oppfolginsplan.NAVOPPFPLAN) {
         val extractOppfolginsplan = extractNavOppfPlan(formData)
         val navmal = !extractOppfolginsplan.isBistandHjelpemidler
@@ -295,3 +292,19 @@ fun findSamhandlerPraksis(samhandlers: List<Samhandler>, orgnrGp: Int): Samhandl
             .firstOrNull {
                 it.samh_praksis_status_kode == "LE"
             }
+
+fun extractOppfolgingsplanSendesTilFastlege(formData: String, oppfolgingPlanType: Oppfolginsplan): Boolean? =
+        when (oppfolgingPlanType) {
+            Oppfolginsplan.OP2012 -> extractOppfolginsplan2012(formData).skjemainnhold?.mottaksInformasjon?.value?.oppfolgingsplanSendesTilFastlege?.value
+            Oppfolginsplan.OP2014 -> extractOppfolginsplan2014(formData).skjemainnhold?.mottaksInformasjon?.value?.oppfolgingsplanSendesTilFastlege?.value
+            Oppfolginsplan.OP2016 -> extractOppfolginsplan2016(formData).skjemainnhold?.mottaksInformasjon?.value?.oppfolgingsplanSendesTilFastlege?.value
+            else -> throw RuntimeException("Invalid oppfolginsplanType: $oppfolgingPlanType")
+        }
+
+fun extractOppfolgingsplanSendesTiNav(formData: String, oppfolgingPlanType: Oppfolginsplan): Boolean? =
+        when (oppfolgingPlanType) {
+            Oppfolginsplan.OP2012 -> extractOppfolginsplan2012(formData).skjemainnhold?.mottaksInformasjon?.value?.oppfolgingsplanSendesTiNav?.value
+            Oppfolginsplan.OP2014 -> extractOppfolginsplan2014(formData).skjemainnhold?.mottaksInformasjon?.value?.oppfolgingsplanSendesTiNav?.value
+            Oppfolginsplan.OP2016 -> extractOppfolginsplan2016(formData).skjemainnhold?.mottaksInformasjon?.value?.oppfolgingsplanSendesTiNav?.value
+            else -> throw RuntimeException("Invalid oppfolginsplanType: $oppfolgingPlanType")
+        }
