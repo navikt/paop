@@ -52,3 +52,5 @@ fasitResources:
       resourceType: webserviceendpoint
     - alias: virksomhet:Organisasjon_v4
       resourceType: Webserviceendpoint
+    - alias: kafka_bootstrap_servers
+      resourceType: BaseUrl

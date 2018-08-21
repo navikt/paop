@@ -31,6 +31,7 @@ import no.nhn.schemas.reg.flr.PatientToGPContractAssociation
 import org.apache.cxf.ext.logging.LoggingFeature
 import org.apache.cxf.jaxws.JaxWsProxyFactoryBean
 import org.apache.cxf.ws.security.wss4j.WSS4JOutInterceptor
+import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.wss4j.common.ext.WSPasswordCallback
 import org.apache.wss4j.dom.WSConstants
 import org.apache.wss4j.dom.handler.WSHandlerConstants
@@ -38,6 +39,7 @@ import org.slf4j.LoggerFactory
 import java.io.StringWriter
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import java.util.Properties
 import javax.jms.Connection
 import javax.jms.MessageProducer
 import javax.jms.Queue
@@ -50,6 +52,7 @@ val objectMapper: ObjectMapper = ObjectMapper()
         .registerModule(JavaTimeModule())
         .registerKotlinModule()
         .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
+class PaopApplication
 
 fun main(args: Array<String>) = runBlocking {
     DefaultExports.initialize()
@@ -57,8 +60,14 @@ fun main(args: Array<String>) = runBlocking {
     createHttpServer(applicationVersion = fasitProperties.appVersion)
 
     // TODO read from kafka topic
-    // aapen-altinn-oppfolgingsplan-Mottatt
-    // all of the different types of oppfolgingsplan comes throguh here
+    val consumerProperties = kafkaProperties("/kafka_producer.properties", fasitProperties)
+
+    KafkaConsumer<String, String>(consumerProperties).apply {
+        subscribe(listOf(fasitProperties.kafkaTopicOppfolginsplan))
+        while (true) {
+            poll(1000).forEach { record -> log.info("Consumed a message: ${record.value()}") }
+        }
+    }
 
     connectionFactory(fasitProperties).createConnection(fasitProperties.mqUsername, fasitProperties.mqPassword).use {
         connection ->
@@ -299,3 +308,11 @@ fun extractOppfolgingsplanSendesTiNav(formData: String, oppfolgingPlanType: Oppf
             Oppfolginsplan.OP2016 -> extractOppfolginsplan2016(formData).skjemainnhold?.mottaksInformasjon?.value?.oppfolgingsplanSendesTiNav?.value
             else -> throw RuntimeException("Invalid oppfolginsplanType: $oppfolgingPlanType")
         }
+
+private fun kafkaProperties(path: String, fasitProperties: FasitProperties) = Properties().apply {
+    load(PaopApplication::class.java.getResourceAsStream(path))
+    setProperty("sasl.jaas.config", "org.apache.kafka.common.security.plain.PlainLoginModule required " +
+            "username=\"" + fasitProperties.srvPaopUsername + "\" " +
+            "password=\"" + fasitProperties.srvPaopUsername + "\";")
+    setProperty("bootstrap.servers", fasitProperties.kafkaBootstrapServersURL)
+}
