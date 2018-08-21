@@ -21,7 +21,7 @@ data class FasitProperties(
     val kuhrSarApiURL: String = getEnvVar("KUHR_SAR_API_URL", "http://kuhr-sar-api"),
     val organisasjonv4EndpointURL: String = getEnvVar("VIRKSOMHET_ORGANISASJON_V4_ENDPOINTURL"),
     val kafkaBootstrapServersURL: String = getEnvVar("KAFKA_BOOTSTRAP_SERVERS_URL"),
-    val kafkaTopicOppfolginsplan: String = getEnvVar("aapen-altinn-oppfolgingsplan-Mottatt")
+    val kafkaTopicOppfolginsplan: String = getEnvVar("AAPEN_ALTINN_OPPFOLGINGSPLAN_MOTTAT")
 
 )
 
