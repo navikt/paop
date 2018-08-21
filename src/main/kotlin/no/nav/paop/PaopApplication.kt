@@ -21,8 +21,14 @@ import no.nav.paop.client.createArenaOppfolgingsplan
 import no.nav.paop.client.createJoarkRequest
 import no.nav.paop.mapping.extractOrgNr
 import no.nav.paop.mapping.extractSykmeldtArbeidstakerFnr
+import no.nav.paop.mapping.extractSykmeldtArbeidstakerFornavn
 import no.nav.paop.mapping.mapFormdataToFagmelding
 import no.nav.paop.sts.configureSTSFor
+import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.DokumentproduksjonV3
+import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.Dokumentbestillingsinformasjon
+import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.Fagsystemer
+import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.Person
+import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.meldinger.ProduserIkkeredigerbartDokumentRequest
 import no.nav.tjeneste.virksomhet.organisasjon.v4.binding.OrganisasjonV4
 import no.nav.tjeneste.virksomhet.organisasjon.v4.meldinger.ValiderOrganisasjonRequest
 import no.nav.virksomhet.tjenester.arkiv.journalbehandling.v1.binding.Journalbehandling
@@ -109,11 +115,19 @@ fun main(args: Array<String>) = runBlocking {
             serviceClass = Journalbehandling::class.java
         }.create() as Journalbehandling
 
+        val dokumentProduksjonV3 = JaxWsProxyFactoryBean().apply {
+            address = fasitProperties.organisasjonv4EndpointURL
+            features.add(LoggingFeature())
+            serviceClass = DokumentproduksjonV3::class.java
+        }.create() as DokumentproduksjonV3
+        configureSTSFor(dokumentProduksjonV3, fasitProperties.srvPaopUsername,
+                fasitProperties.srvPaopPassword, fasitProperties.securityTokenServiceUrl)
+
         val sarClient = SarClient(fasitProperties.kuhrSarApiURL, fasitProperties.srvPaopUsername,
                 fasitProperties.srvPaopPassword)
 
         listen(PdfClient(fasitProperties.pdfGeneratorURL),
-                journalbehandling, fastlegeregisteret, organisasjonV4, sarClient, arenaQueue, connection)
+                journalbehandling, fastlegeregisteret, organisasjonV4, dokumentProduksjonV3, sarClient, arenaQueue, connection)
                 .join()
     }
 }
@@ -123,6 +137,7 @@ fun listen(
     journalbehandling: Journalbehandling,
     fastlegeregisteret: IFlrReadOperations,
     organisasjonV4: OrganisasjonV4,
+    dokumentProduksjonV3: DokumentproduksjonV3,
     sarClient: SarClient,
     arenaQueue: Queue,
     connection: Connection
@@ -166,16 +181,39 @@ fun listen(
                 if (fastlegefunnet && patientToGPContractAssociation.gpContract != null) {
                     val gpFNR = patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first().gp.value.nin
                     val orgnrGp = patientToGPContractAssociation.gpContract.value.gpOffice.value.organizationNumber
-                    // CALL KUHR SAR
                     val samhandler = sarClient.getSamhandler(gpFNR.toString())
                     val samhandlerPraksis = findSamhandlerPraksis(samhandler, orgnrGp)
                     val tssid = samhandlerPraksis?.tss_ident
-                    // TODO send fysisk brev til Fastlege
-                    letterSentNotificationToArena(arenaProducer, session, formData, dataBatch, edilogg)
+                    val brevrequest = ProduserIkkeredigerbartDokumentRequest().apply {
+                        dokumentbestillingsinformasjon = Dokumentbestillingsinformasjon().apply {
+                        dokumenttypeId = "brev"
+                        bestillendeFagsystem = Fagsystemer().apply {
+                            value = "PAOP"
+                        }
+                        bruker = Person().apply {
+                            navn = extractSykmeldtArbeidstakerFornavn(formData, oppfolgingslplanType)
+        // norskIdent
+                        }
+                        }
+                    }
+
+                    try {
+                        val brevRespone = dokumentProduksjonV3.produserIkkeredigerbartDokument(brevrequest)
+                        letterSentNotificationToArena(arenaProducer, session, formData, dataBatch, edilogg)
+                    } catch (e: Exception) {
+                        log.error("Call to dokprod returned Exception", e)
+                    }
                 }
             } else {
-                    // TODO send fysisk brev til Fastlege
-                    letterSentNotificationToArena(arenaProducer, session, formData, dataBatch, edilogg)
+            val brevrequest = ProduserIkkeredigerbartDokumentRequest().apply {
+            }
+
+            try {
+                val brevRespone = dokumentProduksjonV3.produserIkkeredigerbartDokument(brevrequest)
+                letterSentNotificationToArena(arenaProducer, session, formData, dataBatch, edilogg)
+            } catch (e: Exception) {
+                log.error("Call to dokprod returned Exception", e)
+            }
             }
         }
     } else if (oppfolgingslplanType == Oppfolginsplan.NAVOPPFPLAN) {
@@ -215,12 +253,26 @@ fun listen(
                         val samhandler = sarClient.getSamhandler(gpFNR.toString())
                         val samhandlerPraksis = findSamhandlerPraksis(samhandler, orgnrGp)
                         val tssid = samhandlerPraksis?.tss_ident
-                        // TODO send fysisk brev til Fastlege
-                        letterSentNotificationToArena(arenaProducer, session, formData, dataBatch, edilogg)
+                        val brevrequest = ProduserIkkeredigerbartDokumentRequest().apply {
+                        }
+                        try {
+                            val brevRespone = dokumentProduksjonV3.produserIkkeredigerbartDokument(brevrequest)
+                            letterSentNotificationToArena(arenaProducer, session, formData, dataBatch, edilogg)
+                        } catch (e: Exception) {
+                            log.error("Call to dokprod returned Exception", e)
+                        }
                     }
                 } else {
-                    // TODO send fysisk brev til Fastlege
-                    letterSentNotificationToArena(arenaProducer, session, formData, dataBatch, edilogg)
+                    val brevrequest = ProduserIkkeredigerbartDokumentRequest().apply {
+                    }
+
+                    try {
+                        val brevRespone = dokumentProduksjonV3.produserIkkeredigerbartDokument(brevrequest)
+                        letterSentNotificationToArena(arenaProducer, session, formData, dataBatch, edilogg)
+                    } catch (e: Exception) {
+                        log.error("Call to dokprod returned Exception", e)
+                    }
+                }
                 }
             }
         } else {
@@ -230,7 +282,6 @@ fun listen(
 
             sendArenaOppfolginsplan(arenaProducer, session, formData, dataBatch, edilogg)
         }
-    }
 }
 
 fun connectionFactory(fasitProperties: FasitProperties) = MQConnectionFactory().apply {
