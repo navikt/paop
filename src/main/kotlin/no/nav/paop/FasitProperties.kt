@@ -19,9 +19,10 @@ data class FasitProperties(
     val fastlegeregiserHdirURL: String = getEnvVar("FASTLEGEREGISTER_HDIR_ENDPOINTURL"),
     val pdfGeneratorURL: String = getEnvVar("PDF_GENERATOR_URL", "http://pdf-gen/api"),
     val kuhrSarApiURL: String = getEnvVar("KUHR_SAR_API_URL", "http://kuhr-sar-api"),
-    val organisasjonv4EndpointURL: String = getEnvVar("VIRKSOMHET_ORGANISASJON_V4_ENDPOINTURL"),
+    val organisasjonEnhetKontaktinformasjon_v1EndpointURL: String = getEnvVar("VIRKSOMHET_ORGANISASJONENHETKONTAKTINFORMASJON_V1_ENDPOINTURL"),
     val kafkaBootstrapServersURL: String = getEnvVar("KAFKA_BOOTSTRAP_SERVERS_URL"),
-    val kafkaTopicOppfolginsplan: String = getEnvVar("AAPEN_PAOP_OPPFOLGINGSPLAN_TEST_MOTTATT_TOPIC", "aapen-paop-oppfolgingsplan-test-motatt")
+    val kafkaTopicOppfolginsplan: String = getEnvVar("AAPEN_PAOP_OPPFOLGINGSPLAN_TEST_MOTTATT_TOPIC", "aapen-paop-oppfolgingsplan-test-motatt"),
+    val dokumentproduksjonV3EndpointURL: String = getEnvVar("DOKUMENTPRODUKSJON_V3_ENDPOINTURL")
 
 )
 

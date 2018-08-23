@@ -50,7 +50,9 @@ fasitResources:
       resourceType: QueueManager
     - alias: fastlegeregister_hdir
       resourceType: webserviceendpoint
-    - alias: virksomhet:Organisasjon_v4
+    - alias: virksomhet:OrganisasjonEnhetKontaktinformasjon_v1
       resourceType: Webserviceendpoint
     - alias: kafka_bootstrap_servers
       resourceType: BaseUrl
+    - alias: Dokumentproduksjon_v3
+      resourceType: Webserviceendpoint

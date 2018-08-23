@@ -31,8 +31,8 @@ import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.Landkoder
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.NorskPostadresse
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.Person
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.meldinger.ProduserIkkeredigerbartDokumentRequest
-import no.nav.tjeneste.virksomhet.organisasjon.v4.binding.OrganisasjonV4
-import no.nav.tjeneste.virksomhet.organisasjon.v4.meldinger.ValiderOrganisasjonRequest
+import no.nav.tjeneste.virksomhet.organisasjonenhetkontaktinformasjon.v1.binding.OrganisasjonEnhetKontaktinformasjonV1
+import no.nav.tjeneste.virksomhet.organisasjonenhetkontaktinformasjon.v1.meldinger.HentKontaktinformasjonForEnhetBolkRequest
 import no.nav.virksomhet.tjenester.arkiv.journalbehandling.v1.binding.Journalbehandling
 import no.nhn.schemas.reg.flr.IFlrReadOperations
 import no.nhn.schemas.reg.flr.PatientToGPContractAssociation
@@ -102,12 +102,12 @@ fun main(args: Array<String>) = runBlocking {
                 }
         )
 
-        val organisasjonV4 = JaxWsProxyFactoryBean().apply {
-            address = fasitProperties.organisasjonv4EndpointURL
+        val organisasjonEnhetKontaktinformasjonV1 = JaxWsProxyFactoryBean().apply {
+            address = fasitProperties.organisasjonEnhetKontaktinformasjon_v1EndpointURL
             features.add(LoggingFeature())
-            serviceClass = OrganisasjonV4::class.java
-        }.create() as OrganisasjonV4
-        configureSTSFor(organisasjonV4, fasitProperties.srvPaopUsername,
+            serviceClass = OrganisasjonEnhetKontaktinformasjonV1::class.java
+        }.create() as OrganisasjonEnhetKontaktinformasjonV1
+        configureSTSFor(organisasjonEnhetKontaktinformasjonV1, fasitProperties.srvPaopUsername,
                 fasitProperties.srvPaopPassword, fasitProperties.securityTokenServiceUrl)
 
         val journalbehandling = JaxWsProxyFactoryBean().apply {
@@ -118,7 +118,7 @@ fun main(args: Array<String>) = runBlocking {
         }.create() as Journalbehandling
 
         val dokumentProduksjonV3 = JaxWsProxyFactoryBean().apply {
-            address = fasitProperties.organisasjonv4EndpointURL
+            address = fasitProperties.dokumentproduksjonV3EndpointURL
             features.add(LoggingFeature())
             serviceClass = DokumentproduksjonV3::class.java
         }.create() as DokumentproduksjonV3
@@ -129,7 +129,7 @@ fun main(args: Array<String>) = runBlocking {
                 fasitProperties.srvPaopPassword)
 
         listen(PdfClient(fasitProperties.pdfGeneratorURL),
-                journalbehandling, fastlegeregisteret, organisasjonV4, dokumentProduksjonV3, sarClient, arenaQueue, connection)
+                journalbehandling, fastlegeregisteret, organisasjonEnhetKontaktinformasjonV1, dokumentProduksjonV3, sarClient, arenaQueue, connection)
                 .join()
     }
 }
@@ -138,7 +138,7 @@ fun listen(
     pdfClient: PdfClient,
     journalbehandling: Journalbehandling,
     fastlegeregisteret: IFlrReadOperations,
-    organisasjonV4: OrganisasjonV4,
+    organisasjonEnhetKontaktinformasjonV1: OrganisasjonEnhetKontaktinformasjonV1,
     dokumentProduksjonV3: DokumentproduksjonV3,
     sarClient: SarClient,
     arenaQueue: Queue,
@@ -155,10 +155,12 @@ fun listen(
     val arenaProducer = session.createProducer(arenaQueue)
 
     if (oppfolgingslplanType == Oppfolginsplan.OP2012 || oppfolgingslplanType == Oppfolginsplan.OP2014 || oppfolgingslplanType == Oppfolginsplan.OP2016) {
-        val organisasjonRequest = ValiderOrganisasjonRequest().apply {
-            orgnummer = extractOrgNr(formData, oppfolgingslplanType)
+        val hentKontaktinformasjonForEnhetBolkRequest = HentKontaktinformasjonForEnhetBolkRequest().apply {
+            enhetIdListe.add(extractOrgNr(formData, oppfolgingslplanType).toString())
         }
-        if (organisasjonV4.validerOrganisasjon(organisasjonRequest).isGyldigOrgnummer) {
+        val hentKontaktinformasjonForEnhetBolkResponse = organisasjonEnhetKontaktinformasjonV1.hentKontaktinformasjonForEnhetBolk(hentKontaktinformasjonForEnhetBolkRequest)
+
+        if (hentKontaktinformasjonForEnhetBolkResponse.enhetListe.firstOrNull() == null) {
             val letterToGP = extractOppfolgingsplanSendesTilFastlege(formData, oppfolgingslplanType)
             val letterToNAV = extractOppfolgingsplanSendesTiNav(formData, oppfolgingslplanType)
 
@@ -194,7 +196,7 @@ fun listen(
                         }
                         bruker = Person().apply {
                             navn = "NAV Servicesenter"
-                            ident = extractOrgNr(formData, oppfolgingslplanType)
+                            ident = "NAV ORGNR"
                         }
                             mottaker = Person().apply {
                                 navn = extractGPName(patientToGPContractAssociation)
@@ -234,6 +236,41 @@ fun listen(
                 }
             } else {
             val brevrequest = ProduserIkkeredigerbartDokumentRequest().apply {
+                dokumentbestillingsinformasjon = Dokumentbestillingsinformasjon().apply {
+                    dokumenttypeId = "brev"
+                    bestillendeFagsystem = Fagsystemer().apply {
+                        value = "PAOP"
+                    }
+                    bruker = Person().apply {
+                        navn = "NAV Servicesenter"
+                        ident = "NAV ORGNR"
+                    }
+                    mottaker = Person().apply {
+                        navn = hentKontaktinformasjonForEnhetBolkResponse.enhetListe.first().enhetNavn
+                        ident = hentKontaktinformasjonForEnhetBolkResponse.enhetListe.first().organisasjonsnummer
+                    }
+                    journalsakId = edilogg
+                    sakstilhoerendeFagsystem = Fagsystemer().apply {
+                        value = "ARENA"
+                    }
+                    dokumenttilhoerendeFagomraade = Fagomraader().apply {
+                        value = "Sykefravær"
+                    }
+                    journalfoerendeEnhet = "N/A"
+                    adresse = NorskPostadresse().apply {
+                        adresselinje1 = "stat"
+                        land = Landkoder().apply {
+                            value = "NOR"
+                        }
+                        postnummer = hentKontaktinformasjonForEnhetBolkResponse.enhetListe.first().kontaktinformasjon.besoeksadresse.poststed.kodeverksRef
+                        // TODO download text file from bring, and read into a array og API GW
+                        // TO https://api.bring.com/shippingguide/api/postalCode.json?clientUrl=http://www.sitename.com&pnr=1515
+                        poststed = "Oslo"
+                    }
+                    isFerdigstillForsendelse = true
+                    isInkludererEksterneVedlegg = false
+                    brevdata = "The message to send out"
+                }
             }
 
             try {
@@ -251,10 +288,12 @@ fun listen(
         val letterToNAV = extractOppfolginsplan.mottaksinformasjon.isOppfoelgingsplanSendesTiNav
 
         if (navmal) {
-            val organisasjonRequest = ValiderOrganisasjonRequest().apply {
-                orgnummer = extractOppfolginsplan.bedriftsNr
+            val hentKontaktinformasjonForEnhetBolkRequest = HentKontaktinformasjonForEnhetBolkRequest().apply {
+                enhetIdListe.add(extractOrgNr(formData, oppfolgingslplanType).toString())
             }
-            if (organisasjonV4.validerOrganisasjon(organisasjonRequest).isGyldigOrgnummer) {
+            val hentKontaktinformasjonForEnhetBolkResponse = organisasjonEnhetKontaktinformasjonV1.hentKontaktinformasjonForEnhetBolk(hentKontaktinformasjonForEnhetBolkRequest)
+
+            if (hentKontaktinformasjonForEnhetBolkResponse.enhetListe.firstOrNull() == null) {
 
                 if (letterToNAV) {
                     val fagmelding = dataBatch.attachments.attachment.first().value
