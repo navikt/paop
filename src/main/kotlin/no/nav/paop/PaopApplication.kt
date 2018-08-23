@@ -19,14 +19,18 @@ import no.nav.paop.client.SarClient
 import no.nav.paop.client.createArenaBrevTilArbeidsgiver
 import no.nav.paop.client.createArenaOppfolgingsplan
 import no.nav.paop.client.createJoarkRequest
+import no.nav.paop.mapping.extractNermesteLederEtternavn
+import no.nav.paop.mapping.extractNermesteLederFornavn
 import no.nav.paop.mapping.extractOrgNr
 import no.nav.paop.mapping.extractSykmeldtArbeidstakerFnr
-import no.nav.paop.mapping.extractSykmeldtArbeidstakerFornavn
 import no.nav.paop.mapping.mapFormdataToFagmelding
 import no.nav.paop.sts.configureSTSFor
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.DokumentproduksjonV3
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.Dokumentbestillingsinformasjon
+import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.Fagomraader
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.Fagsystemer
+import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.Landkoder
+import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.NorskPostadresse
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.Person
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.meldinger.ProduserIkkeredigerbartDokumentRequest
 import no.nav.tjeneste.virksomhet.organisasjon.v4.binding.OrganisasjonV4
@@ -191,9 +195,35 @@ fun listen(
                             value = "PAOP"
                         }
                         bruker = Person().apply {
-                            navn = extractSykmeldtArbeidstakerFornavn(formData, oppfolgingslplanType)
-        // norskIdent
+                            navn = extractNermesteLederFornavn(formData, oppfolgingslplanType) + extractNermesteLederEtternavn(formData, oppfolgingslplanType)
+                            ident = extractOrgNr(formData, oppfolgingslplanType)
                         }
+                            mottaker = Person().apply {
+                                navn = extractGPName(patientToGPContractAssociation)
+                                ident = tssid
+                            }
+                            journalsakId = edilogg
+                            sakstilhoerendeFagsystem = Fagsystemer().apply {
+                                value = "ARENA"
+                            }
+                            dokumenttilhoerendeFagomraade = Fagomraader().apply {
+                            value = "Sykefravær"
+                            }
+                            journalfoerendeEnhet = "N/A"
+                            adresse = NorskPostadresse().apply {
+                                adresselinje1 = samhandlerPraksis?.arbeids_adresse_linje_1
+                                adresselinje2 = samhandlerPraksis?.arbeids_adresse_linje_2
+                                adresselinje3 = samhandlerPraksis?.arbeids_adresse_linje_3
+                                land = Landkoder().apply {
+                                    value = "NO"
+                                }
+                                postnummer = samhandlerPraksis?.post_postnr
+                                // TODO download text file from bring, and read into a array
+                                poststed = "OSLO"
+                            }
+                            isFerdigstillForsendelse = true
+                            isInkludererEksterneVedlegg = false
+                            brevdata = "The message to send out"
                         }
                     }
 
@@ -367,3 +397,8 @@ private fun kafkaProperties(path: String, fasitProperties: FasitProperties) = Pr
             "password=\"" + fasitProperties.srvPaopUsername + "\";")
     setProperty("bootstrap.servers", fasitProperties.kafkaBootstrapServersURL)
 }
+
+fun extractGPName(patientToGPContractAssociation: PatientToGPContractAssociation): String? =
+        "${patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first().gp.value.firstName.value} " +
+                "${patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first().gp.value.middleName.value}" +
+                "${patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first().gp.value.lastName.value}"
