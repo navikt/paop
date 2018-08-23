@@ -54,5 +54,3 @@ fasitResources:
       resourceType: Webserviceendpoint
     - alias: kafka_bootstrap_servers
       resourceType: BaseUrl
-    - alias: kafka_topic_aapen_altinn_oppfolgingsplan_Mottatt
-      resourceType: BaseUrl
