@@ -31,8 +31,10 @@ import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.Landkoder
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.NorskPostadresse
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.Person
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.meldinger.ProduserIkkeredigerbartDokumentRequest
-import no.nav.tjeneste.virksomhet.organisasjonenhetkontaktinformasjon.v1.binding.OrganisasjonEnhetKontaktinformasjonV1
-import no.nav.tjeneste.virksomhet.organisasjonenhetkontaktinformasjon.v1.meldinger.HentKontaktinformasjonForEnhetBolkRequest
+import no.nav.tjeneste.virksomhet.organisasjon.v4.binding.OrganisasjonV4
+import no.nav.tjeneste.virksomhet.organisasjon.v4.meldinger.FinnOrganisasjonRequest
+import no.nav.tjeneste.virksomhet.organisasjon.v4.meldinger.HentOrganisasjonRequest
+import no.nav.tjeneste.virksomhet.organisasjon.v4.meldinger.ValiderOrganisasjonRequest
 import no.nav.virksomhet.tjenester.arkiv.journalbehandling.v1.binding.Journalbehandling
 import no.nhn.schemas.reg.flr.IFlrReadOperations
 import no.nhn.schemas.reg.flr.PatientToGPContractAssociation
@@ -102,12 +104,12 @@ fun main(args: Array<String>) = runBlocking {
                 }
         )
 
-        val organisasjonEnhetKontaktinformasjonV1 = JaxWsProxyFactoryBean().apply {
-            address = fasitProperties.organisasjonEnhetKontaktinformasjon_v1EndpointURL
+        val organisasjonV4 = JaxWsProxyFactoryBean().apply {
+            address = fasitProperties.organisasjonV4EndpointURL
             features.add(LoggingFeature())
-            serviceClass = OrganisasjonEnhetKontaktinformasjonV1::class.java
-        }.create() as OrganisasjonEnhetKontaktinformasjonV1
-        configureSTSFor(organisasjonEnhetKontaktinformasjonV1, fasitProperties.srvPaopUsername,
+            serviceClass = OrganisasjonV4::class.java
+        }.create() as OrganisasjonV4
+        configureSTSFor(organisasjonV4, fasitProperties.srvPaopUsername,
                 fasitProperties.srvPaopPassword, fasitProperties.securityTokenServiceUrl)
 
         val journalbehandling = JaxWsProxyFactoryBean().apply {
@@ -129,7 +131,7 @@ fun main(args: Array<String>) = runBlocking {
                 fasitProperties.srvPaopPassword)
 
         listen(PdfClient(fasitProperties.pdfGeneratorURL),
-                journalbehandling, fastlegeregisteret, organisasjonEnhetKontaktinformasjonV1, dokumentProduksjonV3, sarClient, arenaQueue, connection)
+                journalbehandling, fastlegeregisteret, organisasjonV4, dokumentProduksjonV3, sarClient, arenaQueue, connection)
                 .join()
     }
 }
@@ -138,7 +140,7 @@ fun listen(
     pdfClient: PdfClient,
     journalbehandling: Journalbehandling,
     fastlegeregisteret: IFlrReadOperations,
-    organisasjonEnhetKontaktinformasjonV1: OrganisasjonEnhetKontaktinformasjonV1,
+    organisasjonV4: OrganisasjonV4,
     dokumentProduksjonV3: DokumentproduksjonV3,
     sarClient: SarClient,
     arenaQueue: Queue,
@@ -155,12 +157,12 @@ fun listen(
     val arenaProducer = session.createProducer(arenaQueue)
 
     if (oppfolgingslplanType == Oppfolginsplan.OP2012 || oppfolgingslplanType == Oppfolginsplan.OP2014 || oppfolgingslplanType == Oppfolginsplan.OP2016) {
-        val hentKontaktinformasjonForEnhetBolkRequest = HentKontaktinformasjonForEnhetBolkRequest().apply {
-            enhetIdListe.add(extractOrgNr(formData, oppfolgingslplanType).toString())
+        val validerOrganisasjonRequest = ValiderOrganisasjonRequest().apply {
+            orgnummer = extractOrgNr(formData, oppfolgingslplanType)
         }
-        val hentKontaktinformasjonForEnhetBolkResponse = organisasjonEnhetKontaktinformasjonV1.hentKontaktinformasjonForEnhetBolk(hentKontaktinformasjonForEnhetBolkRequest)
+        val validerOrganisasjonResponse = organisasjonV4.validerOrganisasjon(validerOrganisasjonRequest)
 
-        if (hentKontaktinformasjonForEnhetBolkResponse.enhetListe.firstOrNull() == null) {
+        if (validerOrganisasjonResponse.isGyldigOrgnummer) {
             val letterToGP = extractOppfolgingsplanSendesTilFastlege(formData, oppfolgingslplanType)
             val letterToNAV = extractOppfolgingsplanSendesTiNav(formData, oppfolgingslplanType)
 
@@ -235,6 +237,17 @@ fun listen(
                     }
                 }
             } else {
+
+            val hentOrganisasjonRequest = HentOrganisasjonRequest().apply {
+                orgnummer = extractOrgNr(formData, oppfolgingslplanType)
+            }
+            val hentOrganisasjonResponse = organisasjonV4.hentOrganisasjon(hentOrganisasjonRequest)
+
+            val finnOrganisasjonRequest = FinnOrganisasjonRequest().apply {
+                navn = hentOrganisasjonResponse.organisasjon.navn.toString()
+            }
+            val finnOrganisasjonResponse = organisasjonV4.finnOrganisasjon(finnOrganisasjonRequest)
+
             val brevrequest = ProduserIkkeredigerbartDokumentRequest().apply {
                 dokumentbestillingsinformasjon = Dokumentbestillingsinformasjon().apply {
                     dokumenttypeId = "brev"
@@ -246,8 +259,8 @@ fun listen(
                         ident = "NAV ORGNR"
                     }
                     mottaker = Person().apply {
-                        navn = hentKontaktinformasjonForEnhetBolkResponse.enhetListe.first().enhetNavn
-                        ident = hentKontaktinformasjonForEnhetBolkResponse.enhetListe.first().organisasjonsnummer
+                        navn = finnOrganisasjonResponse.organisasjonSammendragListe.firstOrNull()?.redigertNavn
+                        ident = extractOrgNr(formData, oppfolgingslplanType)
                     }
                     journalsakId = edilogg
                     sakstilhoerendeFagsystem = Fagsystemer().apply {
@@ -262,10 +275,8 @@ fun listen(
                         land = Landkoder().apply {
                             value = "NOR"
                         }
-                        postnummer = hentKontaktinformasjonForEnhetBolkResponse.enhetListe.first().kontaktinformasjon.besoeksadresse.poststed.kodeverksRef
-                        // TODO download text file from bring, and read into a array og API GW
-                        // TO https://api.bring.com/shippingguide/api/postalCode.json?clientUrl=http://www.sitename.com&pnr=1515
-                        poststed = "Oslo"
+                        postnummer = finnOrganisasjonResponse.organisasjonSammendragListe.firstOrNull()?.postnummer?.value
+                        poststed = finnOrganisasjonResponse.organisasjonSammendragListe.firstOrNull()?.poststed
                     }
                     isFerdigstillForsendelse = true
                     isInkludererEksterneVedlegg = false
@@ -288,12 +299,12 @@ fun listen(
         val letterToNAV = extractOppfolginsplan.mottaksinformasjon.isOppfoelgingsplanSendesTiNav
 
         if (navmal) {
-            val hentKontaktinformasjonForEnhetBolkRequest = HentKontaktinformasjonForEnhetBolkRequest().apply {
-                enhetIdListe.add(extractOrgNr(formData, oppfolgingslplanType).toString())
+            val validerOrganisasjonRequest = ValiderOrganisasjonRequest().apply {
+                orgnummer = extractOrgNr(formData, oppfolgingslplanType)
             }
-            val hentKontaktinformasjonForEnhetBolkResponse = organisasjonEnhetKontaktinformasjonV1.hentKontaktinformasjonForEnhetBolk(hentKontaktinformasjonForEnhetBolkRequest)
+            val validerOrganisasjonResponse = organisasjonV4.validerOrganisasjon(validerOrganisasjonRequest)
 
-            if (hentKontaktinformasjonForEnhetBolkResponse.enhetListe.firstOrNull() == null) {
+            if (validerOrganisasjonResponse.isGyldigOrgnummer) {
 
                 if (letterToNAV) {
                     val fagmelding = dataBatch.attachments.attachment.first().value
@@ -346,7 +357,6 @@ fun listen(
             val fagmelding = dataBatch.attachments.attachment.first().value
             val joarkRequest = createJoarkRequest(dataBatch, formData, oppfolgingslplanType, edilogg, archiveReference, fagmelding)
             journalbehandling.lagreDokumentOgOpprettJournalpost(joarkRequest)
-
             sendArenaOppfolginsplan(arenaProducer, session, formData, dataBatch, edilogg)
         }
 }
