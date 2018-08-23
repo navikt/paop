@@ -19,8 +19,6 @@ import no.nav.paop.client.SarClient
 import no.nav.paop.client.createArenaBrevTilArbeidsgiver
 import no.nav.paop.client.createArenaOppfolgingsplan
 import no.nav.paop.client.createJoarkRequest
-import no.nav.paop.mapping.extractNermesteLederEtternavn
-import no.nav.paop.mapping.extractNermesteLederFornavn
 import no.nav.paop.mapping.extractOrgNr
 import no.nav.paop.mapping.extractSykmeldtArbeidstakerFnr
 import no.nav.paop.mapping.mapFormdataToFagmelding
