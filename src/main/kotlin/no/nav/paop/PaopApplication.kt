@@ -195,7 +195,7 @@ fun listen(
                             value = "PAOP"
                         }
                         bruker = Person().apply {
-                            navn = extractNermesteLederFornavn(formData, oppfolgingslplanType) + extractNermesteLederEtternavn(formData, oppfolgingslplanType)
+                            navn = "NAV Servicesenter"
                             ident = extractOrgNr(formData, oppfolgingslplanType)
                         }
                             mottaker = Person().apply {
