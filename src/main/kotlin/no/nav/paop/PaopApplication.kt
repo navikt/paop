@@ -10,6 +10,8 @@ import com.ibm.msg.client.wmq.compat.base.internal.MQC
 import io.prometheus.client.hotspot.DefaultExports
 import kotlinx.coroutines.experimental.launch
 import kotlinx.coroutines.experimental.runBlocking
+import no.altinn.services.serviceengine.correspondence._2009._10.ICorrespondenceAgencyExternal
+import no.nav.emottak.schemas.PartnerResource
 import no.nav.model.dataBatch.DataBatch
 import no.nav.paop.client.PdfClient
 import no.nav.paop.client.PdfType
@@ -36,6 +38,7 @@ import no.nav.tjeneste.virksomhet.organisasjon.v4.meldinger.FinnOrganisasjonRequ
 import no.nav.tjeneste.virksomhet.organisasjon.v4.meldinger.HentOrganisasjonRequest
 import no.nav.tjeneste.virksomhet.organisasjon.v4.meldinger.ValiderOrganisasjonRequest
 import no.nav.virksomhet.tjenester.arkiv.journalbehandling.v1.binding.Journalbehandling
+import no.nhn.register.communicationparty.ICommunicationPartyService
 import no.nhn.schemas.reg.flr.IFlrReadOperations
 import no.nhn.schemas.reg.flr.PatientToGPContractAssociation
 import org.apache.cxf.ext.logging.LoggingFeature
@@ -127,11 +130,34 @@ fun main(args: Array<String>) = runBlocking {
         configureSTSFor(dokumentProduksjonV3, fasitProperties.srvPaopUsername,
                 fasitProperties.srvPaopPassword, fasitProperties.securityTokenServiceUrl)
 
+        val adresseRegisterV1 = JaxWsProxyFactoryBean().apply {
+            address = fasitProperties.dokumentproduksjonV3EndpointURL
+            features.add(LoggingFeature())
+            serviceClass = ICommunicationPartyService::class.java
+        }.create() as ICommunicationPartyService
+        configureSTSFor(adresseRegisterV1, fasitProperties.srvPaopUsername,
+                fasitProperties.srvPaopPassword, fasitProperties.securityTokenServiceUrl)
+
+        val partnerEmottak = JaxWsProxyFactoryBean().apply {
+            address = fasitProperties.dokumentproduksjonV3EndpointURL
+            features.add(LoggingFeature())
+            outInterceptors.add(WSS4JOutInterceptor(interceptorProperties))
+            serviceClass = PartnerResource::class.java
+        }.create() as PartnerResource
+
+        val altinnMelding = JaxWsProxyFactoryBean().apply {
+            address = fasitProperties.dokumentproduksjonV3EndpointURL
+            features.add(LoggingFeature())
+            serviceClass = ICorrespondenceAgencyExternal::class.java
+        }.create() as ICorrespondenceAgencyExternal
+        configureSTSFor(altinnMelding, fasitProperties.srvPaopUsername,
+                fasitProperties.srvPaopPassword, fasitProperties.securityTokenServiceUrl)
+
         val sarClient = SarClient(fasitProperties.kuhrSarApiURL, fasitProperties.srvPaopUsername,
                 fasitProperties.srvPaopPassword)
 
         listen(PdfClient(fasitProperties.pdfGeneratorURL),
-                journalbehandling, fastlegeregisteret, organisasjonV4, dokumentProduksjonV3, sarClient, arenaQueue, connection)
+                journalbehandling, fastlegeregisteret, organisasjonV4, dokumentProduksjonV3, adresseRegisterV1, partnerEmottak, altinnMelding, sarClient, arenaQueue, connection)
                 .join()
     }
 }
@@ -142,6 +168,9 @@ fun listen(
     fastlegeregisteret: IFlrReadOperations,
     organisasjonV4: OrganisasjonV4,
     dokumentProduksjonV3: DokumentproduksjonV3,
+    adresseRegisterV1: ICommunicationPartyService,
+    partnerEmottak: PartnerResource,
+    altinnMelding: ICorrespondenceAgencyExternal,
     sarClient: SarClient,
     arenaQueue: Queue,
     connection: Connection
@@ -187,6 +216,7 @@ fun listen(
                 if (fastlegefunnet && patientToGPContractAssociation.gpContract != null) {
                     val gpFNR = patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first().gp.value.nin
                     val orgnrGp = patientToGPContractAssociation.gpContract.value.gpOffice.value.organizationNumber
+                    val herIdFlr = patientToGPContractAssociation.gpHerId
                     val samhandler = sarClient.getSamhandler(gpFNR.toString())
                     val samhandlerPraksis = findSamhandlerPraksis(samhandler, orgnrGp)
                     val tssid = samhandlerPraksis?.tss_ident
