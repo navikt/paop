@@ -11,13 +11,11 @@ import io.prometheus.client.hotspot.DefaultExports
 import kotlinx.coroutines.experimental.launch
 import kotlinx.coroutines.experimental.runBlocking
 import no.altinn.services.serviceengine.correspondence._2009._10.ICorrespondenceAgencyExternal
+import no.nav.emottak.schemas.HentPartnerIDViaOrgnummerRequest
 import no.nav.emottak.schemas.PartnerResource
 import no.nav.model.dataBatch.DataBatch
 import no.nav.paop.client.PdfClient
 import no.nav.paop.client.PdfType
-import no.nav.paop.client.Samhandler
-import no.nav.paop.client.SamhandlerPraksis
-import no.nav.paop.client.SarClient
 import no.nav.paop.client.createArenaBrevTilArbeidsgiver
 import no.nav.paop.client.createArenaOppfolgingsplan
 import no.nav.paop.client.createJoarkRequest
@@ -153,11 +151,8 @@ fun main(args: Array<String>) = runBlocking {
         configureSTSFor(altinnMelding, fasitProperties.srvPaopUsername,
                 fasitProperties.srvPaopPassword, fasitProperties.securityTokenServiceUrl)
 
-        val sarClient = SarClient(fasitProperties.kuhrSarApiURL, fasitProperties.srvPaopUsername,
-                fasitProperties.srvPaopPassword)
-
         listen(PdfClient(fasitProperties.pdfGeneratorURL),
-                journalbehandling, fastlegeregisteret, organisasjonV4, dokumentProduksjonV3, adresseRegisterV1, partnerEmottak, altinnMelding, sarClient, arenaQueue, connection)
+                journalbehandling, fastlegeregisteret, organisasjonV4, dokumentProduksjonV3, adresseRegisterV1, partnerEmottak, altinnMelding, arenaQueue, connection)
                 .join()
     }
 }
@@ -171,7 +166,6 @@ fun listen(
     adresseRegisterV1: ICommunicationPartyService,
     partnerEmottak: PartnerResource,
     altinnMelding: ICorrespondenceAgencyExternal,
-    sarClient: SarClient,
     arenaQueue: Queue,
     connection: Connection
 ) = launch {
@@ -216,10 +210,27 @@ fun listen(
                 if (fastlegefunnet && patientToGPContractAssociation.gpContract != null) {
                     val gpFNR = patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first().gp.value.nin
                     val orgnrGp = patientToGPContractAssociation.gpContract.value.gpOffice.value.organizationNumber
+
                     val herIdFlr = patientToGPContractAssociation.gpHerId
-                    val samhandler = sarClient.getSamhandler(gpFNR.toString())
-                    val samhandlerPraksis = findSamhandlerPraksis(samhandler, orgnrGp)
-                    val tssid = samhandlerPraksis?.tss_ident
+
+                    val getCommunicationPartyDetailsResponse = adresseRegisterV1.getOrganizationPersonDetails(herIdFlr.value)
+
+                    // Should only return one org
+                    val herIDAdresseregister = getCommunicationPartyDetailsResponse.organizations.value.organization.first().herId
+
+                    val hentPartnerIDViaOrgnummerRequest = HentPartnerIDViaOrgnummerRequest().apply {
+                        orgnr = extractOrgNr(formData, oppfolgingslplanType)
+                    }
+
+                    val hentPartnerIDViaOrgnummerResponse = partnerEmottak.hentPartnerIDViaOrgnummer(hentPartnerIDViaOrgnummerRequest)
+
+                    val canReviceDialogmelding = hentPartnerIDViaOrgnummerResponse.partnerInformasjon.firstOrNull {
+                        it.heRid.toInt() == herIDAdresseregister
+                    }
+                    if (canReviceDialogmelding != null) {
+                        // send dialogmelding to Emootak
+                    }
+
                     val brevrequest = ProduserIkkeredigerbartDokumentRequest().apply {
                         dokumentbestillingsinformasjon = Dokumentbestillingsinformasjon().apply {
                         dokumenttypeId = "brev"
@@ -232,7 +243,7 @@ fun listen(
                         }
                             mottaker = Person().apply {
                                 navn = extractGPName(patientToGPContractAssociation)
-                                ident = tssid
+                                ident = herIdFlr.toString()
                             }
                             journalsakId = edilogg
                             sakstilhoerendeFagsystem = Fagsystemer().apply {
@@ -243,15 +254,12 @@ fun listen(
                             }
                             journalfoerendeEnhet = "N/A"
                             adresse = NorskPostadresse().apply {
-                                adresselinje1 = samhandlerPraksis?.arbeids_adresse_linje_1
-                                adresselinje2 = samhandlerPraksis?.arbeids_adresse_linje_2
-                                adresselinje3 = samhandlerPraksis?.arbeids_adresse_linje_3
+                                adresselinje1 = patientToGPContractAssociation.gpContract.value.gpOffice.value.physicalAddresses.value.physicalAddress.first().streetAddress.value
                                 land = Landkoder().apply {
                                     value = "NO"
                                 }
-                                postnummer = samhandlerPraksis?.post_postnr
-                                // TODO download text file from bring, and read into a array
-                                poststed = "OSLO"
+                                postnummer = patientToGPContractAssociation.gpContract.value.gpOffice.value.physicalAddresses.value.physicalAddress.first().postalCode.toString()
+                                poststed = patientToGPContractAssociation.gpContract.value.gpOffice.value.physicalAddresses.value.physicalAddress.first().city.value
                             }
                             isFerdigstillForsendelse = true
                             isInkludererEksterneVedlegg = false
@@ -357,10 +365,7 @@ fun listen(
                     if (fastlegefunnet && patientToGPContractAssociation.gpContract != null) {
                         val gpFNR = patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first().gp.value.nin
                         val orgnrGp = patientToGPContractAssociation.gpContract.value.gpOffice.value.organizationNumber
-                        // CALL KUHR SAR
-                        val samhandler = sarClient.getSamhandler(gpFNR.toString())
-                        val samhandlerPraksis = findSamhandlerPraksis(samhandler, orgnrGp)
-                        val tssid = samhandlerPraksis?.tss_ident
+
                         val brevrequest = ProduserIkkeredigerbartDokumentRequest().apply {
                         }
                         try {
@@ -430,26 +435,6 @@ fun Marshaller.toString(input: Any): String = StringWriter().use {
     marshal(input, it)
     it.toString()
 }
-
-fun findSamhandlerPraksis(samhandlers: List<Samhandler>, orgnrGp: Int): SamhandlerPraksis? = samhandlers
-            .filter {
-                it.breg_hovedenhet?.organisasjonsnummer == orgnrGp.toString()
-            }
-            .flatMap {
-                it.samh_praksis
-            }
-            .filter {
-                it.samh_praksis_status_kode == "aktiv"
-            }
-            .filter {
-                it.samh_praksis_periode
-                        .filter { it.gyldig_fra <= LocalDateTime.now() }
-                        .filter { it.gyldig_til == null || it.gyldig_til >= LocalDateTime.now() }
-                        .any()
-            }
-            .firstOrNull {
-                it.samh_praksis_status_kode == "LE"
-            }
 
 fun extractOppfolgingsplanSendesTilFastlege(formData: String, oppfolgingPlanType: Oppfolginsplan): Boolean? =
         when (oppfolgingPlanType) {
