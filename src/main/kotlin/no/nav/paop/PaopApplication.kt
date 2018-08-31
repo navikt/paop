@@ -49,6 +49,7 @@ import org.apache.wss4j.common.ext.WSPasswordCallback
 import org.apache.wss4j.dom.WSConstants
 import org.apache.wss4j.dom.handler.WSHandlerConstants
 import org.slf4j.LoggerFactory
+import java.io.StringReader
 import java.io.StringWriter
 import java.time.Duration
 import java.time.LocalDateTime
@@ -171,7 +172,7 @@ fun listen(
         consumer.poll(Duration.ofMillis(0)).forEach {
             log.info("Recived a kafka message:")
 
-            val dataBatch = it.value().getBatch() as DataBatch
+            val dataBatch = dataBatchUnmarshaller.unmarshal(StringReader(it.value().getBatch())) as DataBatch
             val serviceCode = dataBatch.dataUnits.dataUnit.first().formTask.serviceCode
             val serviceEditionCode = dataBatch.dataUnits.dataUnit.first().formTask.serviceEditionCode
             val formData = dataBatch.dataUnits.dataUnit.first().formTask.form.first().formData
