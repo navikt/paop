@@ -171,7 +171,6 @@ fun listen(
     while (true) {
         consumer.poll(Duration.ofMillis(0)).forEach {
             log.info("Recived a kafka message:")
-            log.info(it.value().getBatch())
 
             val dataBatch = it.value().getBatch() as DataBatch
             val serviceCode = dataBatch.dataUnits.dataUnit.first().formTask.serviceCode
