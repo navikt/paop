@@ -73,7 +73,7 @@ fun main(args: Array<String>) = runBlocking {
     val env = Environment()
     createHttpServer(applicationVersion = env.appVersion)
 
-    val consumerProperties = readConsumerConfig(env, valueDeserializer = StringDeserializer::class)
+    val consumerProperties = readConsumerConfig(env)
     val consumer = KafkaConsumer<String, ExternalAttachment>(consumerProperties)
     consumer.subscribe(listOf(env.kafkaTopicOppfolginsplan))
 
