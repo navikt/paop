@@ -1,6 +1,6 @@
 package no.nav.paop
 
-data class FasitProperties(
+data class Environment(
     val srvPaopUsername: String = getEnvVar("SRVPAOP_USERNAME"),
     val srvPaopPassword: String = getEnvVar("SRVPAOP_PASSWORD"),
     val srvEiaUsername: String = getEnvVar("SRVEIA_USERNAME"),
@@ -20,7 +20,7 @@ data class FasitProperties(
     val pdfGeneratorURL: String = getEnvVar("PDF_GENERATOR_URL", "http://pdf-gen/api"),
     val organisasjonV4EndpointURL: String = getEnvVar("VIRKSOMHET_ORGANISASJON_V4_ENDPOINTURL"),
     val kafkaBootstrapServersURL: String = getEnvVar("KAFKA_BOOTSTRAP_SERVERS_URL"),
-    val kafkaTopicOppfolginsplan: String = getEnvVar("AAPEN_PAOP_OPPFOLGINGSPLAN_TEST_MOTTATT_TOPIC", "aapen-paop-oppfolgingsplan-test-motatt"),
+    val kafkaTopicOppfolginsplan: String = getEnvVar("PRIVAT_ALTINN_PAOP_TOPIC", "privat-altinn-paop-Mottatt"),
     val dokumentproduksjonV3EndpointURL: String = getEnvVar("DOKUMENTPRODUKSJON_V3_ENDPOINTURL")
 )
 
