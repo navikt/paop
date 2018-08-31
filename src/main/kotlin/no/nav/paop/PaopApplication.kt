@@ -38,7 +38,7 @@ import no.nav.tjeneste.virksomhet.organisasjon.v4.meldinger.FinnOrganisasjonRequ
 import no.nav.tjeneste.virksomhet.organisasjon.v4.meldinger.HentOrganisasjonRequest
 import no.nav.tjeneste.virksomhet.organisasjon.v4.meldinger.ValiderOrganisasjonRequest
 import no.nav.virksomhet.tjenester.arkiv.journalbehandling.v1.binding.Journalbehandling
-import no.nhn.register.communicationparty.ICommunicationPartyService
+import no.nhn.adresseregisteret.ICommunicationPartyService
 import no.nhn.schemas.reg.flr.IFlrReadOperations
 import no.nhn.schemas.reg.flr.PatientToGPContractAssociation
 import org.apache.cxf.ext.logging.LoggingFeature

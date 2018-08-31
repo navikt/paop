@@ -183,10 +183,10 @@ wsdl2java {
     dependsOn copyWsdlFromArtifacts
     wsdlDir = file("$buildDir/schema")
     wsdlsToGenerate = [
-            ["$buildDir/schema/fastlegeinformasjon.wsdl"],
+            ["-xjc", "-p", "http://register.nhn.no/Common=no.nhn.register.commontypes", "$buildDir/schema/fastlegeinformasjon.wsdl"],
             ["$buildDir/schema/partner.wsdl"],
             ["$buildDir/schema/CorrespondenceAgencyExternal.svc.wsdl"],
-            ["$buildDir/schema/tjenestespesifikasjon/adresseregisteret.wsdl"]
+            ["-xjc", "-p", "no.nhn.adresseregisteret", "$buildDir/schema/tjenestespesifikasjon/adresseregisteret.wsdl"]
     ]
 }
 
