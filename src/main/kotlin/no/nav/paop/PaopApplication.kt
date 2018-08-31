@@ -173,11 +173,11 @@ fun listen(
             log.info("Recived a kafka message:")
 
             val dataBatch = dataBatchUnmarshaller.unmarshal(StringReader(it.value().getBatch())) as DataBatch
-            val serviceCode = dataBatch.dataUnits.dataUnit.first().formTask.serviceCode
-            val serviceEditionCode = dataBatch.dataUnits.dataUnit.first().formTask.serviceEditionCode
+            val serviceCode = it.value().getServiceCode()
+            val serviceEditionCode = it.value().getServiceEditionCode()
             val formData = dataBatch.dataUnits.dataUnit.first().formTask.form.first().formData
             val oppfolgingslplanType = findOppfolingsplanType(serviceCode, serviceEditionCode)
-            val archiveReference = dataBatch.dataUnits.dataUnit.first().archiveReference
+            val archiveReference = it.value().getArchiveReference()
             val edilogg = "${LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm"))}-paop-$archiveReference"
             val session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE)
             val arenaProducer = session.createProducer(arenaQueue)
