@@ -176,13 +176,14 @@ fun listen(
             val serviceCode = it.value().getServiceCode()
             val serviceEditionCode = it.value().getServiceEditionCode()
             val formData = dataBatch.dataUnits.dataUnit.first().formTask.form.first().formData
-            val oppfolgingslplanType = findOppfolingsplanType(serviceCode, serviceEditionCode)
+            var oppfolgingslplanType = findOppfolingsplanType(serviceCode, serviceEditionCode)
             val archiveReference = it.value().getArchiveReference()
             val edilogg = "${LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm"))}-paop-$archiveReference"
             val session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE)
             val arenaProducer = session.createProducer(arenaQueue)
+            oppfolgingslplanType = Oppfolginsplan.OP2016 // TODO slette denne etter testing
 
-            if (oppfolgingslplanType == Oppfolginsplan.OP2012 || oppfolgingslplanType == Oppfolginsplan.OP2014 || oppfolgingslplanType == Oppfolginsplan.OP2016 || oppfolgingslplanType == Oppfolginsplan.TEST) {
+            if (oppfolgingslplanType == Oppfolginsplan.OP2012 || oppfolgingslplanType == Oppfolginsplan.OP2014 || oppfolgingslplanType == Oppfolginsplan.OP2016) {
                 val validerOrganisasjonRequest = ValiderOrganisasjonRequest().apply {
                     orgnummer = extractOrgNr(formData, oppfolgingslplanType)
                 }
