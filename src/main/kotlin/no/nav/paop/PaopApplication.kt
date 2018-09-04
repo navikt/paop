@@ -220,8 +220,7 @@ fun listen(
                 log.error("validerOrganisasjon failed: ", e)
                 } catch (e: ValiderOrganisasjonUgyldigInput) {
                     log.error("validerOrganisasjon failed: ", e)
-                }
-                catch (e: Exception) {
+                } catch (e: Exception) {
                     log.error("validerOrganisasjon failed: ", e)
                 }
 
