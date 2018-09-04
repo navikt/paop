@@ -197,7 +197,9 @@ fun listen(
                 val validerOrganisasjonRequest = ValiderOrganisasjonRequest().apply {
                     orgnummer = extractOrgNr(formData, oppfolgingslplanType)
                 }
+                log.info("validerOrganisasjon request: ", validerOrganisasjonRequest.toString())
 
+                /*
                 val organisasjonDeferred = retryWithInterval(retryInterval, "valider_organisasjon") {
                     organisasjonV4.validerOrganisasjon(validerOrganisasjonRequest).isGyldigOrgnummer
                 }
@@ -209,6 +211,17 @@ fun listen(
                 } catch (e: ValiderOrganisasjonOrganisasjonIkkeFunnet) {
                     log.error("validerOrganisasjon failed: ", e)
                 } catch (e: ValiderOrganisasjonUgyldigInput) {
+                    log.error("validerOrganisasjon failed: ", e)
+                }
+                */
+                val gyldindOrgnummer = try {
+                    organisasjonV4.validerOrganisasjon(validerOrganisasjonRequest).isGyldigOrgnummer
+                } catch (e: ValiderOrganisasjonOrganisasjonIkkeFunnet) {
+                log.error("validerOrganisasjon failed: ", e)
+                } catch (e: ValiderOrganisasjonUgyldigInput) {
+                    log.error("validerOrganisasjon failed: ", e)
+                }
+                catch (e: Exception) {
                     log.error("validerOrganisasjon failed: ", e)
                 }
 
