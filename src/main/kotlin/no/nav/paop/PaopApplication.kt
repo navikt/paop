@@ -8,6 +8,8 @@ import com.ibm.mq.jms.MQConnectionFactory
 import com.ibm.msg.client.wmq.WMQConstants
 import com.ibm.msg.client.wmq.compat.base.internal.MQC
 import io.prometheus.client.hotspot.DefaultExports
+import kotlinx.coroutines.experimental.Deferred
+import kotlinx.coroutines.experimental.async
 import kotlinx.coroutines.experimental.delay
 import kotlinx.coroutines.experimental.launch
 import kotlinx.coroutines.experimental.runBlocking
@@ -24,6 +26,8 @@ import no.nav.paop.client.createJoarkRequest
 import no.nav.paop.mapping.extractOrgNr
 import no.nav.paop.mapping.extractSykmeldtArbeidstakerFnr
 import no.nav.paop.mapping.mapFormdataToFagmelding
+import no.nav.paop.metrics.RETRY_COUNTER
+import no.nav.paop.metrics.WS_CALL_TIME
 import no.nav.paop.sts.configureSTSFor
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.DokumentproduksjonV3
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.Dokumentbestillingsinformasjon
@@ -34,6 +38,8 @@ import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.NorskPostadr
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.Person
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.meldinger.ProduserIkkeredigerbartDokumentRequest
 import no.nav.tjeneste.virksomhet.organisasjon.v4.binding.OrganisasjonV4
+import no.nav.tjeneste.virksomhet.organisasjon.v4.binding.ValiderOrganisasjonOrganisasjonIkkeFunnet
+import no.nav.tjeneste.virksomhet.organisasjon.v4.binding.ValiderOrganisasjonUgyldigInput
 import no.nav.tjeneste.virksomhet.organisasjon.v4.meldinger.FinnOrganisasjonRequest
 import no.nav.tjeneste.virksomhet.organisasjon.v4.meldinger.HentOrganisasjonRequest
 import no.nav.tjeneste.virksomhet.organisasjon.v4.meldinger.ValiderOrganisasjonRequest
@@ -49,6 +55,7 @@ import org.apache.wss4j.common.ext.WSPasswordCallback
 import org.apache.wss4j.dom.WSConstants
 import org.apache.wss4j.dom.handler.WSHandlerConstants
 import org.slf4j.LoggerFactory
+import java.io.IOException
 import java.io.StringReader
 import java.io.StringWriter
 import java.time.Duration
@@ -60,12 +67,15 @@ import javax.jms.Queue
 import javax.jms.Session
 import javax.security.auth.callback.CallbackHandler
 import javax.xml.bind.Marshaller
+import javax.xml.ws.WebServiceException
 
 private val log = LoggerFactory.getLogger("nav.paop-application")
 val objectMapper: ObjectMapper = ObjectMapper()
         .registerModule(JavaTimeModule())
         .registerKotlinModule()
         .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
+
+val retryInterval = arrayOf(1000L, 1000L * 60, 2000L * 60, 2000L * 60, 5000L * 60)
 class PaopApplication
 
 fun main(args: Array<String>) = runBlocking {
@@ -187,9 +197,22 @@ fun listen(
                 val validerOrganisasjonRequest = ValiderOrganisasjonRequest().apply {
                     orgnummer = extractOrgNr(formData, oppfolgingslplanType)
                 }
-                val validerOrganisasjonResponse = organisasjonV4.validerOrganisasjon(validerOrganisasjonRequest)
 
-                if (validerOrganisasjonResponse.isGyldigOrgnummer) {
+                val organisasjonDeferred = retryWithInterval(retryInterval, "valider_organisasjon") {
+                    organisasjonV4.validerOrganisasjon(validerOrganisasjonRequest).isGyldigOrgnummer
+                }
+
+                val gyldindOrgnummer = try {
+                    runBlocking {
+                        organisasjonDeferred.await()
+                    }
+                } catch (e: ValiderOrganisasjonOrganisasjonIkkeFunnet) {
+                    log.error("validerOrganisasjon failed: ", e)
+                } catch (e: ValiderOrganisasjonUgyldigInput) {
+                    log.error("validerOrganisasjon failed: ", e)
+                }
+
+                if (gyldindOrgnummer == true) {
                     val letterToGP = extractOppfolgingsplanSendesTilFastlege(formData, oppfolgingslplanType)
                     val letterToNAV = extractOppfolgingsplanSendesTiNav(formData, oppfolgingslplanType)
 
@@ -463,3 +486,25 @@ fun extractGPName(patientToGPContractAssociation: PatientToGPContractAssociation
         "${patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first().gp.value.firstName.value} " +
                 "${patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first().gp.value.middleName.value}" +
                 "${patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first().gp.value.lastName.value}"
+
+fun <T> retryWithInterval(interval: Array<Long>, callName: String, blocking: suspend () -> T): Deferred<T> {
+    return async {
+        for (time in interval) {
+            try {
+                WS_CALL_TIME.labels(callName).startTimer().use {
+                    return@async blocking()
+                }
+            } catch (e: WebServiceException) {
+                if (e.cause !is IOException)
+                    throw e
+                log.warn("Caught IO exception trying to reach {}, retrying", callName, e)
+            }
+            RETRY_COUNTER.labels(callName).inc()
+            Thread.sleep(time)
+        }
+
+        WS_CALL_TIME.labels(callName).startTimer().use {
+            blocking()
+        }
+    }
+}
