@@ -197,7 +197,7 @@ fun listen(
                 val validerOrganisasjonRequest = ValiderOrganisasjonRequest().apply {
                     orgnummer = extractOrgNr(formData, oppfolgingslplanType)
                 }
-                log.info("validerOrganisasjon request: ", validerOrganisasjonRequest.toString())
+                log.info("validerOrganisasjon request org nr: ", validerOrganisasjonRequest.orgnummer.toString())
 
                 /*
                 val organisasjonDeferred = retryWithInterval(retryInterval, "valider_organisasjon") {

@@ -52,7 +52,11 @@ applicationDefaultJvmArgs = [
         '-Dcom.ibm.mq.cfg.useIBMCipherMappings=false',
         '-Djavax.net.ssl.trustStore=${NAV_TRUSTSTORE_PATH}',
         '-Djavax.net.ssl.trustStorePassword=${NAV_TRUSTSTORE_PASSWORD}',
-        '-Djavax.net.ssl.trustStoreType=JKS'
+        '-Djavax.net.ssl.trustStoreType=JKS',
+        '-XX:+UnlockExperimentalVMOptions',
+        '-XX:+UseCGroupMemoryLimitForHeap',
+        '-XX:+UseG1GC',
+        '-XshowSettings:vm'
 ]
 
 startScripts {
