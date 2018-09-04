@@ -182,7 +182,7 @@ fun listen(
             val session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE)
             val arenaProducer = session.createProducer(arenaQueue)
 
-            if (oppfolgingslplanType == Oppfolginsplan.OP2012 || oppfolgingslplanType == Oppfolginsplan.OP2014 || oppfolgingslplanType == Oppfolginsplan.OP2016) {
+            if (oppfolgingslplanType == Oppfolginsplan.OP2012 || oppfolgingslplanType == Oppfolginsplan.OP2014 || oppfolgingslplanType == Oppfolginsplan.OP2016 || oppfolgingslplanType == Oppfolginsplan.TEST) {
                 val validerOrganisasjonRequest = ValiderOrganisasjonRequest().apply {
                     orgnummer = extractOrgNr(formData, oppfolgingslplanType)
                 }
