@@ -109,8 +109,8 @@ fun main(args: Array<String>) = runBlocking {
             features.add(LoggingFeature())
             serviceClass = IFlrReadOperations::class.java
         }.create() as IFlrReadOperations
-        configureSTSFor(fastlegeregisteret, env.srvEiaUsername,
-                env.srvEiaPassword, env.securityTokenServiceUrl)
+        configureSTSFor(fastlegeregisteret, env.srvPaopUsername,
+                env.srvPaopPassword, env.securityTokenServiceUrl)
 
         val organisasjonV4 = JaxWsProxyFactoryBean().apply {
             address = env.organisasjonV4EndpointURL
