@@ -95,13 +95,14 @@ fun main(args: Array<String>) = runBlocking {
         val arenaQueue = session.createQueue(env.arenaIAQueue)
         session.close()
 
-        val fastlegeregisteret = JaxWsProxyFactoryBean().apply {
-            address = env.fastlegeregiserHdirURL
-            features.add(LoggingFeature())
-            serviceClass = IFlrReadOperations::class.java
-        }.create() as IFlrReadOperations
-        configureSTSFor(fastlegeregisteret, env.srvEiaUsername,
-                env.srvEiaPassword, env.securityTokenServiceUrl)
+        val interceptorPropertieseia = mapOf(
+                WSHandlerConstants.USER to env.srvEiaUsername,
+                WSHandlerConstants.ACTION to WSHandlerConstants.USERNAME_TOKEN,
+                WSHandlerConstants.PASSWORD_TYPE to WSConstants.PW_TEXT,
+                WSHandlerConstants.PW_CALLBACK_REF to CallbackHandler {
+                    (it[0] as WSPasswordCallback).password = env.srvEiaPassword
+                }
+        )
 
         val interceptorProperties = mapOf(
                 WSHandlerConstants.USER to env.srvPaopUsername,
@@ -111,6 +112,13 @@ fun main(args: Array<String>) = runBlocking {
                     (it[0] as WSPasswordCallback).password = env.srvPaopPassword
                 }
         )
+
+        val fastlegeregisteret = JaxWsProxyFactoryBean().apply {
+            address = env.fastlegeregiserHdirURL
+            features.add(LoggingFeature())
+            outInterceptors.add(WSS4JOutInterceptor(interceptorPropertieseia))
+            serviceClass = IFlrReadOperations::class.java
+        }.create() as IFlrReadOperations
 
         val organisasjonV4 = JaxWsProxyFactoryBean().apply {
             address = env.organisasjonV4EndpointURL
