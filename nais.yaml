@@ -34,7 +34,7 @@ fasitResources:
   used:
     - alias: srvpaop
       resourceType: Credential
-    - alias: srvEia
+    - alias: srvfastlegerest
       resourceType: Credential
     - alias: securityTokenService
       resourceType: BaseUrl
