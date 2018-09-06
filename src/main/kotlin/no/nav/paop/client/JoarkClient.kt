@@ -5,6 +5,10 @@ import no.nav.paop.Oppfolginsplan
 import no.nav.paop.PaopConstant
 import no.nav.paop.newInstance
 import no.nav.paop.extractOppfolginsplan2012
+import no.nav.paop.extractOppfolginsplan2014
+import no.nav.paop.extractOppfolginsplan2016
+import no.nav.paop.mapping.extractOrgNr
+import no.nav.paop.mapping.extractOrgnavn
 import no.nav.virksomhet.tjenester.arkiv.journalbehandling.meldinger.v1.Bruker
 import no.nav.virksomhet.tjenester.arkiv.journalbehandling.meldinger.v1.DokumentInfo
 import no.nav.virksomhet.tjenester.arkiv.journalbehandling.meldinger.v1.Fildetaljer
@@ -14,8 +18,6 @@ import java.util.GregorianCalendar
 
 fun createJoarkRequest(dataBatch: DataBatch, formData: String, oppfolginsplanType: Oppfolginsplan, edilogg: String, archiveReference: String, fagmelding: ByteArray):
         LagreDokumentOgOpprettJournalpostRequest = LagreDokumentOgOpprettJournalpostRequest().apply {
-
-        val extractOppfolginsplan = extractOppfolginsplan2012(formData)
 
     journalpostDokumentInfoRelasjonListe.add(
                 JournalpostDokumentInfoRelasjon().apply {
@@ -43,7 +45,7 @@ fun createJoarkRequest(dataBatch: DataBatch, formData: String, oppfolginsplanTyp
             )
 
     gjelderListe.add(Bruker().apply {
-        brukerId = extractOppfolginsplan.skjemainnhold.sykmeldtArbeidstaker.value.fnr
+        brukerId = extractOppfolgingsplanSykmeldtArbeidstakerFnr(formData, oppfolginsplanType)
         brukertypeKode = PaopConstant.person.string
     })
 
@@ -57,7 +59,15 @@ fun createJoarkRequest(dataBatch: DataBatch, formData: String, oppfolginsplanTyp
     dokumentDato = newInstance.newXMLGregorianCalendar(GregorianCalendar())
     fagomradeKode = PaopConstant.opp.string
     fordeling = PaopConstant.eiaOk.string
-    avsenderMottaker = extractOppfolginsplan.skjemainnhold.arbeidsgiver.value.orgnavn
-    avsenderMottakerId = extractOppfolginsplan.skjemainnhold.arbeidsgiver.value.orgnr
+    avsenderMottaker = extractOrgnavn(formData, oppfolginsplanType)
+    avsenderMottakerId = extractOrgNr(formData, oppfolginsplanType)
     opprettetAvNavn = PaopConstant.eiaAuto.string
 }
+
+fun extractOppfolgingsplanSykmeldtArbeidstakerFnr(formData: String, oppfolgingPlanType: Oppfolginsplan): String? =
+        when (oppfolgingPlanType) {
+            Oppfolginsplan.OP2012 -> extractOppfolginsplan2012(formData).skjemainnhold.sykmeldtArbeidstaker.value.fnr
+            Oppfolginsplan.OP2014 -> extractOppfolginsplan2014(formData).skjemainnhold.sykmeldtArbeidstaker.value.fnr
+            Oppfolginsplan.OP2016 -> extractOppfolginsplan2016(formData).skjemainnhold.sykmeldtArbeidstaker.value.fnr
+            else -> throw RuntimeException("Invalid oppfolginsplanType: $oppfolgingPlanType")
+        }
