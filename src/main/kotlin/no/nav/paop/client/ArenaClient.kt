@@ -53,7 +53,6 @@ fun createArenaOppfolgingsplan(dataBatch: DataBatch, formData: String, edilogg: 
 
 fun createArenaBrevTilArbeidsgiver(dataBatch: DataBatch, formData: String, edilogg: String,oppfolginsplanType: Oppfolginsplan ):
         ArenaBrevTilArbeidsgiver = ArenaBrevTilArbeidsgiver().apply {
-    val extractOppfolginsplan = extractOppfolginsplan2012(formData)
     eiaDokumentInfo = no.nav.model.arenaBrevTilArbeidsgiver.EiaDokumentInfoType().apply {
         dokumentInfo = no.nav.model.arenaBrevTilArbeidsgiver.DokumentInfoType().apply {
             dokumentType = "EIA.OFP_AG"
