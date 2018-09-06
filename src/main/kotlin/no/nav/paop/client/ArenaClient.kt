@@ -47,12 +47,14 @@ fun createArenaOppfolgingsplan(dataBatch: DataBatch, formData: String, edilogg: 
                 isBistandNavVeil = extractTiltakBistandRaadOgVeiledning(formData, oppfolginsplanType)
                 isBistandNavDialogmote = extractTiltakBistandDialogMoeteMedNav(formData, oppfolginsplanType)
                 isBistandNavVirke = extractTiltakBistandArbeidsrettedeTiltakOgVirkemidler(formData, oppfolginsplanType)
-
             }
 }
-
-fun createArenaBrevTilArbeidsgiver(dataBatch: DataBatch, formData: String, edilogg: String,oppfolginsplanType: Oppfolginsplan ):
-        ArenaBrevTilArbeidsgiver = ArenaBrevTilArbeidsgiver().apply {
+fun createArenaBrevTilArbeidsgiver(
+    dataBatch: DataBatch,
+    formData: String,
+    edilogg: String,
+    oppfolginsplanType: Oppfolginsplan
+): ArenaBrevTilArbeidsgiver = ArenaBrevTilArbeidsgiver().apply {
     eiaDokumentInfo = no.nav.model.arenaBrevTilArbeidsgiver.EiaDokumentInfoType().apply {
         dokumentInfo = no.nav.model.arenaBrevTilArbeidsgiver.DokumentInfoType().apply {
             dokumentType = "EIA.OFP_AG"
