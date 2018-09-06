@@ -29,6 +29,7 @@ buildscript {
     ext.jaxws_api_version = "2.2" // TODO: 2.3.0
     ext.javax_activation_version = '1.1.1'
     ext.altinnkanal_schemas = '1.0.0'
+    ext.saaj_version = "1.4.0"
 
     ext.jaxb2SourceDir = file("$buildDir/generated-sources/jaxb2")
 }
@@ -299,4 +300,5 @@ dependencies {
     implementation "org.glassfish.jaxb:jaxb-runtime:$jaxb_version"
 
     implementation "no.nav.altinnkanal:altinnkanal-schemas:$altinnkanal_schemas"
+    implementation("com.sun.xml.messaging.saaj:saaj-impl:$saaj_version")
 }
