@@ -16,7 +16,7 @@ data class Environment(
     val mqChannelName: String = getEnvVar("PAOP_CHANNEL_NAME"),
     val mqUsername: String = getEnvVar("SRVAPPSERVER_USERNAME", "srvappserver"),
     val mqPassword: String = getEnvVar("SRVAPPSERVER_PASSWORD", ""),
-    val fastlegeregiserHdirURL: String = getEnvVar("FASTLEGEREGISTER_HDIR_ENDPOINTURL"),
+    val fastlegeregiserHdirURL: String = getEnvVar("EKSTERN_HELSE_FASTLEGEINFORMASJON_ENDPOINTURL"),
     val pdfGeneratorURL: String = getEnvVar("PDF_GENERATOR_URL", "http://pdf-gen/api"),
     val organisasjonV4EndpointURL: String = getEnvVar("VIRKSOMHET_ORGANISASJON_V4_ENDPOINTURL"),
     val kafkaBootstrapServersURL: String = getEnvVar("KAFKA_BOOTSTRAP_SERVERS_URL"),

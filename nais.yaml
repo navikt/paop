@@ -48,7 +48,7 @@ fasitResources:
       resourceType: Channel
     - alias: mqGateway03
       resourceType: QueueManager
-    - alias: fastlegeregister_hdir
+    - alias: ekstern:helse_fastlegeinformasjon
       resourceType: webserviceendpoint
     - alias: virksomhet:Organisasjon_v4
       resourceType: Webserviceendpoint
