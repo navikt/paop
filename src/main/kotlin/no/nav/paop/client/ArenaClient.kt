@@ -6,14 +6,22 @@ import no.nav.model.arenaOppfolging.ArenaOppfolgingPlan
 import no.nav.model.arenaOppfolging.DokumentInfoType
 import no.nav.model.arenaOppfolging.EiaDokumentInfoType
 import no.nav.model.dataBatch.DataBatch
+import no.nav.paop.Oppfolginsplan
 import no.nav.paop.PaopConstant
 import no.nav.paop.extractOppfolginsplan2012
+import no.nav.paop.extractOppfolginsplan2014
+import no.nav.paop.extractOppfolginsplan2016
+import no.nav.paop.mapping.extractOrgNr
+import no.nav.paop.mapping.extractSykmeldtArbeidstakerFnr
+import no.nav.paop.mapping.extractTiltakBistandArbeidsrettedeTiltakOgVirkemidler
+import no.nav.paop.mapping.extractTiltakBistandDialogMoeteMedNav
+import no.nav.paop.mapping.extractTiltakBistandHjelpemidler
+import no.nav.paop.mapping.extractTiltakBistandRaadOgVeiledning
 import no.nav.paop.newInstance
 import java.util.GregorianCalendar
 
-fun createArenaOppfolgingsplan(dataBatch: DataBatch, formData: String, edilogg: String):
+fun createArenaOppfolgingsplan(dataBatch: DataBatch, formData: String, edilogg: String, oppfolginsplanType: Oppfolginsplan):
         ArenaOppfolgingPlan = ArenaOppfolgingPlan().apply {
-            val extractOppfolginsplan = extractOppfolginsplan2012(formData)
             eiaDokumentInfo = EiaDokumentInfoType().apply {
                 dokumentInfo = DokumentInfoType().apply {
                     dokumentType = PaopConstant.dokumentType2913.string
@@ -24,29 +32,26 @@ fun createArenaOppfolgingsplan(dataBatch: DataBatch, formData: String, edilogg: 
                 behandlingInfo = null
                 avsender = EiaDokumentInfoType.Avsender().apply {
                     arbeidsgiver = ArbeidsgiverType().apply {
-                        arbeidsgiverOrgNr = extractOppfolginsplan.skjemainnhold.arbeidsgiver.value.orgnr
+                        arbeidsgiverOrgNr = extractOrgNr(formData, oppfolginsplanType)
                     }
                 }
                 avsenderSystem = EiaDokumentInfoType.AvsenderSystem().apply {
-                    systemNavn = extractOppfolginsplan.skjemainnhold.avsenderSystem.value.systemNavn
-                    systemVersjon = extractOppfolginsplan.skjemainnhold.avsenderSystem.value.systemVersjon
+                    systemNavn = extractAvsenderSystemSystemnavn(formData, oppfolginsplanType)
+                    systemVersjon = extractAvsenderSystemSystemVersjon(formData, oppfolginsplanType)
                 }
             }
-            bedriftsNr = extractOppfolginsplan.skjemainnhold.arbeidsgiver.value.orgnr
-            fodselsNr = extractOppfolginsplan.skjemainnhold.sykmeldtArbeidstaker.value.fnr
+            bedriftsNr = extractOrgNr(formData, oppfolginsplanType)
+            fodselsNr = extractSykmeldtArbeidstakerFnr(formData, oppfolginsplanType)
             bistandNav = ArenaOppfolgingPlan.BistandNav().apply {
-                isBistandNavHjelpemid = extractOppfolginsplan.skjemainnhold.tiltak.value.tiltaksinformasjon.first()
-                        .bistandHjelpemidler.value
-                isBistandNavVeil = extractOppfolginsplan.skjemainnhold.tiltak.value.tiltaksinformasjon.first()
-                        .bistandRaadOgVeiledning.value
-                isBistandNavDialogmote = extractOppfolginsplan.skjemainnhold.tiltak.value.tiltaksinformasjon.first()
-                        .bistandDialogMoeteMedNav.value
-                isBistandNavVirke = extractOppfolginsplan.skjemainnhold.tiltak.value.tiltaksinformasjon.first()
-                        .bistandArbeidsrettedeTiltakOgVirkemidler.value
+                isBistandNavHjelpemid = extractTiltakBistandHjelpemidler(formData, oppfolginsplanType)
+                isBistandNavVeil = extractTiltakBistandRaadOgVeiledning(formData, oppfolginsplanType)
+                isBistandNavDialogmote = extractTiltakBistandDialogMoeteMedNav(formData, oppfolginsplanType)
+                isBistandNavVirke = extractTiltakBistandArbeidsrettedeTiltakOgVirkemidler(formData, oppfolginsplanType)
+
             }
 }
 
-fun createArenaBrevTilArbeidsgiver(dataBatch: DataBatch, formData: String, edilogg: String):
+fun createArenaBrevTilArbeidsgiver(dataBatch: DataBatch, formData: String, edilogg: String,oppfolginsplanType: Oppfolginsplan ):
         ArenaBrevTilArbeidsgiver = ArenaBrevTilArbeidsgiver().apply {
     val extractOppfolginsplan = extractOppfolginsplan2012(formData)
     eiaDokumentInfo = no.nav.model.arenaBrevTilArbeidsgiver.EiaDokumentInfoType().apply {
@@ -58,10 +63,26 @@ fun createArenaBrevTilArbeidsgiver(dataBatch: DataBatch, formData: String, edilo
         }
         avsender = no.nav.model.arenaBrevTilArbeidsgiver.EiaDokumentInfoType.Avsender().apply {
             arbeidsgiver = no.nav.model.arenaBrevTilArbeidsgiver.ArbeidsgiverType().apply {
-                arbeidsgiverOrgNr = extractOppfolginsplan.skjemainnhold.arbeidsgiver.value.orgnr
+                arbeidsgiverOrgNr = extractOrgNr(formData, oppfolginsplanType)
             }
         }
     }
-    bedriftsNr = extractOppfolginsplan.skjemainnhold.arbeidsgiver.value.orgnr
-    fodselsNr = extractOppfolginsplan.skjemainnhold.sykmeldtArbeidstaker.value.fnr
+    bedriftsNr = extractOrgNr(formData, oppfolginsplanType)
+    fodselsNr = extractSykmeldtArbeidstakerFnr(formData, oppfolginsplanType)
 }
+
+fun extractAvsenderSystemSystemnavn(formData: String, oppfolgingPlanType: Oppfolginsplan): String? =
+        when (oppfolgingPlanType) {
+            Oppfolginsplan.OP2012 -> extractOppfolginsplan2012(formData).skjemainnhold?.avsenderSystem?.value?.systemNavn?.value
+            Oppfolginsplan.OP2014 -> extractOppfolginsplan2014(formData).skjemainnhold?.avsenderSystem?.value?.systemNavn?.value
+            Oppfolginsplan.OP2016 -> extractOppfolginsplan2016(formData).skjemainnhold?.avsenderSystem?.value?.systemNavn?.value
+            else -> throw RuntimeException("Invalid oppfolginsplanType: $oppfolgingPlanType")
+        }
+
+fun extractAvsenderSystemSystemVersjon(formData: String, oppfolgingPlanType: Oppfolginsplan): String? =
+        when (oppfolgingPlanType) {
+            Oppfolginsplan.OP2012 -> extractOppfolginsplan2012(formData).skjemainnhold?.avsenderSystem?.value?.systemVersjon?.value
+            Oppfolginsplan.OP2014 -> extractOppfolginsplan2014(formData).skjemainnhold?.avsenderSystem?.value?.systemVersjon?.value
+            Oppfolginsplan.OP2016 -> extractOppfolginsplan2016(formData).skjemainnhold?.avsenderSystem?.value?.systemVersjon?.value
+            else -> throw RuntimeException("Invalid oppfolginsplanType: $oppfolgingPlanType")
+        }

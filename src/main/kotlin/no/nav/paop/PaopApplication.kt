@@ -233,7 +233,7 @@ fun listen(
                         val joarkRequest = createJoarkRequest(dataBatch, formData, oppfolgingslplanType, edilogg, archiveReference, fagmelding)
                         journalbehandling.lagreDokumentOgOpprettJournalpost(joarkRequest)
 
-                        sendArenaOppfolginsplan(arenaProducer, session, formData, dataBatch, edilogg)
+                        sendArenaOppfolginsplan(arenaProducer, session, formData, dataBatch, edilogg, oppfolgingslplanType)
                     }
                     if (letterToGP == true) {
                         var fastlegefunnet = false
@@ -308,7 +308,7 @@ fun listen(
 
                             try {
                                 val brevRespone = dokumentProduksjonV3.produserIkkeredigerbartDokument(brevrequest)
-                                letterSentNotificationToArena(arenaProducer, session, formData, dataBatch, edilogg)
+                                letterSentNotificationToArena(arenaProducer, session, formData, dataBatch, edilogg, oppfolgingslplanType)
                             } catch (e: Exception) {
                                 log.error("Call to dokprod returned Exception", e)
                             }
@@ -363,7 +363,7 @@ fun listen(
 
                         try {
                             val brevRespone = dokumentProduksjonV3.produserIkkeredigerbartDokument(brevrequest)
-                            letterSentNotificationToArena(arenaProducer, session, formData, dataBatch, edilogg)
+                            letterSentNotificationToArena(arenaProducer, session, formData, dataBatch, edilogg, oppfolgingslplanType)
                         } catch (e: Exception) {
                             log.error("Call to dokprod returned Exception", e)
                         }
@@ -388,7 +388,7 @@ fun listen(
                             val joarkRequest = createJoarkRequest(dataBatch, formData, oppfolgingslplanType, edilogg, archiveReference, fagmelding)
                             journalbehandling.lagreDokumentOgOpprettJournalpost(joarkRequest)
 
-                            sendArenaOppfolginsplan(arenaProducer, session, formData, dataBatch, edilogg)
+                            sendArenaOppfolginsplan(arenaProducer, session, formData, dataBatch, edilogg, oppfolgingslplanType)
                         }
                         if (letterToGP) {
                             var fastlegefunnet = false
@@ -409,7 +409,7 @@ fun listen(
                                 }
                                 try {
                                     val brevRespone = dokumentProduksjonV3.produserIkkeredigerbartDokument(brevrequest)
-                                    letterSentNotificationToArena(arenaProducer, session, formData, dataBatch, edilogg)
+                                    letterSentNotificationToArena(arenaProducer, session, formData, dataBatch, edilogg, oppfolgingslplanType)
                                 } catch (e: Exception) {
                                     log.error("Call to dokprod returned Exception", e)
                                 }
@@ -420,7 +420,7 @@ fun listen(
 
                             try {
                                 val brevRespone = dokumentProduksjonV3.produserIkkeredigerbartDokument(brevrequest)
-                                letterSentNotificationToArena(arenaProducer, session, formData, dataBatch, edilogg)
+                                letterSentNotificationToArena(arenaProducer, session, formData, dataBatch, edilogg, oppfolgingslplanType)
                             } catch (e: Exception) {
                                 log.error("Call to dokprod returned Exception", e)
                             }
@@ -431,7 +431,7 @@ fun listen(
                 val fagmelding = dataBatch.attachments.attachment.first().value
                 val joarkRequest = createJoarkRequest(dataBatch, formData, oppfolgingslplanType, edilogg, archiveReference, fagmelding)
                 journalbehandling.lagreDokumentOgOpprettJournalpost(joarkRequest)
-                sendArenaOppfolginsplan(arenaProducer, session, formData, dataBatch, edilogg)
+                sendArenaOppfolginsplan(arenaProducer, session, formData, dataBatch, edilogg, oppfolgingslplanType)
             }
         }
         delay(100)
@@ -456,9 +456,10 @@ fun sendArenaOppfolginsplan(
     session: Session,
     formdata: String,
     databatch: DataBatch,
-    edilogg: String
+    edilogg: String,
+    oppfolgingPlanType: Oppfolginsplan
 ) = producer.send(session.createTextMessage().apply {
-    val info = createArenaOppfolgingsplan(databatch, formdata, edilogg)
+    val info = createArenaOppfolgingsplan(databatch, formdata, edilogg, oppfolgingPlanType)
     text = arenaMarshaller.toString(info)
 })
 
@@ -467,9 +468,10 @@ fun letterSentNotificationToArena(
     session: Session,
     formdata: String,
     databatch: DataBatch,
-    edilogg: String
+    edilogg: String,
+    oppfolgingPlanType: Oppfolginsplan
 ) = producer.send(session.createTextMessage().apply {
-    val info = createArenaBrevTilArbeidsgiver(databatch, formdata, edilogg)
+    val info = createArenaBrevTilArbeidsgiver(databatch, formdata, edilogg, oppfolgingPlanType)
     text = arenabrevMarshaller.toString(info)
 })
 
