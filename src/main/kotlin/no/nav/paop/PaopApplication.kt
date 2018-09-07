@@ -8,8 +8,6 @@ import com.ibm.mq.jms.MQConnectionFactory
 import com.ibm.msg.client.wmq.WMQConstants
 import com.ibm.msg.client.wmq.compat.base.internal.MQC
 import io.prometheus.client.hotspot.DefaultExports
-import kotlinx.coroutines.experimental.Deferred
-import kotlinx.coroutines.experimental.async
 import kotlinx.coroutines.experimental.delay
 import kotlinx.coroutines.experimental.launch
 import kotlinx.coroutines.experimental.runBlocking
@@ -23,10 +21,9 @@ import no.nav.paop.client.createArenaBrevTilArbeidsgiver
 import no.nav.paop.client.createArenaOppfolgingsplan
 import no.nav.paop.client.createJoarkRequest
 import no.nav.paop.mapping.extractOrgNr
+import no.nav.paop.mapping.extractOrgnavn
 import no.nav.paop.mapping.extractSykmeldtArbeidstakerFnr
 import no.nav.paop.mapping.mapFormdataToFagmelding
-import no.nav.paop.metrics.RETRY_COUNTER
-import no.nav.paop.metrics.WS_CALL_TIME
 import no.nav.paop.sts.configureSTSFor
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.DokumentproduksjonV3
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.Dokumentbestillingsinformasjon
@@ -37,8 +34,6 @@ import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.NorskPostadr
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.Person
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.meldinger.ProduserIkkeredigerbartDokumentRequest
 import no.nav.tjeneste.virksomhet.organisasjon.v4.binding.OrganisasjonV4
-import no.nav.tjeneste.virksomhet.organisasjon.v4.binding.ValiderOrganisasjonOrganisasjonIkkeFunnet
-import no.nav.tjeneste.virksomhet.organisasjon.v4.binding.ValiderOrganisasjonUgyldigInput
 import no.nav.tjeneste.virksomhet.organisasjon.v4.meldinger.FinnOrganisasjonRequest
 import no.nav.tjeneste.virksomhet.organisasjon.v4.meldinger.HentOrganisasjonRequest
 import no.nav.tjeneste.virksomhet.organisasjon.v4.meldinger.ValiderOrganisasjonRequest
@@ -55,7 +50,6 @@ import org.apache.wss4j.common.ext.WSPasswordCallback
 import org.apache.wss4j.dom.WSConstants
 import org.apache.wss4j.dom.handler.WSHandlerConstants
 import org.slf4j.LoggerFactory
-import java.io.IOException
 import java.io.StringReader
 import java.io.StringWriter
 import java.time.Duration
@@ -67,16 +61,12 @@ import javax.jms.Queue
 import javax.jms.Session
 import javax.security.auth.callback.CallbackHandler
 import javax.xml.bind.Marshaller
-import javax.xml.ws.WebServiceException
 
 private val log = LoggerFactory.getLogger("nav.paop-application")
 val objectMapper: ObjectMapper = ObjectMapper()
         .registerModule(JavaTimeModule())
         .registerKotlinModule()
         .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
-
-val retryInterval = arrayOf(1000L, 1000L * 60, 2000L * 60, 2000L * 60, 5000L * 60)
-class PaopApplication
 
 fun main(args: Array<String>) = runBlocking {
     DefaultExports.initialize()
@@ -177,7 +167,7 @@ fun listen(
 
     while (true) {
         consumer.poll(Duration.ofMillis(0)).forEach {
-            log.info("Recived a kafka message:")
+            log.info("Recived a kafka message")
 
             val dataBatch = dataBatchUnmarshaller.unmarshal(StringReader(it.value().getBatch())) as DataBatch
             val serviceCode = it.value().getServiceCode()
@@ -195,17 +185,13 @@ fun listen(
                     orgnummer = extractOrgNr(formData, oppfolgingslplanType)
                 }
 
-                val gyldindOrgnummer = try {
+                val gyldigOrgnummer = try {
                     organisasjonV4.validerOrganisasjon(validerOrganisasjonRequest).isGyldigOrgnummer
-                } catch (e: ValiderOrganisasjonOrganisasjonIkkeFunnet) {
-                log.error("validerOrganisasjon failed: ", e)
-                } catch (e: ValiderOrganisasjonUgyldigInput) {
-                    log.error("validerOrganisasjon failed: ", e)
                 } catch (e: Exception) {
                     log.error("validerOrganisasjon failed: ", e)
                 }
 
-                if (gyldindOrgnummer == true) {
+                if (gyldigOrgnummer == true) {
                     val letterToGP = extractOppfolgingsplanSendesTilFastlege(formData, oppfolgingslplanType)
                     val letterToNAV = extractOppfolgingsplanSendesTiNav(formData, oppfolgingslplanType)
 
@@ -228,8 +214,11 @@ fun listen(
                         }
 
                         if (fastlegefunnet && patientToGPContractAssociation.gpContract != null) {
-                            val gpFNR = patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first().gp.value.nin
-                            val orgnrGp = patientToGPContractAssociation.gpContract.value.gpOffice.value.organizationNumber
+                            val gpName = extractGPName(patientToGPContractAssociation)
+                            val gpOfficePostnr = patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first()
+                                    .gp.value.physicalAddresses.value.physicalAddress.first().postalCode.toString()
+                            val gpOfficePoststed = patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first()
+                                    .gp.value.physicalAddresses.value.physicalAddress.first().city.value.toString()
 
                             val herIdFlr = patientToGPContractAssociation.gpHerId
 
@@ -248,50 +237,15 @@ fun listen(
                                 it.heRid.toInt() == herIDAdresseregister
                             }
                             if (canReviceDialogmelding != null) {
-                                // send dialogmelding to Emootak
-                            }
-
-                            val brevrequest = ProduserIkkeredigerbartDokumentRequest().apply {
-                                dokumentbestillingsinformasjon = Dokumentbestillingsinformasjon().apply {
-                                    dokumenttypeId = "brev"
-                                    bestillendeFagsystem = Fagsystemer().apply {
-                                        value = "PAOP"
-                                    }
-                                    bruker = Person().apply {
-                                        navn = "NAV Servicesenter"
-                                        ident = "NAV ORGNR"
-                                    }
-                                    mottaker = Person().apply {
-                                        navn = extractGPName(patientToGPContractAssociation)
-                                        ident = herIdFlr.toString()
-                                    }
-                                    journalsakId = edilogg
-                                    sakstilhoerendeFagsystem = Fagsystemer().apply {
-                                        value = "ARENA"
-                                    }
-                                    dokumenttilhoerendeFagomraade = Fagomraader().apply {
-                                        value = "Sykefravær"
-                                    }
-                                    journalfoerendeEnhet = "N/A"
-                                    adresse = NorskPostadresse().apply {
-                                        adresselinje1 = patientToGPContractAssociation.gpContract.value.gpOffice.value.physicalAddresses.value.physicalAddress.first().streetAddress.value
-                                        land = Landkoder().apply {
-                                            value = "NO"
-                                        }
-                                        postnummer = patientToGPContractAssociation.gpContract.value.gpOffice.value.physicalAddresses.value.physicalAddress.first().postalCode.toString()
-                                        poststed = patientToGPContractAssociation.gpContract.value.gpOffice.value.physicalAddresses.value.physicalAddress.first().city.value
-                                    }
-                                    isFerdigstillForsendelse = true
-                                    isInkludererEksterneVedlegg = false
-                                    brevdata = "The message to send out"
-                                }
-                            }
-
+                                // send dialogmelding to Emottak and fastlege
+                            } else {
+                            val brevrequest = createProduserIkkeredigerbartDokumentRequest(formData, oppfolgingslplanType, gpName, gpOfficePostnr, gpOfficePoststed, edilogg)
                             try {
-                                val brevRespone = dokumentProduksjonV3.produserIkkeredigerbartDokument(brevrequest)
+                                dokumentProduksjonV3.produserIkkeredigerbartDokument(brevrequest)
                                 letterSentNotificationToArena(arenaProducer, session, formData, dataBatch, edilogg, oppfolgingslplanType)
                             } catch (e: Exception) {
                                 log.error("Call to dokprod returned Exception", e)
+                            }
                             }
                         }
                     } else {
@@ -306,44 +260,14 @@ fun listen(
                         }
                         val finnOrganisasjonResponse = organisasjonV4.finnOrganisasjon(finnOrganisasjonRequest)
 
-                        val brevrequest = ProduserIkkeredigerbartDokumentRequest().apply {
-                            dokumentbestillingsinformasjon = Dokumentbestillingsinformasjon().apply {
-                                dokumenttypeId = "brev"
-                                bestillendeFagsystem = Fagsystemer().apply {
-                                    value = "PAOP"
-                                }
-                                bruker = Person().apply {
-                                    navn = "NAV Servicesenter"
-                                    ident = "NAV ORGNR"
-                                }
-                                mottaker = Person().apply {
-                                    navn = finnOrganisasjonResponse.organisasjonSammendragListe.firstOrNull()?.redigertNavn
-                                    ident = extractOrgNr(formData, oppfolgingslplanType)
-                                }
-                                journalsakId = edilogg
-                                sakstilhoerendeFagsystem = Fagsystemer().apply {
-                                    value = "ARENA"
-                                }
-                                dokumenttilhoerendeFagomraade = Fagomraader().apply {
-                                    value = "Sykefravær"
-                                }
-                                journalfoerendeEnhet = "N/A"
-                                adresse = NorskPostadresse().apply {
-                                    adresselinje1 = "stat"
-                                    land = Landkoder().apply {
-                                        value = "NOR"
-                                    }
-                                    postnummer = finnOrganisasjonResponse.organisasjonSammendragListe.firstOrNull()?.postnummer?.value
-                                    poststed = finnOrganisasjonResponse.organisasjonSammendragListe.firstOrNull()?.poststed
-                                }
-                                isFerdigstillForsendelse = true
-                                isInkludererEksterneVedlegg = false
-                                brevdata = "The message to send out"
-                            }
-                        }
+                        val orgname = extractOrgnavn(formData, oppfolgingslplanType)
+                        val orgpostnummer = finnOrganisasjonResponse.organisasjonSammendragListe.firstOrNull()?.postnummer?.value
+                        val orgpoststed = finnOrganisasjonResponse.organisasjonSammendragListe.firstOrNull()?.poststed
+
+                        val brevrequest = createProduserIkkeredigerbartDokumentRequest(formData, oppfolgingslplanType, orgname, orgpostnummer, orgpoststed, edilogg)
 
                         try {
-                            val brevRespone = dokumentProduksjonV3.produserIkkeredigerbartDokument(brevrequest)
+                            dokumentProduksjonV3.produserIkkeredigerbartDokument(brevrequest)
                             letterSentNotificationToArena(arenaProducer, session, formData, dataBatch, edilogg, oppfolgingslplanType)
                         } catch (e: Exception) {
                             log.error("Call to dokprod returned Exception", e)
@@ -383,24 +307,41 @@ fun listen(
                             }
 
                             if (fastlegefunnet && patientToGPContractAssociation.gpContract != null) {
-                                val gpFNR = patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first().gp.value.nin
-                                val orgnrGp = patientToGPContractAssociation.gpContract.value.gpOffice.value.organizationNumber
+                                val gpName = extractGPName(patientToGPContractAssociation)
+                                val gpOfficePostnr = patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first()
+                                        .gp.value.physicalAddresses.value.physicalAddress.first().postalCode.toString()
+                                val gpOfficePoststed = patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first()
+                                        .gp.value.physicalAddresses.value.physicalAddress.first().city.value.toString()
 
-                                val brevrequest = ProduserIkkeredigerbartDokumentRequest().apply {
-                                }
+                                val brevrequest = createProduserIkkeredigerbartDokumentRequest(formData, oppfolgingslplanType, gpName, gpOfficePostnr, gpOfficePoststed, edilogg)
+
                                 try {
-                                    val brevRespone = dokumentProduksjonV3.produserIkkeredigerbartDokument(brevrequest)
+                                    dokumentProduksjonV3.produserIkkeredigerbartDokument(brevrequest)
                                     letterSentNotificationToArena(arenaProducer, session, formData, dataBatch, edilogg, oppfolgingslplanType)
                                 } catch (e: Exception) {
                                     log.error("Call to dokprod returned Exception", e)
                                 }
                             }
                         } else {
-                            val brevrequest = ProduserIkkeredigerbartDokumentRequest().apply {
+
+                            val hentOrganisasjonRequest = HentOrganisasjonRequest().apply {
+                                orgnummer = extractOrgNr(formData, oppfolgingslplanType)
                             }
+                            val hentOrganisasjonResponse = organisasjonV4.hentOrganisasjon(hentOrganisasjonRequest)
+
+                            val finnOrganisasjonRequest = FinnOrganisasjonRequest().apply {
+                                navn = hentOrganisasjonResponse.organisasjon.navn.toString()
+                            }
+                            val finnOrganisasjonResponse = organisasjonV4.finnOrganisasjon(finnOrganisasjonRequest)
+
+                            val orgname = extractOrgnavn(formData, oppfolgingslplanType)
+                            val orgpostnummer = finnOrganisasjonResponse.organisasjonSammendragListe.firstOrNull()?.postnummer?.value
+                            val orgpoststed = finnOrganisasjonResponse.organisasjonSammendragListe.firstOrNull()?.poststed
+
+                            val brevrequest = createProduserIkkeredigerbartDokumentRequest(formData, oppfolgingslplanType, orgname, orgpostnummer, orgpoststed, edilogg)
 
                             try {
-                                val brevRespone = dokumentProduksjonV3.produserIkkeredigerbartDokument(brevrequest)
+                                dokumentProduksjonV3.produserIkkeredigerbartDokument(brevrequest)
                                 letterSentNotificationToArena(arenaProducer, session, formData, dataBatch, edilogg, oppfolgingslplanType)
                             } catch (e: Exception) {
                                 log.error("Call to dokprod returned Exception", e)
@@ -482,24 +423,40 @@ fun extractGPName(patientToGPContractAssociation: PatientToGPContractAssociation
                 "${patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first().gp.value.middleName.value}" +
                 "${patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first().gp.value.lastName.value}"
 
-fun <T> retryWithInterval(interval: Array<Long>, callName: String, blocking: suspend () -> T): Deferred<T> {
-    return async {
-        for (time in interval) {
-            try {
-                WS_CALL_TIME.labels(callName).startTimer().use {
-                    return@async blocking()
+fun createProduserIkkeredigerbartDokumentRequest(formdata: String, oppfolgingPlanType: Oppfolginsplan, mottakernavn: String?, postnummerString: String?, poststedString: String?, edilogg: String):
+        ProduserIkkeredigerbartDokumentRequest =
+        ProduserIkkeredigerbartDokumentRequest().apply {
+            dokumentbestillingsinformasjon = Dokumentbestillingsinformasjon().apply {
+                dokumenttypeId = "brev"
+                bestillendeFagsystem = Fagsystemer().apply {
+                    value = "PAOP"
                 }
-            } catch (e: WebServiceException) {
-                if (e.cause !is IOException)
-                    throw e
-                log.warn("Caught IO exception trying to reach {}, retrying", callName, e)
+                bruker = Person().apply {
+                    navn = "NAV Servicesenter"
+                    ident = "NAV ORGNR"
+                }
+                mottaker = Person().apply {
+                    navn = mottakernavn
+                    ident = extractOrgNr(formdata, oppfolgingPlanType)
+                }
+                journalsakId = edilogg
+                sakstilhoerendeFagsystem = Fagsystemer().apply {
+                    value = "ARENA"
+                }
+                dokumenttilhoerendeFagomraade = Fagomraader().apply {
+                    value = "Sykefravær"
+                }
+                journalfoerendeEnhet = "N/A"
+                adresse = NorskPostadresse().apply {
+                    adresselinje1 = "stat"
+                    land = Landkoder().apply {
+                        value = "NOR"
+                    }
+                    postnummer = postnummerString
+                    poststed = poststedString
+                }
+                isFerdigstillForsendelse = true
+                isInkludererEksterneVedlegg = false
+                brevdata = "The message to send out"
             }
-            RETRY_COUNTER.labels(callName).inc()
-            Thread.sleep(time)
         }
-
-        WS_CALL_TIME.labels(callName).startTimer().use {
-            blocking()
-        }
-    }
-}
