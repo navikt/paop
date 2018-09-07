@@ -215,14 +215,12 @@ fun listen(
 
                         if (fastlegefunnet && patientToGPContractAssociation.gpContract != null) {
                             val gpName = extractGPName(patientToGPContractAssociation)
-                            val gpOfficePostnr = patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first()
-                                    .gp.value.physicalAddresses.value.physicalAddress.first().postalCode.toString()
-                            val gpOfficePoststed = patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first()
-                                    .gp.value.physicalAddresses.value.physicalAddress.first().city.value.toString()
+                            val gpOfficePostnr = patientToGPContractAssociation.gpContract.value.gpOffice.value.physicalAddresses.value.physicalAddress.first().postalCode.toString()
+                            val gpOfficePoststed = patientToGPContractAssociation.gpContract.value.gpOffice.value.physicalAddresses.value.physicalAddress.first().city.value.toString()
 
-                            val herIdFlr = patientToGPContractAssociation.gpHerId
+                            val herIdFlr = patientToGPContractAssociation.gpHerId.value
 
-                            val getCommunicationPartyDetailsResponse = adresseRegisterV1.getOrganizationPersonDetails(herIdFlr.value)
+                            val getCommunicationPartyDetailsResponse = adresseRegisterV1.getOrganizationPersonDetails(herIdFlr)
 
                             // Should only return one org
                             val herIDAdresseregister = getCommunicationPartyDetailsResponse.organizations.value.organization.first().herId
@@ -308,10 +306,8 @@ fun listen(
 
                             if (fastlegefunnet && patientToGPContractAssociation.gpContract != null) {
                                 val gpName = extractGPName(patientToGPContractAssociation)
-                                val gpOfficePostnr = patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first()
-                                        .gp.value.physicalAddresses.value.physicalAddress.first().postalCode.toString()
-                                val gpOfficePoststed = patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first()
-                                        .gp.value.physicalAddresses.value.physicalAddress.first().city.value.toString()
+                                val gpOfficePostnr = patientToGPContractAssociation.gpContract.value.gpOffice.value.physicalAddresses.value.physicalAddress.first().postalCode.toString()
+                                val gpOfficePoststed = patientToGPContractAssociation.gpContract.value.gpOffice.value.physicalAddresses.value.physicalAddress.first().city.value.toString()
 
                                 val brevrequest = createProduserIkkeredigerbartDokumentRequest(formData, oppfolgingslplanType, gpName, gpOfficePostnr, gpOfficePoststed, edilogg)
 
