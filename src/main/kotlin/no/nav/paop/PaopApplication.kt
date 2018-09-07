@@ -104,14 +104,22 @@ fun main(args: Array<String>) = runBlocking {
                 }
         )
 
+        val interceptorPropertiesEIA = mapOf(
+                WSHandlerConstants.USER to env.srvEiaUsername,
+                WSHandlerConstants.ACTION to WSHandlerConstants.USERNAME_TOKEN,
+                WSHandlerConstants.PASSWORD_TYPE to WSConstants.PW_TEXT,
+                WSHandlerConstants.PW_CALLBACK_REF to CallbackHandler {
+                    (it[0] as WSPasswordCallback).password = env.srvEIaPassword
+                }
+        )
+
         val fastlegeregisteret = JaxWsProxyFactoryBean().apply {
             address = env.fastlegeregiserHdirURL
             features.add(LoggingFeature())
             features.add(WSAddressingFeature())
+            outInterceptors.add(WSS4JOutInterceptor(interceptorPropertiesEIA))
             serviceClass = IFlrReadOperations::class.java
         }.create() as IFlrReadOperations
-        configureSTSFor(fastlegeregisteret, env.srvEiaUsername,
-                env.srvEIaPassword, env.securityTokenServiceUrl)
 
         val organisasjonV4 = JaxWsProxyFactoryBean().apply {
             address = env.organisasjonV4EndpointURL
