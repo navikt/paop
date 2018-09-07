@@ -224,9 +224,10 @@ fun listen(
 
                             // Should only return one org
                             val herIDAdresseregister = getCommunicationPartyDetailsResponse.organizations.value.organization.first().herId
+                            val gpOrganizationNumber = getCommunicationPartyDetailsResponse.organizations.value.organization.first().organizationNumber
 
                             val hentPartnerIDViaOrgnummerRequest = HentPartnerIDViaOrgnummerRequest().apply {
-                                orgnr = extractOrgNr(formData, oppfolgingslplanType)
+                                orgnr = gpOrganizationNumber.toString()
                             }
 
                             val hentPartnerIDViaOrgnummerResponse = partnerEmottak.hentPartnerIDViaOrgnummer(hentPartnerIDViaOrgnummerRequest)
