@@ -48,6 +48,7 @@ import no.nhn.schemas.reg.flr.IFlrReadOperations
 import no.nhn.schemas.reg.flr.PatientToGPContractAssociation
 import org.apache.cxf.ext.logging.LoggingFeature
 import org.apache.cxf.jaxws.JaxWsProxyFactoryBean
+import org.apache.cxf.ws.addressing.WSAddressingFeature
 import org.apache.cxf.ws.security.wss4j.WSS4JOutInterceptor
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.wss4j.common.ext.WSPasswordCallback
@@ -106,6 +107,7 @@ fun main(args: Array<String>) = runBlocking {
         val fastlegeregisteret = JaxWsProxyFactoryBean().apply {
             address = env.fastlegeregiserHdirURL
             features.add(LoggingFeature())
+            features.add(WSAddressingFeature())
             serviceClass = IFlrReadOperations::class.java
         }.create() as IFlrReadOperations
         configureSTSFor(fastlegeregisteret, env.srvPaopUsername,
@@ -114,6 +116,7 @@ fun main(args: Array<String>) = runBlocking {
         val organisasjonV4 = JaxWsProxyFactoryBean().apply {
             address = env.organisasjonV4EndpointURL
             features.add(LoggingFeature())
+            features.add(WSAddressingFeature())
             serviceClass = OrganisasjonV4::class.java
         }.create() as OrganisasjonV4
         configureSTSFor(organisasjonV4, env.srvPaopUsername,
@@ -122,6 +125,7 @@ fun main(args: Array<String>) = runBlocking {
         val journalbehandling = JaxWsProxyFactoryBean().apply {
             address = env.journalbehandlingEndpointURL
             features.add(LoggingFeature())
+            features.add(WSAddressingFeature())
             outInterceptors.add(WSS4JOutInterceptor(interceptorProperties))
             serviceClass = Journalbehandling::class.java
         }.create() as Journalbehandling
@@ -129,22 +133,25 @@ fun main(args: Array<String>) = runBlocking {
         val dokumentProduksjonV3 = JaxWsProxyFactoryBean().apply {
             address = env.dokumentproduksjonV3EndpointURL
             features.add(LoggingFeature())
+            features.add(WSAddressingFeature())
             serviceClass = DokumentproduksjonV3::class.java
         }.create() as DokumentproduksjonV3
         configureSTSFor(dokumentProduksjonV3, env.srvPaopUsername,
                 env.srvPaopPassword, env.securityTokenServiceUrl)
 
         val adresseRegisterV1 = JaxWsProxyFactoryBean().apply {
-            address = env.dokumentproduksjonV3EndpointURL
+            address = env.adresseregisteretV1EmottakEndpointURL
             features.add(LoggingFeature())
+            features.add(WSAddressingFeature())
             serviceClass = ICommunicationPartyService::class.java
         }.create() as ICommunicationPartyService
         configureSTSFor(adresseRegisterV1, env.srvPaopUsername,
                 env.srvPaopPassword, env.securityTokenServiceUrl)
 
         val partnerEmottak = JaxWsProxyFactoryBean().apply {
-            address = env.dokumentproduksjonV3EndpointURL
+            address = env.partnerEmottakEndpointURL
             features.add(LoggingFeature())
+            features.add(WSAddressingFeature())
             outInterceptors.add(WSS4JOutInterceptor(interceptorProperties))
             serviceClass = PartnerResource::class.java
         }.create() as PartnerResource

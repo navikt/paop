@@ -54,3 +54,7 @@ fasitResources:
       resourceType: BaseUrl
     - alias: Dokumentproduksjon_v3
       resourceType: Webserviceendpoint
+    - alias: partnerService
+      resourceType: Webserviceendpoint
+    - alias: ekstern:helse_adresseregisteret_v1
+      resourceType: Webserviceendpoint
