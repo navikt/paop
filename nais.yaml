@@ -58,5 +58,3 @@ fasitResources:
       resourceType: Webserviceendpoint
     - alias: ekstern:helse_adresseregisteret_v1
       resourceType: Webserviceendpoint
-    - alias: srvEia
-      resourceType: Credential
