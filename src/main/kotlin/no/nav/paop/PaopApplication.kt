@@ -13,7 +13,6 @@ import kotlinx.coroutines.experimental.async
 import kotlinx.coroutines.experimental.delay
 import kotlinx.coroutines.experimental.launch
 import kotlinx.coroutines.experimental.runBlocking
-import no.altinn.services.serviceengine.correspondence._2009._10.ICorrespondenceAgencyExternal
 import no.nav.altinnkanal.avro.ExternalAttachment
 import no.nav.emottak.schemas.HentPartnerIDViaOrgnummerRequest
 import no.nav.emottak.schemas.PartnerResource
@@ -150,16 +149,8 @@ fun main(args: Array<String>) = runBlocking {
             serviceClass = PartnerResource::class.java
         }.create() as PartnerResource
 
-        val altinnMelding = JaxWsProxyFactoryBean().apply {
-            address = env.dokumentproduksjonV3EndpointURL
-            features.add(LoggingFeature())
-            serviceClass = ICorrespondenceAgencyExternal::class.java
-        }.create() as ICorrespondenceAgencyExternal
-        configureSTSFor(altinnMelding, env.srvPaopUsername,
-                env.srvPaopPassword, env.securityTokenServiceUrl)
-
         listen(PdfClient(env.pdfGeneratorURL),
-                journalbehandling, fastlegeregisteret, organisasjonV4, dokumentProduksjonV3, adresseRegisterV1, partnerEmottak, altinnMelding, arenaQueue, connection, consumer)
+                journalbehandling, fastlegeregisteret, organisasjonV4, dokumentProduksjonV3, adresseRegisterV1, partnerEmottak, arenaQueue, connection, consumer)
                 .join()
     }
 }
@@ -172,7 +163,6 @@ fun listen(
     dokumentProduksjonV3: DokumentproduksjonV3,
     adresseRegisterV1: ICommunicationPartyService,
     partnerEmottak: PartnerResource,
-    altinnMelding: ICorrespondenceAgencyExternal,
     arenaQueue: Queue,
     connection: Connection,
     consumer: KafkaConsumer<String, ExternalAttachment>
@@ -199,21 +189,6 @@ fun listen(
                 }
                 log.info("validerOrganisasjon request org nr: ", validerOrganisasjonRequest.orgnummer.toString())
 
-                /*
-                val organisasjonDeferred = retryWithInterval(retryInterval, "valider_organisasjon") {
-                    organisasjonV4.validerOrganisasjon(validerOrganisasjonRequest).isGyldigOrgnummer
-                }
-
-                val gyldindOrgnummer = try {
-                    runBlocking {
-                        organisasjonDeferred.await()
-                    }
-                } catch (e: ValiderOrganisasjonOrganisasjonIkkeFunnet) {
-                    log.error("validerOrganisasjon failed: ", e)
-                } catch (e: ValiderOrganisasjonUgyldigInput) {
-                    log.error("validerOrganisasjon failed: ", e)
-                }
-                */
                 val gyldindOrgnummer = try {
                     organisasjonV4.validerOrganisasjon(validerOrganisasjonRequest).isGyldigOrgnummer
                 } catch (e: ValiderOrganisasjonOrganisasjonIkkeFunnet) {
@@ -230,7 +205,7 @@ fun listen(
 
                     if (letterToNAV == true) {
                         val fagmelding = pdfClient.generatePDF(PdfType.FAGMELDING, mapFormdataToFagmelding(formData, oppfolgingslplanType))
-                        val joarkRequest = createJoarkRequest(dataBatch, formData, oppfolgingslplanType, edilogg, archiveReference, fagmelding)
+                        val joarkRequest = createJoarkRequest(formData, oppfolgingslplanType, edilogg, fagmelding)
                         journalbehandling.lagreDokumentOgOpprettJournalpost(joarkRequest)
 
                         sendArenaOppfolginsplan(arenaProducer, session, formData, dataBatch, edilogg, oppfolgingslplanType)
@@ -385,7 +360,7 @@ fun listen(
 
                         if (letterToNAV) {
                             val fagmelding = dataBatch.attachments.attachment.first().value
-                            val joarkRequest = createJoarkRequest(dataBatch, formData, oppfolgingslplanType, edilogg, archiveReference, fagmelding)
+                            val joarkRequest = createJoarkRequest(formData, oppfolgingslplanType, edilogg, fagmelding)
                             journalbehandling.lagreDokumentOgOpprettJournalpost(joarkRequest)
 
                             sendArenaOppfolginsplan(arenaProducer, session, formData, dataBatch, edilogg, oppfolgingslplanType)
@@ -429,7 +404,7 @@ fun listen(
                 }
             } else {
                 val fagmelding = dataBatch.attachments.attachment.first().value
-                val joarkRequest = createJoarkRequest(dataBatch, formData, oppfolgingslplanType, edilogg, archiveReference, fagmelding)
+                val joarkRequest = createJoarkRequest(formData, oppfolgingslplanType, edilogg, fagmelding)
                 journalbehandling.lagreDokumentOgOpprettJournalpost(joarkRequest)
                 sendArenaOppfolginsplan(arenaProducer, session, formData, dataBatch, edilogg, oppfolgingslplanType)
             }

@@ -17,11 +17,10 @@ object JoarkClientTest : Spek({
             val formdata = dataBatch.dataUnits.dataUnit.first().formTask.form.first().formData
             val oppfolgingslplanType = Oppfolginsplan.OP2016
             val edilogg = "1231413424.1"
-            val archiveReference = dataBatch.dataUnits.dataUnit.first().archiveReference
             val fagmelding = ByteArray(100)
             Arrays.fill(fagmelding, 1.toByte())
 
-            val joarkRequest = createJoarkRequest(dataBatch, formdata, oppfolgingslplanType, edilogg, archiveReference, fagmelding)
+            val joarkRequest = createJoarkRequest(formdata, oppfolgingslplanType, edilogg, fagmelding)
 
             joarkRequest.avsenderMottakerId shouldEqual "987654321"
         }

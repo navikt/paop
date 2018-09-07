@@ -24,7 +24,6 @@ buildscript {
     ext.jaxb2_commons_basic_version = '1.11.1'
     ext.partner_emottak_version = '1.0.0'
     ext.adresseregisteretV1_version = '1.0.2'
-    ext.altinn_correspondence_agency_external_version = '1.0'
     ext.jaxb_api_version = '2.1'
     ext.jaxws_api_version = "2.2" // TODO: 2.3.0
     ext.javax_activation_version = '1.1.1'
@@ -194,7 +193,6 @@ wsdl2java {
     wsdlsToGenerate = [
             ["-xjc", "-p", "http://register.nhn.no/Common=no.nhn.register.commontypes", "$buildDir/schema/fastlegeinformasjon.wsdl"],
             ["$buildDir/schema/partner.wsdl"],
-            ["$buildDir/schema/CorrespondenceAgencyExternal.svc.wsdl"],
             ["-xjc", "-p", "no.nhn.adresseregisteret", "$buildDir/schema/tjenestespesifikasjon/adresseregisteret.wsdl"]
     ]
 }
@@ -282,7 +280,6 @@ dependencies {
     implementation "no.nav.tjenester:nav-dokumentproduksjon-v3-tjenestespesifikasjon:$nav_dokumentproduksjon_v3_tjenestespesifikasjon_version:jaxws"
     navWsdl "no.nav.tjenester:partner-nav-emottak-partner-web:$partner_emottak_version@zip"
     navWsdl "no.nav.syfo.tjenester:adresseregisteretV1-tjenestespesifikasjon:$adresseregisteretV1_version"
-    navWsdl "no.nav.sbl.dialogarena:altinn-correspondence-agency-external:$altinn_correspondence_agency_external_version"
     navWsdl "no.nav.tjenester:ekstern-helse-fastlegeinformasjon-tjenestespesifikasjon:$ekstern_helse_fastlegeinformasjon_tjenestespesifikasjon_version@zip"
 
     testImplementation "org.amshove.kluent:kluent:$kluent_version"
