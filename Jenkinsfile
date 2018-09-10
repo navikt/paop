@@ -7,7 +7,7 @@ pipeline {
         APPLICATION_NAME = 'paop'
         APPLICATION_SERVICE = 'TODO'
         APPLICATION_COMPONENT = 'TODO'
-        FASIT_ENVIRONMENT = 'q4'
+        FASIT_ENVIRONMENT = 'q1'
         ZONE = 'fss'
         DOCKER_SLUG = 'integrasjon'
     }
