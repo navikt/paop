@@ -24,7 +24,8 @@ import no.nav.paop.mapping.extractOrgNr
 import no.nav.paop.mapping.extractOrgnavn
 import no.nav.paop.mapping.extractSykmeldtArbeidstakerFnr
 import no.nav.paop.mapping.mapFormdataToFagmelding
-import no.nav.paop.sts.configureSTSFor
+import no.nav.paop.ws.configureBasicAuthFor
+import no.nav.paop.ws.configureSTSFor
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.DokumentproduksjonV3
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.Dokumentbestillingsinformasjon
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.Fagomraader
@@ -142,9 +143,9 @@ fun main(args: Array<String>) = runBlocking {
             address = env.partnerEmottakEndpointURL
             features.add(LoggingFeature())
             features.add(WSAddressingFeature())
-            outInterceptors.add(WSS4JOutInterceptor(interceptorProperties))
             serviceClass = PartnerResource::class.java
         }.create() as PartnerResource
+        configureBasicAuthFor(partnerEmottak, env.srvPaopUsername, env.srvPaopPassword)
 
         listen(PdfClient(env.pdfGeneratorURL),
                 journalbehandling, fastlegeregisteret, organisasjonV4, dokumentProduksjonV3, adresseRegisterV1, partnerEmottak, arenaQueue, connection, consumer)
