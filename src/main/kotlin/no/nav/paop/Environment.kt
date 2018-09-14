@@ -3,8 +3,8 @@ package no.nav.paop
 data class Environment(
     val srvPaopUsername: String = getEnvVar("SRVPAOP_USERNAME"),
     val srvPaopPassword: String = getEnvVar("SRVPAOP_PASSWORD"),
-    val srvKuhrUsername: String = getEnvVar("SRVKUHR_USERNAME"),
-    val srvKuhrPassword: String = getEnvVar("SRVKUHR_PASSWORD"),
+    val srvVarseltjenesteUsername: String = getEnvVar("SRVVARSELTJENESTE_USERNAME"),
+    val srvVarseltjenestePassword: String = getEnvVar("SRVVARSELTJENESTE_PASSWORD"),
     val journalbehandlingEndpointURL: String = getEnvVar("JOARK_JOURNALBEHANDLING_WS_ENDPOINT_URL"),
     val securityTokenServiceUrl: String = getEnvVar("SECURITYTOKENSERVICE_URL"),
     val appName: String = getEnvVar("APP_NAME"),

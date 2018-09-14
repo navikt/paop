@@ -135,8 +135,8 @@ fun main(args: Array<String>) = runBlocking {
             features.add(WSAddressingFeature())
             serviceClass = ICommunicationPartyService::class.java
         }.create() as ICommunicationPartyService
-        configureSTSFor(adresseRegisterV1, env.srvKuhrUsername,
-                env.srvKuhrPassword, env.securityTokenServiceUrl)
+        configureSTSFor(adresseRegisterV1, env.srvVarseltjenesteUsername,
+                env.srvVarseltjenestePassword, env.securityTokenServiceUrl)
 
         val partnerEmottak = JaxWsProxyFactoryBean().apply {
             address = env.partnerEmottakEndpointURL
