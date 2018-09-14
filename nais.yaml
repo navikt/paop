@@ -34,6 +34,8 @@ fasitResources:
   used:
     - alias: srvpaop
       resourceType: Credential
+    - alias: srvkuhr
+      resourceType: Credential
     - alias: securityTokenService
       resourceType: BaseUrl
     - alias: joark_journalbehandling_ws_endpoint
