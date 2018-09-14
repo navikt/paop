@@ -13,8 +13,8 @@ import org.apache.cxf.ws.policy.attachment.reference.RemoteReferenceResolver
 import org.apache.cxf.ws.security.SecurityConstants
 import org.apache.cxf.ws.security.trust.STSClient
 
-var STS_CLIENT_AUTHENTICATION_POLICY = "classpath:ws/policies/untPolicy.xml"
-var STS_REQUEST_SAML_POLICY = "classpath:ws/policies/requestSamlPolicy.xml"
+var STS_CLIENT_AUTHENTICATION_POLICY = "classpath:sts/policies/untPolicy.xml"
+var STS_REQUEST_SAML_POLICY = "classpath:sts/policies/requestSamlPolicy.xml"
 
 fun configureBasicAuthFor(service: Any, username: String, password: String) =
         (ClientProxy.getClient(service).conduit as HTTPConduit).apply {
