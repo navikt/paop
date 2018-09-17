@@ -182,7 +182,6 @@ fun listen(
             val ediLoggId = "${LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm"))}-paop-$archiveReference"
             oppfolgingsplanType = Oppfolginsplan.OP2016 // TODO: Delete after initial testing
 
-
             val validOrganizationNumber = try {
                 organisasjonV4.validerOrganisasjon(ValiderOrganisasjonRequest().apply {
                     orgnummer = extractOrgNr(formData, oppfolgingsplanType)

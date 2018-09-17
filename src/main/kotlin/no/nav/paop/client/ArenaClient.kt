@@ -5,7 +5,6 @@ import no.nav.model.arenaOppfolging.ArbeidsgiverType
 import no.nav.model.arenaOppfolging.ArenaOppfolgingPlan
 import no.nav.model.arenaOppfolging.DokumentInfoType
 import no.nav.model.arenaOppfolging.EiaDokumentInfoType
-import no.nav.model.dataBatch.DataBatch
 import no.nav.paop.Oppfolginsplan
 import no.nav.paop.PaopConstant
 import no.nav.paop.extractOppfolginsplan2012
