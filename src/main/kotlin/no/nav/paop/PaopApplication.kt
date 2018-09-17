@@ -58,9 +58,7 @@ import java.io.StringWriter
 import java.time.Duration
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-import javax.jms.Connection
 import javax.jms.MessageProducer
-import javax.jms.Queue
 import javax.jms.Session
 import javax.security.auth.callback.CallbackHandler
 import javax.xml.bind.Marshaller
@@ -151,9 +149,10 @@ fun main(args: Array<String>) = runBlocking {
         }.create() as PartnerResource
         configureBasicAuthFor(partnerEmottak, env.srvPaopUsername, env.srvPaopPassword)
 
-        listen(PdfClient(env.pdfGeneratorURL),
-                journalbehandling, fastlegeregisteret, organisasjonV4, dokumentProduksjonV3, adresseRegisterV1, partnerEmottak, arenaQueue, connection, consumer)
-                .join()
+        val arenaProducer = session.createProducer(arenaQueue)
+
+        listen(PdfClient(env.pdfGeneratorURL), journalbehandling, fastlegeregisteret, organisasjonV4,
+                dokumentProduksjonV3, adresseRegisterV1, partnerEmottak, arenaProducer, session, consumer).join()
     }
 }
 
@@ -165,8 +164,8 @@ fun listen(
     dokumentProduksjonV3: DokumentproduksjonV3,
     adresseRegisterV1: ICommunicationPartyService,
     partnerEmottak: PartnerResource,
-    arenaQueue: Queue,
-    connection: Connection,
+    arenaProducer: MessageProducer,
+    session: Session,
     consumer: KafkaConsumer<String, ExternalAttachment>
 ) = launch {
 
@@ -178,38 +177,57 @@ fun listen(
             val serviceCode = it.value().getServiceCode()
             val serviceEditionCode = it.value().getServiceEditionCode()
             val formData = dataBatch.dataUnits.dataUnit.first().formTask.form.first().formData
-            var oppfolgingslplanType = findOppfolingsplanType(serviceCode, serviceEditionCode)
+            var oppfolgingsplanType = findOppfolingsplanType(serviceCode, serviceEditionCode)
             val archiveReference = it.value().getArchiveReference()
-            val edilogg = "${LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm"))}-paop-$archiveReference"
-            val session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE)
-            val arenaProducer = session.createProducer(arenaQueue)
-            oppfolgingslplanType = Oppfolginsplan.OP2016 // TODO slette denne etter testing
+            val ediLoggId = "${LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm"))}-paop-$archiveReference"
+            oppfolgingsplanType = Oppfolginsplan.OP2016 // TODO: Delete after initial testing
 
-            if (oppfolgingslplanType == Oppfolginsplan.OP2012 || oppfolgingslplanType == Oppfolginsplan.OP2014 || oppfolgingslplanType == Oppfolginsplan.OP2016) {
-                val validerOrganisasjonRequest = ValiderOrganisasjonRequest().apply {
-                    orgnummer = extractOrgNr(formData, oppfolgingslplanType)
+
+            val validOrganizationNumber = try {
+                organisasjonV4.validerOrganisasjon(ValiderOrganisasjonRequest().apply {
+                    orgnummer = extractOrgNr(formData, oppfolgingsplanType)
+                }).isGyldigOrgnummer
+            } catch (e: Exception) {
+                log.error("Failed to validate organization number due to an exception", e)
+                false
+            }
+
+            if (!validOrganizationNumber) {
+                // TODO: Do something else then silently fail
+                return@forEach
+            }
+
+            if (oppfolgingsplanType in arrayOf(Oppfolginsplan.OP2012, Oppfolginsplan.OP2014, Oppfolginsplan.OP2016)) {
+                if (isFollowupPlanForNAV(formData, oppfolgingsplanType)) {
+                    val fagmelding = pdfClient.generatePDF(PdfType.FAGMELDING, mapFormdataToFagmelding(formData, oppfolgingsplanType))
+                    val joarkRequest = createJoarkRequest(formData, oppfolgingsplanType, ediLoggId, fagmelding)
+                    journalbehandling.lagreDokumentOgOpprettJournalpost(joarkRequest)
+
+                    sendArenaOppfolginsplan(arenaProducer, session, formData, archiveReference, ediLoggId, oppfolgingsplanType)
                 }
-
-                val gyldigOrgnummer = try {
-                    organisasjonV4.validerOrganisasjon(validerOrganisasjonRequest).isGyldigOrgnummer
-                } catch (e: Exception) {
-                    log.error("validerOrganisasjon failed: ", e)
+                if (isFollowupPlanForFastlege(formData, oppfolgingsplanType)) {
+                    handleDoctorFollowupPlanAltinn(fastlegeregisteret, dokumentProduksjonV3, adresseRegisterV1,
+                            partnerEmottak, arenaProducer, session, formData, archiveReference, ediLoggId,
+                            oppfolgingsplanType)
+                } else {
+                    handleNonFastlegeFollowupPlan(organisasjonV4, dokumentProduksjonV3, arenaProducer, session,
+                            formData, archiveReference, ediLoggId, oppfolgingsplanType)
                 }
+            } else if (oppfolgingsplanType == Oppfolginsplan.NAVOPPFPLAN) {
+                val extractOppfolginsplan = extractNavOppfPlan(formData)
+                val usesNavTemplate = !extractOppfolginsplan.isBistandHjelpemidler
 
-                if (gyldigOrgnummer == true) {
-                    val letterToGP = extractOppfolgingsplanSendesTilFastlege(formData, oppfolgingslplanType)
-                    val letterToNAV = extractOppfolgingsplanSendesTiNav(formData, oppfolgingslplanType)
-
-                    if (letterToNAV == true) {
-                        val fagmelding = pdfClient.generatePDF(PdfType.FAGMELDING, mapFormdataToFagmelding(formData, oppfolgingslplanType))
-                        val joarkRequest = createJoarkRequest(formData, oppfolgingslplanType, edilogg, fagmelding)
+                if (usesNavTemplate) {
+                    if (extractOppfolginsplan.mottaksinformasjon.isOppfoelgingsplanSendesTiNav) {
+                        val fagmelding = dataBatch.attachments.attachment.first().value
+                        val joarkRequest = createJoarkRequest(formData, oppfolgingsplanType, ediLoggId, fagmelding)
                         journalbehandling.lagreDokumentOgOpprettJournalpost(joarkRequest)
 
-                        sendArenaOppfolginsplan(arenaProducer, session, formData, dataBatch, edilogg, oppfolgingslplanType)
+                        sendArenaOppfolginsplan(arenaProducer, session, formData, archiveReference, ediLoggId, oppfolgingsplanType)
                     }
-                    if (letterToGP == true) {
+                    if (extractOppfolginsplan.mottaksinformasjon.isOppfoelgingsplanSendesTilFastlege) {
                         var fastlegefunnet = false
-                        val patientFnr = extractSykmeldtArbeidstakerFnr(formData, oppfolgingslplanType)
+                        val patientFnr = extractOppfolginsplan.fodselsNr
                         var patientToGPContractAssociation = PatientToGPContractAssociation()
                         try {
                             patientToGPContractAssociation = fastlegeregisteret.getPatientGPDetails(patientFnr)
@@ -219,53 +237,16 @@ fun listen(
                         }
 
                         if (fastlegefunnet && patientToGPContractAssociation.gpContract != null) {
-                            val gpName = extractGPName(patientToGPContractAssociation)
-                            val gpOfficePostnr = patientToGPContractAssociation.gpContract.value.gpOffice.value.physicalAddresses.value.physicalAddress.first().postalCode.toString()
-                            val gpOfficePoststed = patientToGPContractAssociation.gpContract.value.gpOffice.value.physicalAddresses.value.physicalAddress.first().city.value
+                            val orgname = extractGPName(patientToGPContractAssociation)!!
+                            val orgpostnummer = patientToGPContractAssociation.gpContract.value.gpOffice.value.physicalAddresses.value.physicalAddress.first().postalCode.toString()
+                            val orgpoststed = patientToGPContractAssociation.gpContract.value.gpOffice.value.physicalAddresses.value.physicalAddress.first().city.value.toString()
 
-                            val herIdFlr = patientToGPContractAssociation.gpHerId.value
-
-                            val getCommunicationPartyDetailsResponse = adresseRegisterV1.getOrganizationPersonDetails(herIdFlr)
-
-                            // Should only return one org
-                            val herIDAdresseregister = getCommunicationPartyDetailsResponse.organizations.value.organization.first().herId
-                            val gpOrganizationNumber = getCommunicationPartyDetailsResponse.organizations.value.organization.first().organizationNumber
-
-                            val hentPartnerIDViaOrgnummerRequest = HentPartnerIDViaOrgnummerRequest().apply {
-                                orgnr = gpOrganizationNumber.toString()
-                            }
-
-                            val hentPartnerIDViaOrgnummerResponse = partnerEmottak.hentPartnerIDViaOrgnummer(hentPartnerIDViaOrgnummerRequest)
-
-                            val canReviceDialogmelding = hentPartnerIDViaOrgnummerResponse.partnerInformasjon.firstOrNull {
-                                it.heRid.toInt() == herIDAdresseregister
-                            }
-                            if (canReviceDialogmelding != null) {
-                                // send dialogmelding to Emottak and fastlege
-                            } else {
-                                log.info("gpName" + gpName.toString() + "gpOfficePostnr: " + gpOfficePostnr + "gpOfficePoststed: " + gpOfficePoststed.toString())
-                            val brevrequest = createProduserIkkeredigerbartDokumentRequest(formData, oppfolgingslplanType, gpName, gpOfficePostnr, gpOfficePoststed, edilogg)
-                                log.info("dokumenttypeId: " + brevrequest.dokumentbestillingsinformasjon.dokumenttypeId)
-                                log.info("bestillendeFagsystem: " + brevrequest.dokumentbestillingsinformasjon.bestillendeFagsystem.value)
-                                log.info("journalsakId: " + brevrequest.dokumentbestillingsinformasjon.journalsakId)
-                                log.info("sakstilhoerendeFagsystem: " + brevrequest.dokumentbestillingsinformasjon.sakstilhoerendeFagsystem.value)
-                                log.info("dokumenttilhoerendeFagomraade: " + brevrequest.dokumentbestillingsinformasjon.dokumenttilhoerendeFagomraade.value)
-                                log.info("journalfoerendeEnhet: " + brevrequest.dokumentbestillingsinformasjon.journalfoerendeEnhet)
-                                log.info("isFerdigstillForsendelse: " + brevrequest.dokumentbestillingsinformasjon.isFerdigstillForsendelse)
-                                log.info("isInkludererEksterneVedlegg: " + brevrequest.dokumentbestillingsinformasjon.isInkludererEksterneVedlegg)
-                                log.info("brevdata: " + brevrequest.brevdata)
-                            try {
-                                dokumentProduksjonV3.produserIkkeredigerbartDokument(brevrequest)
-                                letterSentNotificationToArena(arenaProducer, session, formData, dataBatch, edilogg, oppfolgingslplanType)
-                            } catch (e: Exception) {
-                                log.error("Call to dokprod returned Exception", e)
-                            }
-                            }
+                            createPhysicalLetter(dokumentProduksjonV3, arenaProducer, session, formData, oppfolgingsplanType, orgname, orgpostnummer, orgpoststed, archiveReference, ediLoggId)
                         }
                     } else {
 
                         val hentOrganisasjonRequest = HentOrganisasjonRequest().apply {
-                            orgnummer = extractOrgNr(formData, oppfolgingslplanType)
+                            orgnummer = extractOrgNr(formData, oppfolgingsplanType)
                         }
                         val hentOrganisasjonResponse = organisasjonV4.hentOrganisasjon(hentOrganisasjonRequest)
 
@@ -274,101 +255,121 @@ fun listen(
                         }
                         val finnOrganisasjonResponse = organisasjonV4.finnOrganisasjon(finnOrganisasjonRequest)
 
-                        val orgname = extractOrgnavn(formData, oppfolgingslplanType)
-                        val orgpostnummer = finnOrganisasjonResponse.organisasjonSammendragListe.firstOrNull()?.postnummer?.value
-                        val orgpoststed = finnOrganisasjonResponse.organisasjonSammendragListe.firstOrNull()?.poststed
-
-                        val brevrequest = createProduserIkkeredigerbartDokumentRequest(formData, oppfolgingslplanType, orgname, orgpostnummer, orgpoststed, edilogg)
-
-                        try {
-                            dokumentProduksjonV3.produserIkkeredigerbartDokument(brevrequest)
-                            letterSentNotificationToArena(arenaProducer, session, formData, dataBatch, edilogg, oppfolgingslplanType)
-                        } catch (e: Exception) {
-                            log.error("Call to dokprod returned Exception", e)
-                        }
-                    }
-                }
-            } else if (oppfolgingslplanType == Oppfolginsplan.NAVOPPFPLAN) {
-                val extractOppfolginsplan = extractNavOppfPlan(formData)
-                val navmal = !extractOppfolginsplan.isBistandHjelpemidler
-                val letterToGP = extractOppfolginsplan.mottaksinformasjon.isOppfoelgingsplanSendesTilFastlege
-                val letterToNAV = extractOppfolginsplan.mottaksinformasjon.isOppfoelgingsplanSendesTiNav
-
-                if (navmal) {
-                    val validerOrganisasjonRequest = ValiderOrganisasjonRequest().apply {
-                        orgnummer = extractOrgNr(formData, oppfolgingslplanType)
-                    }
-                    val validerOrganisasjonResponse = organisasjonV4.validerOrganisasjon(validerOrganisasjonRequest)
-
-                    if (validerOrganisasjonResponse.isGyldigOrgnummer) {
-
-                        if (letterToNAV) {
-                            val fagmelding = dataBatch.attachments.attachment.first().value
-                            val joarkRequest = createJoarkRequest(formData, oppfolgingslplanType, edilogg, fagmelding)
-                            journalbehandling.lagreDokumentOgOpprettJournalpost(joarkRequest)
-
-                            sendArenaOppfolginsplan(arenaProducer, session, formData, dataBatch, edilogg, oppfolgingslplanType)
-                        }
-                        if (letterToGP) {
-                            var fastlegefunnet = false
-                            val patientFnr = extractOppfolginsplan.fodselsNr
-                            var patientToGPContractAssociation = PatientToGPContractAssociation()
-                            try {
-                                patientToGPContractAssociation = fastlegeregisteret.getPatientGPDetails(patientFnr)
-                                fastlegefunnet = true
-                            } catch (e: Exception) {
-                                log.error("Call to flr returned Exception", e)
-                            }
-
-                            if (fastlegefunnet && patientToGPContractAssociation.gpContract != null) {
-                                val gpName = extractGPName(patientToGPContractAssociation)
-                                val gpOfficePostnr = patientToGPContractAssociation.gpContract.value.gpOffice.value.physicalAddresses.value.physicalAddress.first().postalCode.toString()
-                                val gpOfficePoststed = patientToGPContractAssociation.gpContract.value.gpOffice.value.physicalAddresses.value.physicalAddress.first().city.value.toString()
-
-                                val brevrequest = createProduserIkkeredigerbartDokumentRequest(formData, oppfolgingslplanType, gpName, gpOfficePostnr, gpOfficePoststed, edilogg)
-
-                                try {
-                                    dokumentProduksjonV3.produserIkkeredigerbartDokument(brevrequest)
-                                    letterSentNotificationToArena(arenaProducer, session, formData, dataBatch, edilogg, oppfolgingslplanType)
-                                } catch (e: Exception) {
-                                    log.error("Call to dokprod returned Exception", e)
-                                }
-                            }
-                        } else {
-
-                            val hentOrganisasjonRequest = HentOrganisasjonRequest().apply {
-                                orgnummer = extractOrgNr(formData, oppfolgingslplanType)
-                            }
-                            val hentOrganisasjonResponse = organisasjonV4.hentOrganisasjon(hentOrganisasjonRequest)
-
-                            val finnOrganisasjonRequest = FinnOrganisasjonRequest().apply {
-                                navn = hentOrganisasjonResponse.organisasjon.navn.toString()
-                            }
-                            val finnOrganisasjonResponse = organisasjonV4.finnOrganisasjon(finnOrganisasjonRequest)
-
-                            val orgname = extractOrgnavn(formData, oppfolgingslplanType)
-                            val orgpostnummer = finnOrganisasjonResponse.organisasjonSammendragListe.firstOrNull()?.postnummer?.value
-                            val orgpoststed = finnOrganisasjonResponse.organisasjonSammendragListe.firstOrNull()?.poststed
-
-                            val brevrequest = createProduserIkkeredigerbartDokumentRequest(formData, oppfolgingslplanType, orgname, orgpostnummer, orgpoststed, edilogg)
-
-                            try {
-                                dokumentProduksjonV3.produserIkkeredigerbartDokument(brevrequest)
-                                letterSentNotificationToArena(arenaProducer, session, formData, dataBatch, edilogg, oppfolgingslplanType)
-                            } catch (e: Exception) {
-                                log.error("Call to dokprod returned Exception", e)
-                            }
-                        }
+                        val orgname = extractOrgnavn(formData, oppfolgingsplanType)!!
+                        val orgpostnummer = finnOrganisasjonResponse.organisasjonSammendragListe.firstOrNull()!!.postnummer.value
+                        val orgpoststed = finnOrganisasjonResponse.organisasjonSammendragListe.firstOrNull()!!.poststed
+                        createPhysicalLetter(dokumentProduksjonV3, arenaProducer, session, formData, oppfolgingsplanType, orgname, orgpostnummer, orgpoststed, archiveReference, ediLoggId)
                     }
                 }
             } else {
                 val fagmelding = dataBatch.attachments.attachment.first().value
-                val joarkRequest = createJoarkRequest(formData, oppfolgingslplanType, edilogg, fagmelding)
+                val joarkRequest = createJoarkRequest(formData, oppfolgingsplanType, ediLoggId, fagmelding)
                 journalbehandling.lagreDokumentOgOpprettJournalpost(joarkRequest)
-                sendArenaOppfolginsplan(arenaProducer, session, formData, dataBatch, edilogg, oppfolgingslplanType)
+                sendArenaOppfolginsplan(arenaProducer, session, formData, archiveReference, ediLoggId, oppfolgingsplanType)
             }
         }
         delay(100)
+    }
+}
+
+fun createPhysicalLetter(
+    dokumentProduksjonV3: DokumentproduksjonV3,
+    arenaProducer: MessageProducer,
+    session: Session,
+    formData: String,
+    oppfolgingsplanType: Oppfolginsplan,
+    organizationName: String,
+    postnummer: String,
+    poststed: String,
+    archiveReference: String,
+    ediLoggId: String
+) {
+    val brevrequest = createProduserIkkeredigerbartDokumentRequest(formData, oppfolgingsplanType, organizationName, postnummer, poststed, ediLoggId)
+    try {
+        dokumentProduksjonV3.produserIkkeredigerbartDokument(brevrequest)
+        letterSentNotificationToArena(arenaProducer, session, formData, archiveReference, ediLoggId, oppfolgingsplanType)
+    } catch (e: Exception) {
+        log.error("Call to dokprod returned Exception", e)
+    }
+}
+
+fun handleNonFastlegeFollowupPlan(
+    organisasjonV4: OrganisasjonV4,
+    dokumentProduksjonV3: DokumentproduksjonV3,
+    arenaProducer: MessageProducer,
+    session: Session,
+    formData: String,
+    archiveReference: String,
+    ediLoggId: String,
+    oppfolgingsplanType: Oppfolginsplan
+) {
+    val hentOrganisasjonRequest = HentOrganisasjonRequest().apply {
+        orgnummer = extractOrgNr(formData, oppfolgingsplanType)
+    }
+    val hentOrganisasjonResponse = organisasjonV4.hentOrganisasjon(hentOrganisasjonRequest)
+
+    val finnOrganisasjonRequest = FinnOrganisasjonRequest().apply {
+        navn = hentOrganisasjonResponse.organisasjon.navn.toString()
+    }
+    val finnOrganisasjonResponse = organisasjonV4.finnOrganisasjon(finnOrganisasjonRequest)
+
+    val orgname = extractOrgnavn(formData, oppfolgingsplanType)!!
+    val orgpostnummer = finnOrganisasjonResponse.organisasjonSammendragListe.firstOrNull()!!.postnummer.value
+    val orgpoststed = finnOrganisasjonResponse.organisasjonSammendragListe.firstOrNull()!!.poststed
+
+    createPhysicalLetter(dokumentProduksjonV3, arenaProducer, session, formData, oppfolgingsplanType, orgname,
+            orgpostnummer, orgpoststed, archiveReference, ediLoggId)
+}
+
+fun handleDoctorFollowupPlanAltinn(
+    fastlegeregisteret: IFlrReadOperations,
+    dokumentProduksjonV3: DokumentproduksjonV3,
+    adresseRegisterV1: ICommunicationPartyService,
+    partnerEmottak: PartnerResource,
+    arenaProducer: MessageProducer,
+    session: Session,
+    formData: String,
+    archiveReference: String,
+    ediLoggId: String,
+    oppfolgingsplanType: Oppfolginsplan
+) {
+    val patientFnr = extractSykmeldtArbeidstakerFnr(formData, oppfolgingsplanType)
+    val patientToGPContractAssociation = try {
+        fastlegeregisteret.getPatientGPDetails(patientFnr)
+    } catch (e: Exception) {
+        log.error("Call to flr returned Exception", e)
+        // TODO: We shouldn't just fail here
+        null
+    }
+
+    if (patientToGPContractAssociation != null) {
+        val gpName = extractGPName(patientToGPContractAssociation)!!
+        val gpOfficePostnr = patientToGPContractAssociation.gpContract.value.gpOffice.value.physicalAddresses.value.physicalAddress.first().postalCode.toString()
+        val gpOfficePoststed = patientToGPContractAssociation.gpContract.value.gpOffice.value.physicalAddresses.value.physicalAddress.first().city.value
+
+        val herIdFlr = patientToGPContractAssociation.gpHerId.value
+
+        val getCommunicationPartyDetailsResponse = adresseRegisterV1.getOrganizationPersonDetails(herIdFlr)
+
+        // Should only return one org
+        val herIDAdresseregister = getCommunicationPartyDetailsResponse.organizations.value.organization.first().herId
+        val gpOrganizationNumber = getCommunicationPartyDetailsResponse.organizations.value.organization.first().organizationNumber
+
+        val hentPartnerIDViaOrgnummerRequest = HentPartnerIDViaOrgnummerRequest().apply {
+            orgnr = gpOrganizationNumber.toString()
+        }
+
+        val hentPartnerIDViaOrgnummerResponse = partnerEmottak.hentPartnerIDViaOrgnummer(hentPartnerIDViaOrgnummerRequest)
+
+        val canReceiveDialogMessage = hentPartnerIDViaOrgnummerResponse.partnerInformasjon.firstOrNull {
+            it.heRid.toInt() == herIDAdresseregister
+        }
+        if (canReceiveDialogMessage != null) {
+            // TODO: Send a dialogmelding to Emottak and fastlege
+        } else {
+            createPhysicalLetter(dokumentProduksjonV3, arenaProducer, session, formData, oppfolgingsplanType, gpName,
+                    gpOfficePostnr, gpOfficePoststed, archiveReference, ediLoggId)
+        }
     }
 }
 
@@ -389,11 +390,11 @@ fun sendArenaOppfolginsplan(
     producer: MessageProducer,
     session: Session,
     formdata: String,
-    databatch: DataBatch,
+    archiveReference: String,
     edilogg: String,
     oppfolgingPlanType: Oppfolginsplan
 ) = producer.send(session.createTextMessage().apply {
-    val info = createArenaOppfolgingsplan(databatch, formdata, edilogg, oppfolgingPlanType)
+    val info = createArenaOppfolgingsplan(formdata, archiveReference, edilogg, oppfolgingPlanType)
     text = arenaMarshaller.toString(info)
 })
 
@@ -401,11 +402,11 @@ fun letterSentNotificationToArena(
     producer: MessageProducer,
     session: Session,
     formdata: String,
-    databatch: DataBatch,
+    archiveReference: String,
     edilogg: String,
     oppfolgingPlanType: Oppfolginsplan
 ) = producer.send(session.createTextMessage().apply {
-    val info = createArenaBrevTilArbeidsgiver(databatch, formdata, edilogg, oppfolgingPlanType)
+    val info = createArenaBrevTilArbeidsgiver(formdata, archiveReference, edilogg, oppfolgingPlanType)
     text = arenabrevMarshaller.toString(info)
 })
 
@@ -414,21 +415,19 @@ fun Marshaller.toString(input: Any): String = StringWriter().use {
     it.toString()
 }
 
-fun extractOppfolgingsplanSendesTilFastlege(formData: String, oppfolgingPlanType: Oppfolginsplan): Boolean? =
-        when (oppfolgingPlanType) {
-            Oppfolginsplan.OP2012 -> extractOppfolginsplan2012(formData).skjemainnhold?.mottaksInformasjon?.value?.oppfolgingsplanSendesTilFastlege?.value
-            Oppfolginsplan.OP2014 -> extractOppfolginsplan2014(formData).skjemainnhold?.mottaksInformasjon?.value?.oppfolgingsplanSendesTilFastlege?.value
-            Oppfolginsplan.OP2016 -> extractOppfolginsplan2016(formData).skjemainnhold?.mottaksInformasjon?.value?.oppfolgingsplanSendesTilFastlege?.value
-            else -> throw RuntimeException("Invalid oppfolginsplanType: $oppfolgingPlanType")
-        }
+fun isFollowupPlanForFastlege(formData: String, oppfolgingPlanType: Oppfolginsplan): Boolean = when (oppfolgingPlanType) {
+    Oppfolginsplan.OP2012 -> extractOppfolginsplan2012(formData).skjemainnhold?.mottaksInformasjon?.value?.oppfolgingsplanSendesTilFastlege?.value
+    Oppfolginsplan.OP2014 -> extractOppfolginsplan2014(formData).skjemainnhold?.mottaksInformasjon?.value?.oppfolgingsplanSendesTilFastlege?.value
+    Oppfolginsplan.OP2016 -> extractOppfolginsplan2016(formData).skjemainnhold?.mottaksInformasjon?.value?.oppfolgingsplanSendesTilFastlege?.value
+    else -> throw RuntimeException("Invalid oppfolginsplanType: $oppfolgingPlanType")
+} ?: false
 
-fun extractOppfolgingsplanSendesTiNav(formData: String, oppfolgingPlanType: Oppfolginsplan): Boolean? =
-        when (oppfolgingPlanType) {
-            Oppfolginsplan.OP2012 -> extractOppfolginsplan2012(formData).skjemainnhold?.mottaksInformasjon?.value?.oppfolgingsplanSendesTiNav?.value
-            Oppfolginsplan.OP2014 -> extractOppfolginsplan2014(formData).skjemainnhold?.mottaksInformasjon?.value?.oppfolgingsplanSendesTiNav?.value
-            Oppfolginsplan.OP2016 -> extractOppfolginsplan2016(formData).skjemainnhold?.mottaksInformasjon?.value?.oppfolgingsplanSendesTiNav?.value
-            else -> throw RuntimeException("Invalid oppfolginsplanType: $oppfolgingPlanType")
-        }
+fun isFollowupPlanForNAV(formData: String, oppfolgingPlanType: Oppfolginsplan): Boolean = when (oppfolgingPlanType) {
+    Oppfolginsplan.OP2012 -> extractOppfolginsplan2012(formData).skjemainnhold?.mottaksInformasjon?.value?.oppfolgingsplanSendesTiNav?.value
+    Oppfolginsplan.OP2014 -> extractOppfolginsplan2014(formData).skjemainnhold?.mottaksInformasjon?.value?.oppfolgingsplanSendesTiNav?.value
+    Oppfolginsplan.OP2016 -> extractOppfolginsplan2016(formData).skjemainnhold?.mottaksInformasjon?.value?.oppfolgingsplanSendesTiNav?.value
+    else -> throw RuntimeException("Invalid oppfolginsplanType: $oppfolgingPlanType")
+} ?: false
 
 fun extractGPName(patientToGPContractAssociation: PatientToGPContractAssociation): String? =
         patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first().gp.value.let {
@@ -448,40 +447,38 @@ fun createProduserIkkeredigerbartDokumentRequest(
     postnummerString: String?,
     poststedString: String?,
     edilogg: String
-):
-        ProduserIkkeredigerbartDokumentRequest =
-        ProduserIkkeredigerbartDokumentRequest().apply {
-            dokumentbestillingsinformasjon = Dokumentbestillingsinformasjon().apply {
-                dokumenttypeId = "brev"
-                bestillendeFagsystem = Fagsystemer().apply {
-                    value = "PAOP"
-                }
-                bruker = Person().apply {
-                    navn = "NAV Servicesenter"
-                    ident = "NAV ORGNR"
-                }
-                mottaker = Person().apply {
-                    navn = mottakernavn
-                    ident = extractOrgNr(formData, oppfolgingPlanType)
-                }
-                journalsakId = edilogg
-                sakstilhoerendeFagsystem = Fagsystemer().apply {
-                    value = "ARENA"
-                }
-                dokumenttilhoerendeFagomraade = Fagomraader().apply {
-                    value = "Sykefravær"
-                }
-                journalfoerendeEnhet = "N/A"
-                adresse = NorskPostadresse().apply {
-                    adresselinje1 = "stat"
-                    land = Landkoder().apply {
-                        value = "NOR"
-                    }
-                    postnummer = postnummerString
-                    poststed = poststedString
-                }
-                isFerdigstillForsendelse = true
-                isInkludererEksterneVedlegg = false
-            }
-            brevdata = wrapFormData(formData)
+): ProduserIkkeredigerbartDokumentRequest = ProduserIkkeredigerbartDokumentRequest().apply {
+    dokumentbestillingsinformasjon = Dokumentbestillingsinformasjon().apply {
+        dokumenttypeId = "brev"
+        bestillendeFagsystem = Fagsystemer().apply {
+            value = "PAOP"
         }
+        bruker = Person().apply {
+            navn = "NAV Servicesenter"
+            ident = "NAV ORGNR"
+        }
+        mottaker = Person().apply {
+            navn = mottakernavn
+            ident = extractOrgNr(formData, oppfolgingPlanType)
+        }
+        journalsakId = edilogg
+        sakstilhoerendeFagsystem = Fagsystemer().apply {
+            value = "ARENA"
+        }
+        dokumenttilhoerendeFagomraade = Fagomraader().apply {
+            value = "Sykefravær"
+        }
+        journalfoerendeEnhet = "N/A"
+        adresse = NorskPostadresse().apply {
+            adresselinje1 = "stat"
+            land = Landkoder().apply {
+                value = "NOR"
+            }
+            postnummer = postnummerString
+            poststed = poststedString
+        }
+        isFerdigstillForsendelse = true
+        isInkludererEksterneVedlegg = false
+    }
+    brevdata = wrapFormData(formData)
+}

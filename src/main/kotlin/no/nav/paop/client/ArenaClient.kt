@@ -20,12 +20,16 @@ import no.nav.paop.mapping.extractTiltakBistandRaadOgVeiledning
 import no.nav.paop.newInstance
 import java.util.GregorianCalendar
 
-fun createArenaOppfolgingsplan(dataBatch: DataBatch, formData: String, edilogg: String, oppfolginsplanType: Oppfolginsplan):
-        ArenaOppfolgingPlan = ArenaOppfolgingPlan().apply {
+fun createArenaOppfolgingsplan(
+    formData: String,
+    archiveReference: String,
+    edilogg: String,
+    oppfolginsplanType: Oppfolginsplan
+): ArenaOppfolgingPlan = ArenaOppfolgingPlan().apply {
             eiaDokumentInfo = EiaDokumentInfoType().apply {
                 dokumentInfo = DokumentInfoType().apply {
                     dokumentType = PaopConstant.dokumentType2913.string
-                    dokumentreferanse = dataBatch.dataUnits.dataUnit.first().archiveReference
+                    dokumentreferanse = archiveReference
                     ediLoggId = edilogg
                     dokumentDato = newInstance.newXMLGregorianCalendar(GregorianCalendar())
                 }
@@ -50,8 +54,8 @@ fun createArenaOppfolgingsplan(dataBatch: DataBatch, formData: String, edilogg: 
             }
 }
 fun createArenaBrevTilArbeidsgiver(
-    dataBatch: DataBatch,
     formData: String,
+    archiveReference: String,
     edilogg: String,
     oppfolginsplanType: Oppfolginsplan
 ): ArenaBrevTilArbeidsgiver = ArenaBrevTilArbeidsgiver().apply {
@@ -59,7 +63,7 @@ fun createArenaBrevTilArbeidsgiver(
         dokumentInfo = no.nav.model.arenaBrevTilArbeidsgiver.DokumentInfoType().apply {
             dokumentType = "EIA.OFP_AG"
             dokumentTypeVersjon = "1.0"
-            dokumentreferanse = dataBatch.dataUnits.dataUnit.first().archiveReference
+            dokumentreferanse = archiveReference
             ediLoggId = edilogg
         }
         avsender = no.nav.model.arenaBrevTilArbeidsgiver.EiaDokumentInfoType.Avsender().apply {
