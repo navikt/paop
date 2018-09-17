@@ -51,6 +51,7 @@ import org.apache.wss4j.common.ext.WSPasswordCallback
 import org.apache.wss4j.dom.WSConstants
 import org.apache.wss4j.dom.handler.WSHandlerConstants
 import org.slf4j.LoggerFactory
+import org.w3c.dom.Element
 import org.xml.sax.InputSource
 import java.io.StringReader
 import java.io.StringWriter
@@ -438,7 +439,7 @@ val documentBuilder: DocumentBuilder = DocumentBuilderFactory.newInstance().let 
     it.isNamespaceAware = true
     it.newDocumentBuilder()
 }
-fun wrapFormData(formData: String) = documentBuilder.parse(InputSource(StringReader(formData)))
+fun wrapFormData(formData: String): Element = documentBuilder.parse(InputSource(StringReader(formData))).documentElement
 
 fun createProduserIkkeredigerbartDokumentRequest(
     formData: String,
