@@ -51,6 +51,7 @@ import org.apache.wss4j.common.ext.WSPasswordCallback
 import org.apache.wss4j.dom.WSConstants
 import org.apache.wss4j.dom.handler.WSHandlerConstants
 import org.slf4j.LoggerFactory
+import org.xml.sax.InputSource
 import java.io.StringReader
 import java.io.StringWriter
 import java.time.Duration
@@ -62,6 +63,8 @@ import javax.jms.Queue
 import javax.jms.Session
 import javax.security.auth.callback.CallbackHandler
 import javax.xml.bind.Marshaller
+import javax.xml.parsers.DocumentBuilder
+import javax.xml.parsers.DocumentBuilderFactory
 
 private val log = LoggerFactory.getLogger("nav.paop-application")
 val objectMapper: ObjectMapper = ObjectMapper()
@@ -241,18 +244,15 @@ fun listen(
                             } else {
                                 log.info("gpName" + gpName.toString() + "gpOfficePostnr: " + gpOfficePostnr + "gpOfficePoststed: " + gpOfficePoststed.toString())
                             val brevrequest = createProduserIkkeredigerbartDokumentRequest(formData, oppfolgingslplanType, gpName, gpOfficePostnr, gpOfficePoststed, edilogg)
-                                log.info("dokumenttypeId: " + brevrequest.dokumentbestillingsinformasjon.dokumenttypeId.toString())
-                                log.info("bestillendeFagsystem: " + brevrequest.dokumentbestillingsinformasjon.bestillendeFagsystem.value.toString())
-                                log.info("bruker: " + brevrequest.dokumentbestillingsinformasjon.bruker.toString())
-                                log.info("mottaker: " + brevrequest.dokumentbestillingsinformasjon.mottaker.toString())
-                                log.info("journalsakId: " + brevrequest.dokumentbestillingsinformasjon.journalsakId.toString())
-                                log.info("sakstilhoerendeFagsystem: " + brevrequest.dokumentbestillingsinformasjon.sakstilhoerendeFagsystem.value.toString())
-                                log.info("dokumenttilhoerendeFagomraade: " + brevrequest.dokumentbestillingsinformasjon.dokumenttilhoerendeFagomraade.value.toString())
-                                log.info("journalfoerendeEnhet: " + brevrequest.dokumentbestillingsinformasjon.journalfoerendeEnhet.toString())
-                                log.info("adresselinje1: " + brevrequest.dokumentbestillingsinformasjon.adresse.toString())
-                                log.info("isFerdigstillForsendelse: " + brevrequest.dokumentbestillingsinformasjon.isFerdigstillForsendelse.toString())
-                                log.info("isInkludererEksterneVedlegg: " + brevrequest.dokumentbestillingsinformasjon.isInkludererEksterneVedlegg.toString())
-                                log.info("brevdata: " + brevrequest.brevdata.toString())
+                                log.info("dokumenttypeId: " + brevrequest.dokumentbestillingsinformasjon.dokumenttypeId)
+                                log.info("bestillendeFagsystem: " + brevrequest.dokumentbestillingsinformasjon.bestillendeFagsystem.value)
+                                log.info("journalsakId: " + brevrequest.dokumentbestillingsinformasjon.journalsakId)
+                                log.info("sakstilhoerendeFagsystem: " + brevrequest.dokumentbestillingsinformasjon.sakstilhoerendeFagsystem.value)
+                                log.info("dokumenttilhoerendeFagomraade: " + brevrequest.dokumentbestillingsinformasjon.dokumenttilhoerendeFagomraade.value)
+                                log.info("journalfoerendeEnhet: " + brevrequest.dokumentbestillingsinformasjon.journalfoerendeEnhet)
+                                log.info("isFerdigstillForsendelse: " + brevrequest.dokumentbestillingsinformasjon.isFerdigstillForsendelse)
+                                log.info("isInkludererEksterneVedlegg: " + brevrequest.dokumentbestillingsinformasjon.isInkludererEksterneVedlegg)
+                                log.info("brevdata: " + brevrequest.brevdata)
                             try {
                                 dokumentProduksjonV3.produserIkkeredigerbartDokument(brevrequest)
                                 letterSentNotificationToArena(arenaProducer, session, formData, dataBatch, edilogg, oppfolgingslplanType)
@@ -434,7 +434,20 @@ fun extractGPName(patientToGPContractAssociation: PatientToGPContractAssociation
             "${it.firstName.value} ${it.middleName.value} ${it.lastName.value}"
         }
 
-fun createProduserIkkeredigerbartDokumentRequest(formdata: String, oppfolgingPlanType: Oppfolginsplan, mottakernavn: String?, postnummerString: String?, poststedString: String?, edilogg: String):
+val documentBuilder: DocumentBuilder = DocumentBuilderFactory.newInstance().let {
+    it.isNamespaceAware = true
+    it.newDocumentBuilder()
+}
+fun wrapFormData(formData: String) = documentBuilder.parse(InputSource(StringReader(formData)))
+
+fun createProduserIkkeredigerbartDokumentRequest(
+    formData: String,
+    oppfolgingPlanType: Oppfolginsplan,
+    mottakernavn: String?,
+    postnummerString: String?,
+    poststedString: String?,
+    edilogg: String
+):
         ProduserIkkeredigerbartDokumentRequest =
         ProduserIkkeredigerbartDokumentRequest().apply {
             dokumentbestillingsinformasjon = Dokumentbestillingsinformasjon().apply {
@@ -448,7 +461,7 @@ fun createProduserIkkeredigerbartDokumentRequest(formdata: String, oppfolgingPla
                 }
                 mottaker = Person().apply {
                     navn = mottakernavn
-                    ident = extractOrgNr(formdata, oppfolgingPlanType)
+                    ident = extractOrgNr(formData, oppfolgingPlanType)
                 }
                 journalsakId = edilogg
                 sakstilhoerendeFagsystem = Fagsystemer().apply {
@@ -469,5 +482,5 @@ fun createProduserIkkeredigerbartDokumentRequest(formdata: String, oppfolgingPla
                 isFerdigstillForsendelse = true
                 isInkludererEksterneVedlegg = false
             }
-            brevdata = "The message to send out"
+            brevdata = wrapFormData(formData)
         }
