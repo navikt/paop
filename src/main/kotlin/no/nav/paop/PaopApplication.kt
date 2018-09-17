@@ -217,7 +217,7 @@ fun listen(
                         if (fastlegefunnet && patientToGPContractAssociation.gpContract != null) {
                             val gpName = extractGPName(patientToGPContractAssociation)
                             val gpOfficePostnr = patientToGPContractAssociation.gpContract.value.gpOffice.value.physicalAddresses.value.physicalAddress.first().postalCode.toString()
-                            val gpOfficePoststed = patientToGPContractAssociation.gpContract.value.gpOffice.value.physicalAddresses.value.physicalAddress.first().city.value.toString()
+                            val gpOfficePoststed = patientToGPContractAssociation.gpContract.value.gpOffice.value.physicalAddresses.value.physicalAddress.first().city.value
 
                             val herIdFlr = patientToGPContractAssociation.gpHerId.value
 
@@ -239,7 +239,20 @@ fun listen(
                             if (canReviceDialogmelding != null) {
                                 // send dialogmelding to Emottak and fastlege
                             } else {
+                                log.info("gpName" + gpName.toString() + "gpOfficePostnr: " + gpOfficePostnr + "gpOfficePoststed: " + gpOfficePoststed.toString())
                             val brevrequest = createProduserIkkeredigerbartDokumentRequest(formData, oppfolgingslplanType, gpName, gpOfficePostnr, gpOfficePoststed, edilogg)
+                                log.info("dokumenttypeId: " + brevrequest.dokumentbestillingsinformasjon.dokumenttypeId.toString())
+                                log.info("bestillendeFagsystem: " + brevrequest.dokumentbestillingsinformasjon.bestillendeFagsystem.value.toString())
+                                log.info("bruker: " + brevrequest.dokumentbestillingsinformasjon.bruker.toString())
+                                log.info("mottaker: " + brevrequest.dokumentbestillingsinformasjon.mottaker.toString())
+                                log.info("journalsakId: " + brevrequest.dokumentbestillingsinformasjon.journalsakId.toString())
+                                log.info("sakstilhoerendeFagsystem: " + brevrequest.dokumentbestillingsinformasjon.sakstilhoerendeFagsystem.value.toString())
+                                log.info("dokumenttilhoerendeFagomraade: " + brevrequest.dokumentbestillingsinformasjon.dokumenttilhoerendeFagomraade.value.toString())
+                                log.info("journalfoerendeEnhet: " + brevrequest.dokumentbestillingsinformasjon.journalfoerendeEnhet.toString())
+                                log.info("adresselinje1: " + brevrequest.dokumentbestillingsinformasjon.adresse.toString())
+                                log.info("isFerdigstillForsendelse: " + brevrequest.dokumentbestillingsinformasjon.isFerdigstillForsendelse.toString())
+                                log.info("isInkludererEksterneVedlegg: " + brevrequest.dokumentbestillingsinformasjon.isInkludererEksterneVedlegg.toString())
+                                log.info("brevdata: " + brevrequest.brevdata.toString())
                             try {
                                 dokumentProduksjonV3.produserIkkeredigerbartDokument(brevrequest)
                                 letterSentNotificationToArena(arenaProducer, session, formData, dataBatch, edilogg, oppfolgingslplanType)
@@ -417,9 +430,9 @@ fun extractOppfolgingsplanSendesTiNav(formData: String, oppfolgingPlanType: Oppf
         }
 
 fun extractGPName(patientToGPContractAssociation: PatientToGPContractAssociation): String? =
-        "${patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first().gp.value.firstName.value} " +
-                "${patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first().gp.value.middleName.value}" +
-                "${patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first().gp.value.lastName.value}"
+        patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first().gp.value.let {
+            "${it.firstName.value} ${it.middleName.value} ${it.lastName.value}"
+        }
 
 fun createProduserIkkeredigerbartDokumentRequest(formdata: String, oppfolgingPlanType: Oppfolginsplan, mottakernavn: String?, postnummerString: String?, poststedString: String?, edilogg: String):
         ProduserIkkeredigerbartDokumentRequest =
@@ -455,6 +468,6 @@ fun createProduserIkkeredigerbartDokumentRequest(formdata: String, oppfolgingPla
                 }
                 isFerdigstillForsendelse = true
                 isInkludererEksterneVedlegg = false
-                brevdata = "The message to send out"
             }
+            brevdata = "The message to send out"
         }
