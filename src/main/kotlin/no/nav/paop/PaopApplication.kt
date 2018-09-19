@@ -408,7 +408,6 @@ fun handleDoctorFollowupPlanAltinn(
         }
         if (canReceiveDialogMessage != null) {
             val fellesformat = XMLEIFellesformat().apply {
-
             }
             val dialogMessage = XMLDialogmelding().apply {
                 sakstype = "DIALOGMELDING"
