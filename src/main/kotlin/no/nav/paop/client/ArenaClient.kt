@@ -16,6 +16,7 @@ import no.nav.paop.extractOppfolginsplan2014
 import no.nav.paop.extractOppfolginsplan2016
 import no.nav.paop.newInstance
 import no.nav.paop.toString
+import no.trygdeetaten.xml.eiff._1.XMLEIFellesformat
 import java.util.GregorianCalendar
 import javax.jms.MessageProducer
 import javax.jms.Session
@@ -94,6 +95,15 @@ fun sendArenaOppfolginsplan(
     arenaBistand: ArenaBistand
 ) = producer.send(session.createTextMessage().apply {
     val info = createArenaOppfolgingsplan(incomingMetadata, arenaBistand)
+    text = arenaMarshaller.toString(info)
+})
+
+fun sendDialogmeldingOppfolginsplan(
+    producer: MessageProducer,
+    session: Session,
+    fellesformat: XMLEIFellesformat
+) = producer.send(session.createTextMessage().apply {
+    val info = fellesformat
     text = arenaMarshaller.toString(info)
 })
 

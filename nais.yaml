@@ -58,3 +58,7 @@ fasitResources:
       resourceType: Webserviceendpoint
     - alias: ekstern:helse_adresseregisteret_v1
       resourceType: Webserviceendpoint
+    - alias: mottak_queue_utsending
+        resourceType: Queue
+        propertyMap:
+          queueName: MOTTAK_QUEUE_UTSENDING_QUEUENAME
