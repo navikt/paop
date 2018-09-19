@@ -5,88 +5,103 @@ import no.nav.model.arenaOppfolging.ArbeidsgiverType
 import no.nav.model.arenaOppfolging.ArenaOppfolgingPlan
 import no.nav.model.arenaOppfolging.DokumentInfoType
 import no.nav.model.arenaOppfolging.EiaDokumentInfoType
+import no.nav.paop.ArenaBistand
+import no.nav.paop.IncomingMetadata
 import no.nav.paop.Oppfolginsplan
 import no.nav.paop.PaopConstant
+import no.nav.paop.arenaMarshaller
+import no.nav.paop.arenabrevMarshaller
 import no.nav.paop.extractOppfolginsplan2012
 import no.nav.paop.extractOppfolginsplan2014
 import no.nav.paop.extractOppfolginsplan2016
-import no.nav.paop.mapping.extractOrgNr
-import no.nav.paop.mapping.extractSykmeldtArbeidstakerFnr
-import no.nav.paop.mapping.extractTiltakBistandArbeidsrettedeTiltakOgVirkemidler
-import no.nav.paop.mapping.extractTiltakBistandDialogMoeteMedNav
-import no.nav.paop.mapping.extractTiltakBistandHjelpemidler
-import no.nav.paop.mapping.extractTiltakBistandRaadOgVeiledning
 import no.nav.paop.newInstance
+import no.nav.paop.toString
 import java.util.GregorianCalendar
+import javax.jms.MessageProducer
+import javax.jms.Session
 
 fun createArenaOppfolgingsplan(
-    formData: String,
-    archiveReference: String,
-    edilogg: String,
-    oppfolginsplanType: Oppfolginsplan
+    metadata: IncomingMetadata,
+    arenaBistand: ArenaBistand
 ): ArenaOppfolgingPlan = ArenaOppfolgingPlan().apply {
             eiaDokumentInfo = EiaDokumentInfoType().apply {
                 dokumentInfo = DokumentInfoType().apply {
                     dokumentType = PaopConstant.dokumentType2913.string
-                    dokumentreferanse = archiveReference
-                    ediLoggId = edilogg
+                    dokumentreferanse = metadata.archiveReference
+                    ediLoggId = metadata.archiveReference
                     dokumentDato = newInstance.newXMLGregorianCalendar(GregorianCalendar())
                 }
                 behandlingInfo = null
                 avsender = EiaDokumentInfoType.Avsender().apply {
                     arbeidsgiver = ArbeidsgiverType().apply {
-                        arbeidsgiverOrgNr = extractOrgNr(formData, oppfolginsplanType)
+                        arbeidsgiverOrgNr = metadata.senderOrgId
                     }
                 }
                 avsenderSystem = EiaDokumentInfoType.AvsenderSystem().apply {
-                    systemNavn = extractAvsenderSystemSystemnavn(formData, oppfolginsplanType)
-                    systemVersjon = extractAvsenderSystemSystemVersjon(formData, oppfolginsplanType)
+                    systemNavn = metadata.senderSystemName
+                    systemVersjon = metadata.senderSystemVersion
                 }
             }
-            bedriftsNr = extractOrgNr(formData, oppfolginsplanType)
-            fodselsNr = extractSykmeldtArbeidstakerFnr(formData, oppfolginsplanType)
+            bedriftsNr = metadata.senderOrgId
+            fodselsNr = metadata.userPersonNumber
             bistandNav = ArenaOppfolgingPlan.BistandNav().apply {
-                isBistandNavHjelpemid = extractTiltakBistandHjelpemidler(formData, oppfolginsplanType)
-                isBistandNavVeil = extractTiltakBistandRaadOgVeiledning(formData, oppfolginsplanType)
-                isBistandNavDialogmote = extractTiltakBistandDialogMoeteMedNav(formData, oppfolginsplanType)
-                isBistandNavVirke = extractTiltakBistandArbeidsrettedeTiltakOgVirkemidler(formData, oppfolginsplanType)
+                isBistandNavHjelpemid = arenaBistand.bistandNavHjelpemidler
+                isBistandNavVeil = arenaBistand.bistandNavVeiledning
+                isBistandNavDialogmote = arenaBistand.bistandDialogmote
+                isBistandNavVirke = arenaBistand.bistandVirkemidler
             }
 }
 fun createArenaBrevTilArbeidsgiver(
-    formData: String,
-    archiveReference: String,
-    edilogg: String,
-    oppfolginsplanType: Oppfolginsplan
+    metadata: IncomingMetadata
 ): ArenaBrevTilArbeidsgiver = ArenaBrevTilArbeidsgiver().apply {
     eiaDokumentInfo = no.nav.model.arenaBrevTilArbeidsgiver.EiaDokumentInfoType().apply {
         dokumentInfo = no.nav.model.arenaBrevTilArbeidsgiver.DokumentInfoType().apply {
             dokumentType = "EIA.OFP_AG"
             dokumentTypeVersjon = "1.0"
-            dokumentreferanse = archiveReference
-            ediLoggId = edilogg
+            dokumentreferanse = metadata.archiveReference
+            ediLoggId = metadata.archiveReference
         }
         avsender = no.nav.model.arenaBrevTilArbeidsgiver.EiaDokumentInfoType.Avsender().apply {
             arbeidsgiver = no.nav.model.arenaBrevTilArbeidsgiver.ArbeidsgiverType().apply {
-                arbeidsgiverOrgNr = extractOrgNr(formData, oppfolginsplanType)
+                arbeidsgiverOrgNr = metadata.senderOrgId
             }
         }
     }
-    bedriftsNr = extractOrgNr(formData, oppfolginsplanType)
-    fodselsNr = extractSykmeldtArbeidstakerFnr(formData, oppfolginsplanType)
+    bedriftsNr = metadata.senderOrgId
+    fodselsNr = metadata.userPersonNumber
 }
 
-fun extractAvsenderSystemSystemnavn(formData: String, oppfolgingPlanType: Oppfolginsplan): String? =
+fun extractAvsenderSystemSystemnavn(formData: String, oppfolgingPlanType: Oppfolginsplan): String =
         when (oppfolgingPlanType) {
-            Oppfolginsplan.OP2012 -> extractOppfolginsplan2012(formData).skjemainnhold?.avsenderSystem?.value?.systemNavn?.value
-            Oppfolginsplan.OP2014 -> extractOppfolginsplan2014(formData).skjemainnhold?.avsenderSystem?.value?.systemNavn?.value
-            Oppfolginsplan.OP2016 -> extractOppfolginsplan2016(formData).skjemainnhold?.avsenderSystem?.value?.systemNavn?.value
+            Oppfolginsplan.OP2012 -> extractOppfolginsplan2012(formData).skjemainnhold.avsenderSystem.value.systemNavn.value
+            Oppfolginsplan.OP2014 -> extractOppfolginsplan2014(formData).skjemainnhold.avsenderSystem.value.systemNavn.value
+            Oppfolginsplan.OP2016 -> extractOppfolginsplan2016(formData).skjemainnhold.avsenderSystem.value.systemNavn.value
             else -> throw RuntimeException("Invalid oppfolginsplanType: $oppfolgingPlanType")
         }
 
-fun extractAvsenderSystemSystemVersjon(formData: String, oppfolgingPlanType: Oppfolginsplan): String? =
+fun extractAvsenderSystemSystemVersjon(formData: String, oppfolgingPlanType: Oppfolginsplan): String =
         when (oppfolgingPlanType) {
-            Oppfolginsplan.OP2012 -> extractOppfolginsplan2012(formData).skjemainnhold?.avsenderSystem?.value?.systemVersjon?.value
-            Oppfolginsplan.OP2014 -> extractOppfolginsplan2014(formData).skjemainnhold?.avsenderSystem?.value?.systemVersjon?.value
-            Oppfolginsplan.OP2016 -> extractOppfolginsplan2016(formData).skjemainnhold?.avsenderSystem?.value?.systemVersjon?.value
+            Oppfolginsplan.OP2012 -> extractOppfolginsplan2012(formData).skjemainnhold.avsenderSystem.value.systemVersjon.value
+            Oppfolginsplan.OP2014 -> extractOppfolginsplan2014(formData).skjemainnhold.avsenderSystem.value.systemVersjon.value
+            Oppfolginsplan.OP2016 -> extractOppfolginsplan2016(formData).skjemainnhold.avsenderSystem.value.systemVersjon.value
             else -> throw RuntimeException("Invalid oppfolginsplanType: $oppfolgingPlanType")
         }
+
+fun sendArenaOppfolginsplan(
+    producer: MessageProducer,
+    session: Session,
+    incomingMetadata: IncomingMetadata,
+    arenaBistand: ArenaBistand
+) = producer.send(session.createTextMessage().apply {
+    val info = createArenaOppfolgingsplan(incomingMetadata, arenaBistand)
+    text = arenaMarshaller.toString(info)
+})
+
+fun letterSentNotificationToArena(
+    producer: MessageProducer,
+    session: Session,
+    metadata: IncomingMetadata
+) = producer.send(session.createTextMessage().apply {
+    val info = createArenaBrevTilArbeidsgiver(metadata)
+    text = arenabrevMarshaller.toString(info)
+})

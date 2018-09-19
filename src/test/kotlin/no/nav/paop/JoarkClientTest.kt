@@ -14,13 +14,19 @@ object JoarkClientTest : Spek({
             val dataBatch = extractDataBatch(getFileAsString(
                     "src/test/resources/oppfolging_2913_04.xml"))
 
-            val formdata = dataBatch.dataUnits.dataUnit.first().formTask.form.first().formData
-            val oppfolgingslplanType = Oppfolginsplan.OP2016
-            val edilogg = "1231413424.1"
-            val fagmelding = ByteArray(100)
-            Arrays.fill(fagmelding, 1.toByte())
+            val incomingMetadata = IncomingMetadata(
+                    archiveReference = "AR198273",
+                    senderOrgId = "1238719290",
+                    senderOrgName = "Et selskap AS",
+                    senderSystemName = "Spek HR system",
+                    senderSystemVersion = "Whoa",
+                    userPersonNumber = "987654321"
 
-            val joarkRequest = createJoarkRequest(formdata, oppfolgingslplanType, edilogg, fagmelding)
+            )
+
+            val fagmelding = "<TEST></TEST>".toByteArray(Charsets.UTF_8)
+
+            val joarkRequest = createJoarkRequest(incomingMetadata, fagmelding)
 
             joarkRequest.avsenderMottakerId shouldEqual "987654321"
         }
