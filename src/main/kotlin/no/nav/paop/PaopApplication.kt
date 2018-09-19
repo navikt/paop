@@ -11,6 +11,9 @@ import io.prometheus.client.hotspot.DefaultExports
 import kotlinx.coroutines.experimental.delay
 import kotlinx.coroutines.experimental.launch
 import kotlinx.coroutines.experimental.runBlocking
+import no.kith.xmlstds.XMLCV
+import no.kith.xmlstds.dialog._2013_01_23.XMLDialogmelding
+import no.kith.xmlstds.dialog._2013_01_23.XMLForesporsel
 import no.nav.altinnkanal.avro.ExternalAttachment
 import no.nav.emottak.schemas.HentPartnerIDViaOrgnummerRequest
 import no.nav.emottak.schemas.PartnerResource
@@ -43,6 +46,7 @@ import no.nav.virksomhet.tjenester.arkiv.journalbehandling.v1.binding.Journalbeh
 import no.nhn.adresseregisteret.ICommunicationPartyService
 import no.nhn.schemas.reg.flr.IFlrReadOperations
 import no.nhn.schemas.reg.flr.PatientToGPContractAssociation
+import no.trygdeetaten.xml.eiff._1.XMLEIFellesformat
 import org.apache.cxf.ext.logging.LoggingFeature
 import org.apache.cxf.jaxws.JaxWsProxyFactoryBean
 import org.apache.cxf.ws.addressing.WSAddressingFeature
@@ -403,6 +407,20 @@ fun handleDoctorFollowupPlanAltinn(
             it.heRid.toInt() == herIDAdresseregister
         }
         if (canReceiveDialogMessage != null) {
+            val fellesformat = XMLEIFellesformat().apply {
+
+            }
+            val dialogMessage = XMLDialogmelding().apply {
+                sakstype = "DIALOGMELDING"
+                sakstypeKodet = XMLCV().apply {
+                    v = "TODO"
+                    s = "TODO"
+                    dn = "TODO"
+                    ot = "TODO"
+                }
+                foresporsel.add(XMLForesporsel().apply {
+                })
+            }
             // TODO: Send a dialogmelding to Emottak and fastlege
         } else {
             createPhysicalLetter(dokumentProduksjonV3, arenaProducer, session, incomingMetadata, gpOrganizationNumber,
