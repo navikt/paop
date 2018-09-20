@@ -12,9 +12,13 @@ import kotlinx.coroutines.experimental.delay
 import kotlinx.coroutines.experimental.launch
 import kotlinx.coroutines.experimental.runBlocking
 import no.kith.xmlstds.XMLCV
+import no.kith.xmlstds.base64container.XMLBase64Container
 import no.kith.xmlstds.dialog._2006_10_11.XMLNotat
+import no.kith.xmlstds.dialog._2006_10_11.XMLPerson
+import no.kith.xmlstds.dialog._2006_10_11.XMLRollerRelatertNotat
 import no.kith.xmlstds.msghead._2006_05_24.XMLCS
 import no.kith.xmlstds.msghead._2006_05_24.XMLDocument
+import no.kith.xmlstds.msghead._2006_05_24.XMLHealthcareProfessional
 import no.kith.xmlstds.msghead._2006_05_24.XMLIdent
 import no.kith.xmlstds.msghead._2006_05_24.XMLMsgHead
 import no.kith.xmlstds.msghead._2006_05_24.XMLMsgInfo
@@ -26,6 +30,7 @@ import no.kith.xmlstds.msghead._2006_05_24.XMLSender
 import no.kith.xmlstds.msghead._2006_05_24.XMLTS
 import no.nav.altinnkanal.avro.ExternalAttachment
 import no.nav.emottak.schemas.HentPartnerIDViaOrgnummerRequest
+import no.nav.emottak.schemas.PartnerInformasjon
 import no.nav.emottak.schemas.PartnerResource
 import no.nav.model.dataBatch.DataBatch
 import no.nav.model.navOppfPlan.OppfolgingsplanMetadata
@@ -76,8 +81,7 @@ import java.io.StringReader
 import java.io.StringWriter
 import java.time.Duration
 import java.time.LocalDateTime
-import java.time.LocalTime
-import java.time.format.DateTimeFormatter
+import java.util.UUID
 import javax.jms.MessageProducer
 import javax.jms.Session
 import javax.security.auth.callback.CallbackHandler
@@ -328,7 +332,7 @@ fun handleNAVFollowupPlanNAVTemplate(
         }
 
         if (fastlegefunnet && patientToGPContractAssociation.gpContract != null) {
-            val orgname = extractGPName(patientToGPContractAssociation)!!
+            val orgname = patientToGPContractAssociation.gpContract.value.gpOffice.value.name.value
             val orgNr = patientToGPContractAssociation.gpContract.value.gpOffice.value.organizationNumber.toString()
             val orgpostnummer = patientToGPContractAssociation.gpContract.value.gpOffice.value.physicalAddresses.value.physicalAddress.first().postalCode.toString()
             val orgpoststed = patientToGPContractAssociation.gpContract.value.gpOffice.value.physicalAddresses.value.physicalAddress.first().city.value.toString()
@@ -361,12 +365,12 @@ fun createPhysicalLetter(
     session: Session,
     incomingMetadata: IncomingMetadata,
     receiverOrgNumber: String,
-    receiverOrgName: String,
+    gpName: String,
     postnummer: String,
     poststed: String,
     xmlContent: String
 ) {
-    val brevrequest = createProduserIkkeredigerbartDokumentRequest(incomingMetadata, receiverOrgNumber, receiverOrgName, postnummer, poststed, xmlContent)
+    val brevrequest = createProduserIkkeredigerbartDokumentRequest(incomingMetadata, receiverOrgNumber, gpName, postnummer, poststed, xmlContent)
     try {
         dokumentProduksjonV3.produserIkkeredigerbartDokument(brevrequest)
         letterSentNotificationToArena(arenaProducer, session, incomingMetadata)
@@ -421,20 +425,25 @@ fun handleDoctorFollowupPlanAltinn(
 
     if (patientToGPContractAssociation != null) {
         val gpName = extractGPName(patientToGPContractAssociation)!!
+        val gpFirstName = extractGPFirstName(patientToGPContractAssociation)!!
+        val gpMiddleName = extractGPMiddleName(patientToGPContractAssociation)
+        val gpLastName = extractGPLastName(patientToGPContractAssociation)!!
+        val gpFnr = extractGPFnr(patientToGPContractAssociation)
+        val gpHprNumber = extractGPHprNumber(patientToGPContractAssociation)
         val gpOfficePostnr = patientToGPContractAssociation.gpContract.value.gpOffice.value.physicalAddresses.value.physicalAddress.first().postalCode.toString()
         val gpOfficePoststed = patientToGPContractAssociation.gpContract.value.gpOffice.value.physicalAddresses.value.physicalAddress.first().city.value
 
-        val herIdFlr = patientToGPContractAssociation.gpHerId.value
+        val gpHerIdFlr = patientToGPContractAssociation.gpHerId.value
 
-        val getCommunicationPartyDetailsResponse = adresseRegisterV1.getOrganizationPersonDetails(herIdFlr)
+        val getCommunicationPartyDetailsResponse = adresseRegisterV1.getOrganizationPersonDetails(gpHerIdFlr)
 
         // Should only return one org
         val herIDAdresseregister = getCommunicationPartyDetailsResponse.organizations.value.organization.first().herId
-        val gpOrganizationNumber = getCommunicationPartyDetailsResponse.organizations.value.organization.first().organizationNumber.toString()
-        val gpOrganizationName = getCommunicationPartyDetailsResponse.organizations.value.organization.first().name.value
+        val gpOfficeOrganizationNumber = getCommunicationPartyDetailsResponse.organizations.value.organization.first().organizationNumber.toString()
+        val gpOfficeOrganizationName = getCommunicationPartyDetailsResponse.organizations.value.organization.first().name.value
 
         val hentPartnerIDViaOrgnummerRequest = HentPartnerIDViaOrgnummerRequest().apply {
-            orgnr = gpOrganizationNumber
+            orgnr = gpOfficeOrganizationNumber
         }
 
         val hentPartnerIDViaOrgnummerResponse = partnerEmottak.hentPartnerIDViaOrgnummer(hentPartnerIDViaOrgnummerRequest)
@@ -443,132 +452,23 @@ fun handleDoctorFollowupPlanAltinn(
             it.heRid.toInt() == herIDAdresseregister
         }
         if (canReceiveDialogMessage != null) {
-            val fellesformat = XMLEIFellesformat().apply {
-                any.add(XMLMsgHead().apply {
-                    msgInfo = XMLMsgInfo().apply {
-                        type = XMLCS().apply {
-                            dn = "Notat"
-                            v = "DIALOG_NOTAT"
-                        }
-                        miGversion = "v1.2 2006-05-24"
-                        genDate = LocalDateTime.now()
-                        msgId = incomingMetadata.archiveReference
-                        ack = XMLCS().apply {
-                            dn = "Ja"
-                            v = "J"
-                        }
-                        sender = XMLSender().apply {
-                            organisation = XMLOrganisation().apply {
-                                organisationName = "NAV"
-                                ident.add(XMLIdent().apply {
-                                    id = "889640782"
-                                    typeId = no.kith.xmlstds.msghead._2006_05_24.XMLCV().apply {
-                                        dn = "Organisasjonsnummeret i Enhetsregisteret"
-                                        s = "2.16.578.1.12.4.1.1.9051"
-                                        v = "ENH"
-                                    }
-                                })
-                                organisation = XMLOrganisation().apply {
-                                    organisationName = "NAV Servicesenter"
-                                    ident.add(XMLIdent().apply {
-                                        id = "0000"
-                                        typeId = no.kith.xmlstds.msghead._2006_05_24.XMLCV().apply {
-                                            dn = "Lokal identifikator for institusjoner"
-                                            s = "2.16.578.1.12.4.1.1.9051"
-                                            v = "LIN"
-                                        }
-                                    })
-                                }
-                            }
-                        }
-                        receiver = XMLReceiver().apply {
-                            organisation = XMLOrganisation().apply {
-                                organisationName = gpOrganizationName
-                                ident.add(XMLIdent().apply {
-                                    id = herIDAdresseregister.toString()
-                                    typeId = no.kith.xmlstds.msghead._2006_05_24.XMLCV().apply {
-                                        dn = "HER-id"
-                                        s = "2.16.578.1.12.4.1.1.9051"
-                                        v = "HER"
-                                    }
-                                })
-                            }
-                        }
-                        patient = XMLPatient().apply {
-                            familyName = incomingPersonInfo.userFamilyName
-                            givenName = incomingPersonInfo.userGivenName
-                            ident.add(XMLIdent().apply {
-                                id = incomingPersonInfo.userPersonNumber
-                                typeId = no.kith.xmlstds.msghead._2006_05_24.XMLCV().apply {
-                                    dn = "Fødselsnummer"
-                                    s = "2.16.578.1.12.4.1.1.8116"
-                                    v = "FNR"
-                                }
-                            })
-                        }
-                    }
-                        document.add(XMLDocument().apply {
-                            documentConnection = XMLCS().apply {
-                                dn = "Hoveddokument"
-                                v = "H"
-                                }
-                                refDoc = XMLRefDoc().apply {
-                                issueDate = XMLTS().apply {
-                                v = LocalTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
-                                }
-                                msgType = XMLCS().apply {
-                                    dn = "XML-instans"
-                                    v = "XML"
-                                }
-                                mimeType = "text/xml"
-                                content = XMLRefDoc.Content().apply {
-                                    any.add(no.kith.xmlstds.dialog._2006_10_11.XMLDialogmelding().apply {
-                                        notat.add(XMLNotat().apply {
-                                        temaKodet = XMLCV().apply {
-                                            dn = "Oppfølgingsplan"
-                                            s = "2.16.578.1.12.4.1.1.8127"
-                                            v = "1"
-                                            }
-                                            tekstNotatInnhold = XMLNotat().apply {
-                                            tekstNotatInnhold = ""
-                                            }
-                                        })
-                                    })
-                                }
-                            }
-                    })
-
-                    document.add(XMLDocument().apply {
-                        documentConnection = XMLCS().apply {
-                            dn = "Vedlegg"
-                            v = "V"
-                        }
-                        refDoc = XMLRefDoc().apply {
-                            issueDate = XMLTS().apply {
-                                v = LocalTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
-                            }
-                            msgType = XMLCS().apply {
-                                dn = "Vedlegg"
-                                v = "A"
-                            }
-                            mimeType = "application/pdf"
-                            content = XMLRefDoc.Content().apply {
-                                any.add(fagmelding)
-                            }
-                        }
-                    })
-                })
-                any.add(XMLMottakenhetBlokk().apply {
-                    ebAction = "Plan"
-                    ebRole = "Saksbehandler"
-                    ebService = "Oppfolgingsplan"
-                    mottaksId = incomingMetadata.archiveReference
-                    partnerReferanse = canReceiveDialogMessage.partnerID
-                })
-            }
+            val fellesformat = createDialogmelding(
+                    incomingMetadata,
+                    incomingPersonInfo,
+                    gpOfficeOrganizationName,
+                    gpOfficeOrganizationNumber,
+                    herIDAdresseregister,
+                    fagmelding,
+                    canReceiveDialogMessage,
+                    gpFirstName,
+                    gpMiddleName,
+                    gpLastName,
+                    gpHerIdFlr,
+                    gpFnr,
+                    gpHprNumber)
             sendDialogmeldingOppfolginsplan(receiptProducer, session, fellesformat)
         } else {
-            createPhysicalLetter(dokumentProduksjonV3, arenaProducer, session, incomingMetadata, gpOrganizationNumber,
+            createPhysicalLetter(dokumentProduksjonV3, arenaProducer, session, incomingMetadata, gpOfficeOrganizationNumber,
                     gpName, gpOfficePostnr, gpOfficePoststed, "<TEST></TEST>")
         }
     }
@@ -611,8 +511,220 @@ fun extractGPName(patientToGPContractAssociation: PatientToGPContractAssociation
             "${it.firstName.value} ${it.middleName.value} ${it.lastName.value}"
         }
 
+fun extractGPFirstName(patientToGPContractAssociation: PatientToGPContractAssociation): String? =
+        patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first().gp.value.let {
+            "${it.firstName.value}"
+        }
+
+fun extractGPLastName(patientToGPContractAssociation: PatientToGPContractAssociation): String? =
+        patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first().gp.value.let {
+            "${it.lastName.value}"
+        }
+
+fun extractGPMiddleName(patientToGPContractAssociation: PatientToGPContractAssociation): String =
+        patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first().gp.value.let {
+            "${it.middleName.value}"
+        }
+
+fun extractGPFnr(patientToGPContractAssociation: PatientToGPContractAssociation): String =
+        patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first().gp.value.let {
+            "${it.nin.value}"
+        }
+
+fun extractGPHprNumber(patientToGPContractAssociation: PatientToGPContractAssociation): Int =
+        patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first().hprNumber
+
 val documentBuilder: DocumentBuilder = DocumentBuilderFactory.newInstance().let {
     it.isNamespaceAware = true
     it.newDocumentBuilder()
 }
 fun wrapFormData(formData: String): Element = documentBuilder.parse(InputSource(StringReader(formData))).documentElement
+
+fun createDialogmelding(
+    incomingMetadata: IncomingMetadata,
+    incomingPersonInfo: IncomingUserInfo,
+    gpOrganizationName: String,
+    gpOrganizationNumber: String,
+    herIDAdresseregister: Int,
+    fagmelding: ByteArray,
+    canReceiveDialogMessage: PartnerInformasjon,
+    gpfirstname: String,
+    gpMiddelName: String,
+    gpLastname: String,
+    gpHerIdFlr: Int,
+    gpFnr: String,
+    gpHprNumber: Int
+): XMLEIFellesformat = XMLEIFellesformat().apply {
+    any.add(XMLMsgHead().apply {
+        msgInfo = XMLMsgInfo().apply {
+            type = XMLCS().apply {
+                v = "DIALOG_NOTAT"
+                dn = "Notat"
+            }
+            miGversion = "v1.2 2006-05-24"
+            genDate = LocalDateTime.now()
+            msgId = UUID.randomUUID().toString()
+            ack = XMLCS().apply {
+                dn = "Ja"
+                v = "J"
+            }
+            sender = XMLSender().apply {
+                organisation = XMLOrganisation().apply {
+                    organisationName = "NAV"
+                    ident.add(XMLIdent().apply {
+                        id = "889640782"
+                        typeId = no.kith.xmlstds.msghead._2006_05_24.XMLCV().apply {
+                            dn = "Organisasjonsnummeret i Enhetsregisteret"
+                            s = "2.16.578.1.12.4.1.1.9051"
+                            v = "ENH"
+                        }
+                    })
+                    ident.add(XMLIdent().apply {
+                        id = "79768"
+                        typeId = no.kith.xmlstds.msghead._2006_05_24.XMLCV().apply {
+                            dn = "Identifikator fra Helsetjenesteenhetsregisteret (HER-id)"
+                            s = "2.16.578.1.12.4.1.1.9051"
+                            v = "HER"
+                        }
+                    })
+                }
+            }
+            receiver = XMLReceiver().apply {
+                organisation = XMLOrganisation().apply {
+                    organisationName = gpOrganizationName
+                    ident.add(XMLIdent().apply {
+                        id = herIDAdresseregister.toString()
+                        typeId = no.kith.xmlstds.msghead._2006_05_24.XMLCV().apply {
+                            dn = "HER-id"
+                            s = "2.16.578.1.12.4.1.1.9051"
+                            v = "HER"
+                        }
+                    })
+                    ident.add(XMLIdent().apply {
+                        id = gpOrganizationNumber
+                        typeId = no.kith.xmlstds.msghead._2006_05_24.XMLCV().apply {
+                            dn = "Organisasjonsnummeret i Enhetsregisteret"
+                            s = "2.16.578.1.12.4.1.1.9051"
+                            v = "ENH"
+                        }
+                    })
+                    healthcareProfessional = XMLHealthcareProfessional().apply {
+                        roleToPatient = no.kith.xmlstds.msghead._2006_05_24.XMLCV().apply {
+                            v = "6"
+                            s = "2.16.578.1.12.4.1.1.9034"
+                            dn = "Fastlege"
+                        }
+                        familyName = gpLastname
+                        givenName = gpfirstname
+                        if (gpMiddelName.isNotBlank() && gpMiddelName.isNotEmpty()) {
+                            middleName = gpMiddelName
+                        }
+                        ident.add(XMLIdent().apply {
+                            id = gpHerIdFlr.toString()
+                            typeId = no.kith.xmlstds.msghead._2006_05_24.XMLCV().apply {
+                                dn = "HER-id"
+                                s = "2.16.578.1.12.4.1.1.8116"
+                                v = "HER"
+                            }
+                        })
+                        ident.add(XMLIdent().apply {
+                            id = gpFnr
+                            typeId = no.kith.xmlstds.msghead._2006_05_24.XMLCV().apply {
+                                dn = "Fødselsnummer Norsk fødselsnummer"
+                                s = "2.16.578.1.12.4.1.1.8116"
+                                v = "FNR"
+                            }
+                        })
+                        ident.add(XMLIdent().apply {
+                            id = gpHprNumber.toString()
+                            typeId = no.kith.xmlstds.msghead._2006_05_24.XMLCV().apply {
+                                dn = "HPR-nummer"
+                                s = "2.16.578.1.12.4.1.1.8116"
+                                v = "HPR"
+                            }
+                        })
+                    }
+                }
+            }
+            patient = XMLPatient().apply {
+                familyName = incomingPersonInfo.userFamilyName
+                givenName = incomingPersonInfo.userGivenName
+                ident.add(XMLIdent().apply {
+                    id = incomingPersonInfo.userPersonNumber
+                    typeId = no.kith.xmlstds.msghead._2006_05_24.XMLCV().apply {
+                        dn = "Fødselsnummer"
+                        s = "2.16.578.1.12.4.1.1.8116"
+                        v = "FNR"
+                    }
+                })
+            }
+        }
+        document.add(XMLDocument().apply {
+            documentConnection = XMLCS().apply {
+                dn = "Hoveddokument"
+                v = "H"
+            }
+            refDoc = XMLRefDoc().apply {
+                issueDate = XMLTS().apply {
+                    v = "${LocalDateTime.now().year}-${LocalDateTime.now().monthValue}-${LocalDateTime.now().dayOfMonth}"
+                }
+                msgType = XMLCS().apply {
+                    dn = "XML-instans"
+                    v = "XML"
+                }
+                mimeType = "text/xml"
+                content = XMLRefDoc.Content().apply {
+                    any.add(no.kith.xmlstds.dialog._2006_10_11.XMLDialogmelding().apply {
+                        notat.add(XMLNotat().apply {
+                            temaKodet = XMLCV().apply {
+                                dn = "Oppfølgingsplan"
+                                s = "2.16.578.1.12.4.1.1.8127"
+                                v = "1"
+                            }
+                            tekstNotatInnhold = XMLNotat().apply {
+                                tekstNotatInnhold = "Åpne PDF-vedlegg"
+                                dokIdNotat = incomingMetadata.archiveReference
+                            }
+                            rollerRelatertNotat.add(XMLRollerRelatertNotat().apply {
+                                rolleNotat = XMLCV().apply {
+                                    v = "1"
+                                    s = "2.16.578.1.12.4.1.1.9057"
+                                }
+                                person = XMLPerson()
+                            })
+                        })
+                    })
+                }
+            }
+        })
+
+        document.add(XMLDocument().apply {
+            documentConnection = XMLCS().apply {
+                dn = "Vedlegg"
+                v = "V"
+            }
+            refDoc = XMLRefDoc().apply {
+                id = incomingMetadata.archiveReference
+                issueDate = XMLTS().apply {
+                    v = "${LocalDateTime.now().year}-${LocalDateTime.now().monthValue}-${LocalDateTime.now().dayOfMonth}"
+                }
+                msgType = XMLCS().apply {
+                    dn = "Vedlegg"
+                    v = "A"
+                }
+                mimeType = "application/pdf"
+                content = XMLRefDoc.Content().apply {
+                    any.add(XMLBase64Container().apply {
+                        value = fagmelding
+                    })
+                }
+            }
+        })
+    })
+    any.add(XMLMottakenhetBlokk().apply {
+        ebAction = "Plan"
+        ebRole = "Saksbehandler"
+        ebService = "Oppfolgingsplan"
+        partnerReferanse = canReceiveDialogMessage.partnerID
+    })
+}

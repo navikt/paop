@@ -1,5 +1,14 @@
 package no.nav.paop
 
+import no.kith.xmlstds.msghead._2006_05_24.XMLMsgHead
+import no.nav.emottak.schemas.PartnerInformasjon
+import no.nav.paop.client.extractAvsenderSystemSystemVersjon
+import no.nav.paop.client.extractAvsenderSystemSystemnavn
+import no.nav.paop.mapping.extractOrgNr
+import no.nav.paop.mapping.extractOrgnavn
+import no.nav.paop.mapping.extractSykmeldtArbeidstakerEtternavn
+import no.nav.paop.mapping.extractSykmeldtArbeidstakerFnr
+import no.nav.paop.mapping.extractSykmeldtArbeidstakerFornavn
 import org.amshove.kluent.shouldEqual
 import org.spekframework.spek2.Spek
 import org.spekframework.spek2.style.specification.describe
@@ -130,6 +139,69 @@ object PaopApplicationTest : Spek({
             val oppfolginsplanType = findOppfolingsplanType("2913", "2")
 
             oppfolginsplanType shouldEqual Oppfolginsplan.OP2012
+        }
+    }
+
+    describe("tests the functions sendDialogmeldingOppfolginsplan") {
+        it("Should send a sendDialogmeldingOppfolginsplan") {
+
+            val dataBatch = extractDataBatch(getFileAsString(
+                    "src/test/resources/oppfolging_2913_02.xml"))
+
+            val serviceCode = "2913"
+            val serviceEditionCode = "2"
+            val formData = dataBatch.dataUnits.dataUnit.first().formTask.form.first().formData
+            var oppfolgingsplanType = findOppfolingsplanType(serviceCode, serviceEditionCode)
+
+            val incomingMetadata = IncomingMetadata(
+                    archiveReference = dataBatch.dataUnits.dataUnit.first().archiveReference,
+                    senderOrgName = extractOrgnavn(formData, oppfolgingsplanType),
+                    senderOrgId = extractOrgNr(formData, oppfolgingsplanType),
+                    senderSystemName = extractAvsenderSystemSystemnavn(formData, oppfolgingsplanType),
+                    senderSystemVersion = extractAvsenderSystemSystemVersjon(formData, oppfolgingsplanType),
+                    userPersonNumber = extractSykmeldtArbeidstakerFnr(formData, oppfolgingsplanType)
+            )
+
+            val incomingPersonInfo = IncomingUserInfo(
+                    userPersonNumber = extractSykmeldtArbeidstakerFnr(formData, oppfolgingsplanType),
+                    userFamilyName = extractSykmeldtArbeidstakerFornavn(formData, oppfolgingsplanType),
+                    userGivenName = extractSykmeldtArbeidstakerEtternavn(formData, oppfolgingsplanType)
+            )
+
+            val gpOfficeOrganizationName = "Kule helsetjenester AS"
+            val gpOffcieOrganizationNumber = "223456789"
+            val gpFirstName = "Per"
+            val gpMiddleName = "Ole"
+            val gpLastName = "Hansen"
+            val gpFnr = "21345455"
+            val gpHprNumber = 453456
+            val gpHerIdFlr = 453456
+
+            val herIDAdresseregister = 1234566
+            val fagmelding: ByteArray = listOf(0xDE, 0xAD, 0xBE, 0xEF).map { it.toByte() }.toByteArray()
+            val canReceiveDialogMessage = PartnerInformasjon().apply {
+                partnerID = "3245363"
+            }
+
+            val fellesformatDialogmelding = createDialogmelding(
+                    incomingMetadata,
+                    incomingPersonInfo,
+                    gpOfficeOrganizationName,
+                    gpOffcieOrganizationNumber,
+                    herIDAdresseregister,
+                    fagmelding,
+                    canReceiveDialogMessage,
+                    gpFirstName,
+                    gpMiddleName,
+                    gpLastName,
+                    gpHerIdFlr,
+                    gpFnr,
+                    gpHprNumber)
+
+            val msgHead = fellesformatDialogmelding.any.first() as XMLMsgHead
+
+            msgHead.msgInfo.type.dn shouldEqual "Notat"
+            msgHead.msgInfo.type.v shouldEqual "DIALOG_NOTAT"
         }
     }
 })

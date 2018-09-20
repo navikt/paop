@@ -71,7 +71,7 @@ fun createJoarkRequest(
 fun createProduserIkkeredigerbartDokumentRequest(
     incomingMetadata: IncomingMetadata,
     receiverOrgNumber: String,
-    receiverOrgName: String,
+    gpName: String,
     postnummerString: String?,
     poststedString: String?,
     xmlContent: String
@@ -86,7 +86,7 @@ fun createProduserIkkeredigerbartDokumentRequest(
             ident = "NAV ORGNR"
         }
         mottaker = Organisasjon().apply {
-            navn = receiverOrgName
+            navn = gpName
             orgnummer = receiverOrgNumber
         }
         journalsakId = incomingMetadata.archiveReference
