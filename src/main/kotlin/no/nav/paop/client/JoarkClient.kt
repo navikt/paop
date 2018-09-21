@@ -94,7 +94,7 @@ fun createProduserIkkeredigerbartDokumentRequest(
             value = "AO01"
         }
         dokumenttilhoerendeFagomraade = Fagomraader().apply {
-            value = "Sykefravær"
+            value = "SYK"
         }
         journalfoerendeEnhet = "N/A"
         adresse = NorskPostadresse().apply {
