@@ -100,7 +100,7 @@ fun createProduserIkkeredigerbartDokumentRequest(
         adresse = NorskPostadresse().apply {
             adresselinje1 = "stat"
             land = Landkoder().apply {
-                value = "NOR"
+                value = "NO"
             }
             postnummer = postnummerString
             poststed = poststedString
