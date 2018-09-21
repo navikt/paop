@@ -79,7 +79,7 @@ fun createProduserIkkeredigerbartDokumentRequest(
     dokumentbestillingsinformasjon = Dokumentbestillingsinformasjon().apply {
         dokumenttypeId = "brev"
         bestillendeFagsystem = Fagsystemer().apply {
-            value = "ARENA"
+            value = "AO01"
         }
         bruker = Person().apply {
             navn = "NAV Servicesenter"
@@ -91,7 +91,7 @@ fun createProduserIkkeredigerbartDokumentRequest(
         }
         journalsakId = incomingMetadata.archiveReference
         sakstilhoerendeFagsystem = Fagsystemer().apply {
-            value = "ARENA"
+            value = "AO01"
         }
         dokumenttilhoerendeFagomraade = Fagomraader().apply {
             value = "Sykefravær"
