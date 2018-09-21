@@ -21,7 +21,7 @@ import java.util.GregorianCalendar
 
 fun createJoarkRequest(
     metadata: IncomingMetadata,
-    fagmelding: ByteArray
+    fagmelding: ByteArray?
 ): LagreDokumentOgOpprettJournalpostRequest = LagreDokumentOgOpprettJournalpostRequest().apply {
     journalpostDokumentInfoRelasjonListe.add(
                 JournalpostDokumentInfoRelasjon().apply {

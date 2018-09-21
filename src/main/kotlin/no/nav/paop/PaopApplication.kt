@@ -250,7 +250,7 @@ fun listen(
                     bistandVirkemidler = extractTiltakBistandArbeidsrettedeTiltakOgVirkemidler(formData, oppfolgingsplanType)
             )
 
-            val attachment = dataBatch.attachments.attachment.first().value
+            val attachment = dataBatch.attachments?.attachment?.firstOrNull()?.value
 
             val validOrganizationNumber = try {
                 organisasjonV4.validerOrganisasjon(ValiderOrganisasjonRequest().apply {
@@ -310,7 +310,7 @@ fun handleNAVFollowupPlanNAVTemplate(
     session: Session,
     oppfolgingsplan: OppfolgingsplanMetadata,
     arenaBistand: ArenaBistand,
-    attachment: ByteArray,
+    attachment: ByteArray?,
     incomingMetadata: IncomingMetadata
 ) {
     if (oppfolgingsplan.mottaksinformasjon.isOppfoelgingsplanSendesTiNav) {
