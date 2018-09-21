@@ -82,8 +82,7 @@ fun createProduserIkkeredigerbartDokumentRequest(
             value = "AO01"
         }
         bruker = Person().apply {
-            navn = "NAV Servicesenter"
-            ident = "NAV ORGNR"
+            ident = "889640782"
         }
         mottaker = Organisasjon().apply {
             navn = gpName
