@@ -10,7 +10,6 @@ import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.Fagsystemer
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.Landkoder
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.NorskPostadresse
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.Organisasjon
-import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.Person
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.meldinger.ProduserIkkeredigerbartDokumentRequest
 import no.nav.virksomhet.tjenester.arkiv.journalbehandling.meldinger.v1.Bruker
 import no.nav.virksomhet.tjenester.arkiv.journalbehandling.meldinger.v1.DokumentInfo
@@ -81,9 +80,9 @@ fun createProduserIkkeredigerbartDokumentRequest(
         bestillendeFagsystem = Fagsystemer().apply {
             value = "AO01"
         }
-        bruker = Person().apply {
+        bruker = Organisasjon().apply {
             navn = "ARBEIDS- OG VELFERDSETATEN"
-            ident = "889640782"
+            orgnummer = "889640782"
         }
         mottaker = Organisasjon().apply {
             navn = gpName
