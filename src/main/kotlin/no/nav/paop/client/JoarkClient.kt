@@ -79,7 +79,7 @@ fun createProduserIkkeredigerbartDokumentRequest(
     dokumentbestillingsinformasjon = Dokumentbestillingsinformasjon().apply {
         dokumenttypeId = "brev"
         bestillendeFagsystem = Fagsystemer().apply {
-            value = "PAOP"
+            value = "ARENA"
         }
         bruker = Person().apply {
             navn = "NAV Servicesenter"
