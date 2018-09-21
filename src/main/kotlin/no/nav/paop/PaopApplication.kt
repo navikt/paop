@@ -133,7 +133,6 @@ fun main(args: Array<String>) = runBlocking {
         val session = connection.createSession()
         val arenaQueue = session.createQueue(env.arenaIAQueue)
         val receiptQueue = session.createQueue(env.receiptQueueName)
-        session.close()
 
         val interceptorProperties = mapOf(
                 WSHandlerConstants.USER to env.srvPaopUsername,
