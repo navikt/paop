@@ -34,6 +34,7 @@ buildscript {
     ext.fellesformat_version = '1.0'
     ext.kith_hodemelding_version = '1.0'
     ext.kith_base64_version = '1.1'
+    ext.kafka_embedded_version = '1.0.0'
 
     ext.jaxb2SourceDir = file("$buildDir/generated-sources/jaxb2")
 }
@@ -240,6 +241,7 @@ repositories {
             artifact()
         }
     }
+    maven { url = "http://packages.confluent.io/maven/" }
 }
 
 dependencies {
@@ -288,7 +290,7 @@ dependencies {
 
 
     implementation "io.confluent:kafka-avro-serializer:$confluent_version"
-    implementation "org.apache.kafka:kafka-clients:$kafka_version"
+    implementation "org.apache.kafka:kafka_2.12:$kafka_version"
     implementation "org.jvnet.jaxb2_commons:jaxb2-basics-runtime:$jaxb2_commons_basic_version"
     implementation "javax.xml.bind:jaxb-api:$jaxb_api_version"
     implementation "javax.activation:activation:$javax_activation_version"
@@ -307,6 +309,7 @@ dependencies {
     testImplementation "org.apache.activemq:artemis-server:$artemis_version"
     testImplementation "org.apache.activemq:artemis-jms-client:$artemis_version"
     testImplementation "org.eclipse.jetty:jetty-servlet:$jetty_version"
+    testImplementation "no.nav:kafka-embedded-env:$kafka_embedded_version"
     testRuntimeOnly "org.spekframework.spek2:spek-runtime-jvm:$spek2_version"
     testRuntimeOnly "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"
     testRuntimeOnly "org.spekframework.spek2:spek-runner-junit5:$spek2_version"

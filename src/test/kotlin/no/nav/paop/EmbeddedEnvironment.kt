@@ -1,14 +1,22 @@
 package no.nav.paop
 
+import io.ktor.application.call
 import io.ktor.content.PartData
 import io.ktor.http.ContentType
+import io.ktor.request.receiveMultipart
+import io.ktor.request.receiveText
+import io.ktor.response.respondBytes
+import io.ktor.routing.post
+import io.ktor.routing.routing
 import io.ktor.server.engine.ApplicationEngine
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.prometheus.client.CollectorRegistry
 import kotlinx.coroutines.experimental.Job
 import kotlinx.coroutines.experimental.runBlocking
-import net.logstash.logback.argument.StructuredArguments.keyValue
+import net.logstash.logback.argument.StructuredArguments
+import no.nav.altinnkanal.avro.ExternalAttachment
+import no.nav.common.KafkaEnvironment
 import no.nav.emottak.schemas.PartnerResource
 import no.nav.paop.client.PdfClient
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.DokumentproduksjonV3
@@ -16,6 +24,7 @@ import no.nav.tjeneste.virksomhet.organisasjon.v4.binding.OrganisasjonV4
 import no.nav.virksomhet.tjenester.arkiv.journalbehandling.v1.binding.Journalbehandling
 import no.nhn.adresseregisteret.ICommunicationPartyService
 import no.nhn.schemas.reg.flr.IFlrReadOperations
+import no.nhn.schemas.reg.flr.PatientToGPContractAssociation
 import org.apache.activemq.artemis.core.config.impl.ConfigurationImpl
 import org.apache.activemq.artemis.core.server.ActiveMQServer
 import org.apache.activemq.artemis.core.server.ActiveMQServers
@@ -27,27 +36,21 @@ import org.apache.cxf.jaxws.JaxWsProxyFactoryBean
 import org.apache.cxf.transport.http.HTTPConduit
 import org.apache.cxf.transport.servlet.CXFNonSpringServlet
 import org.apache.cxf.transports.http.configuration.HTTPClientPolicy
+import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.eclipse.jetty.server.Server
 import org.eclipse.jetty.servlet.ServletContextHandler
 import org.eclipse.jetty.servlet.ServletHolder
-import org.mockito.ArgumentMatchers.any
-import org.mockito.ArgumentMatchers.anyString
-import org.mockito.Mockito.`when`
+import org.mockito.ArgumentMatchers
+import org.mockito.Mockito
 import org.mockito.Mockito.mock
-import org.mockito.Mockito.reset
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import java.io.StringReader
 import javax.jms.Connection
 import javax.jms.ConnectionFactory
-import javax.jms.MessageConsumer
 import javax.jms.MessageProducer
 import javax.jms.Session
-import javax.jms.TextMessage
 import javax.naming.InitialContext
 import javax.xml.ws.Endpoint
-
-
 
 interface PdfProvider {
     fun getPDF(postBody: String): ByteArray
@@ -84,7 +87,6 @@ class EmbeddedEnvironment {
 
     private lateinit var session: Session
 
-
     fun start() {
         activeMQServer = ActiveMQServers.newActiveMQServer(ConfigurationImpl()
                 .setPersistenceEnabled(false)
@@ -97,6 +99,22 @@ class EmbeddedEnvironment {
 
         server = createJettyServer()
         mockWebserver = createHttpMock()
+
+        val topic = "aapen-test-topic"
+
+        val embeddedEnvironment = KafkaEnvironment(
+                autoStart = false,
+                topics = listOf(topic)
+        )
+        val env = Environment(
+                kafkaBootstrapServersURL = embeddedEnvironment.brokersURL
+        )
+
+        val consumer = KafkaConsumer<String, ExternalAttachment>(readConsumerConfig(env).apply {
+            remove("security.protocol")
+            remove("sasl.mechanism")
+        })
+        consumer.subscribe(listOf(topic))
 
         val fastlegeregisteretClient = JaxWsProxyFactoryBean().apply {
             address = "$wsBaseUrl/ws/flr"
@@ -140,25 +158,21 @@ class EmbeddedEnvironment {
         }.create() as PartnerResource
         configureTimeout(partnerEmottakClient)
 
-
         val pdfClient = PdfClient("$mockHttpServerUrl/create_pdf")
-
 
         queueConnection = connectionFactory.createConnection()
         queueConnection.start()
         session = queueConnection.createSession(false, Session.AUTO_ACKNOWLEDGE)
-        val inputQueue = session.createQueue("input_queue")
         val arenaQueue = session.createQueue("arena_queue")
-        val apprecQueue = session.createQueue("apprec_queue")
-        val backoutQueue = session.createQueue("backout_queue")
+        val receiptQueue = session.createQueue("emottak_queue")
 
         diagnosisWebserver = createHttpServer(diagnosisWebServerPort, "TEST")
 
-        producer = session.createProducer(inputQueue)
+        val arenaProducer = session.createProducer(arenaQueue)
+        val receiptProducer = session.createProducer(receiptQueue)
 
-        job =  listen(PdfClient(env.pdfGeneratorURL), journalbehandling, fastlegeregisteret, organisasjonV4,
-                dokumentProduksjonV3, adresseRegisterV1, partnerEmottak, arenaProducer, receiptProducer, session, consumer).join()
-
+        job = listen(pdfClient, journalbehandlingClient, fastlegeregisteretClient, organisasjonV4Client,
+                dokumentProduksjonV3Client, adresseRegisterV1Client, partnerEmottakClient, arenaProducer, receiptProducer, session, consumer)
     }
 
     private fun configureTimeout(service: Any) {
@@ -171,9 +185,8 @@ class EmbeddedEnvironment {
     }
 
     fun resetMocks() {
-        reset(personV3Mock, organisasjonEnhetV2Mock, pdfGenMock)
+        Mockito.reset(fastlegeregisterMock, organisasjonV4Mock, journalbehandlingMock, dokumentProduksjonV3Mock, adresseRegisterV1Mock, partnerEmottakMock, pdfGenMock)
     }
-
 
     fun shutdown() {
         activeMQServer.stop(true)
@@ -185,44 +198,18 @@ class EmbeddedEnvironment {
     }
 
     fun defaultMocks(
-        person: Person,
-        doctor: Person? = defaultPerson(),
-        navOffice: Organisasjonsenhet? = defaultNavOffice(),
-        geografiskTilknytning: GeografiskTilknytning? = Kommune().withGeografiskTilknytning("navkontor"),
-        samhandlerList: List<Samhandler> = listOfNotNull(doctor?.toSamhandler())
+            // geografiskTilknytning: GeografiskTilknytning? = Kommune().withGeografiskTilknytning("navkontor"),
     ) {
         log.info("Setting up mocks")
-        `when`(personV3Mock.hentPerson(any())).thenReturn(HentPersonResponse().withPerson(person))
-
-        `when`(personV3Mock.hentGeografiskTilknytning(any())).thenReturn(HentGeografiskTilknytningResponse()
-                .withAktoer(person.aktoer)
-                .withNavn(person.personnavn)
-                .withGeografiskTilknytning(geografiskTilknytning))
-
-        `when`(organisasjonEnhetV2Mock.finnNAVKontor(any()))
-                .thenReturn(FinnNAVKontorResponse().apply {
-                    navKontor = navOffice
-                })
-        `when`(samhandlerMock.getSamhandlerList()).thenReturn(samhandlerList)
-        `when`(pdfGenMock.getPDF(anyString())).thenReturn("Sample PDF".toByteArray(Charsets.UTF_8))
-    }
-
-    fun consumeMessage(consumer: MessageConsumer): String? = consumer.receive(2000).run {
-        if (this == null) return null
-        if (this !is TextMessage) throw RuntimeException("Got unexpected message type")
-        println(this.text)
-        this.text
+        Mockito.`when`(fastlegeregisterMock.getPatientGPDetails(ArgumentMatchers.any())).thenReturn(PatientToGPContractAssociation())
     }
 
     fun produceMessage(message: String) {
         val textMessage = session.createTextMessage(message)
         producer.send(textMessage)
-        log.info("Sending: {}", keyValue("message", message))
+        log.info("Sending: {}", StructuredArguments.keyValue("message", message))
         log.info("Pushed message to queue")
     }
-
-    fun produceMessage(fellesformat: EIFellesformat) =
-            produceMessage(fellesformatJaxBContext.createMarshaller().toString(fellesformat))
 
     private fun createHttpMock(): ApplicationEngine = embeddedServer(Netty, mockHttpServerPort) {
             routing {
@@ -244,13 +231,6 @@ class EmbeddedEnvironment {
                         }
                     }
                 }
-
-                get("/rest/sar/samh") {
-                    val ident = call.request.queryParameters["ident"]
-                    call.respondJson {
-                        samhandlerMock.getSamhandlerList()
-                    }
-                }
             }
         }.start()
 
@@ -263,13 +243,16 @@ class EmbeddedEnvironment {
         start()
 
         BusFactory.setDefaultBus(soapServlet.bus)
-        Endpoint.publish("/tps", personV3Mock)
-        Endpoint.publish("/norg2", organisasjonEnhetV2Mock)
-        Endpoint.publish("/joark", journalbehandlingMock)
+        Endpoint.publish("/flr", fastlegeregisterMock)
+        Endpoint.publish("/org", organisasjonV4Mock)
+        Endpoint.publish("/jor", journalbehandlingMock)
+        Endpoint.publish("/dok", dokumentProduksjonV3Mock)
+        Endpoint.publish("/adr", adresseRegisterV1Mock)
+        Endpoint.publish("/emo", partnerEmottakMock)
     }
 
     companion object {
-        val log: Logger = LoggerFactory.getLogger("pale-it")
+        val log: Logger = LoggerFactory.getLogger("paop-it")
 
         @JvmStatic
         fun main(args: Array<String>) {
