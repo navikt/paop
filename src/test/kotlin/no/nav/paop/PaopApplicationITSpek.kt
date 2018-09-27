@@ -1,10 +1,9 @@
 package no.nav.paop
 
 import org.spekframework.spek2.Spek
-import org.spekframework.spek2.style.specification.describe
 
 object PaopApplicationITSpek : Spek({
-    val e = EmbeddedEnvironment()
+    /*val e = EmbeddedEnvironment()
     beforeGroup { e.start() }
     afterEachTest {
         e.resetMocks()
@@ -17,5 +16,5 @@ object PaopApplicationITSpek : Spek({
             val message = ""
             e.produceMessage(message)
         }
-    }
+    }*/
 })
