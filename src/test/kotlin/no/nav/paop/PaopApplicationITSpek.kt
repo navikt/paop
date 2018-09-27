@@ -12,9 +12,13 @@ object PaopApplicationITSpek : Spek({
         e.shutdown()
     }
     describe("Full flow exception") {
-        it("") {
-            val message = ""
-            e.produceMessage(message)
+        it("mnbbn") {
+            val message = "This is a test"
+            e.defaultMocks()
+            e.createKafkaMessage("aapen-kafka-topic", message)
+            val messages = e.readKafkaMessage("aapen-kafka-topic")
+            print(messages[0].value())
         }
-    }*/
+    }
+    */
 })

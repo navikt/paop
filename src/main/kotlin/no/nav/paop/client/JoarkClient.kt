@@ -96,6 +96,7 @@ fun createProduserIkkeredigerbartDokumentRequest(
             value = "SYK"
         }
         journalfoerendeEnhet = "N/A"
+        saksbehandlernavn = "PAOP"
         adresse = NorskPostadresse().apply {
             adresselinje1 = "stat"
             land = Landkoder().apply {

@@ -17,12 +17,17 @@ import kotlinx.coroutines.experimental.runBlocking
 import net.logstash.logback.argument.StructuredArguments
 import no.nav.altinnkanal.avro.ExternalAttachment
 import no.nav.common.KafkaEnvironment
+import no.nav.emottak.schemas.HentPartnerIDViaOrgnummerResponse
 import no.nav.emottak.schemas.PartnerResource
 import no.nav.paop.client.PdfClient
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.DokumentproduksjonV3
+import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.meldinger.ProduserIkkeredigerbartDokumentResponse
 import no.nav.tjeneste.virksomhet.organisasjon.v4.binding.OrganisasjonV4
+import no.nav.tjeneste.virksomhet.organisasjon.v4.meldinger.HentOrganisasjonResponse
+import no.nav.virksomhet.tjenester.arkiv.journalbehandling.meldinger.v1.LagreDokumentOgOpprettJournalpostResponse
 import no.nav.virksomhet.tjenester.arkiv.journalbehandling.v1.binding.Journalbehandling
 import no.nhn.adresseregisteret.ICommunicationPartyService
+import no.nhn.adresseregisteret.OrganizationPerson
 import no.nhn.schemas.reg.flr.IFlrReadOperations
 import no.nhn.schemas.reg.flr.PatientToGPContractAssociation
 import org.apache.activemq.artemis.core.config.impl.ConfigurationImpl
@@ -36,7 +41,11 @@ import org.apache.cxf.jaxws.JaxWsProxyFactoryBean
 import org.apache.cxf.transport.http.HTTPConduit
 import org.apache.cxf.transport.servlet.CXFNonSpringServlet
 import org.apache.cxf.transports.http.configuration.HTTPClientPolicy
+import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.consumer.KafkaConsumer
+import org.apache.kafka.clients.producer.KafkaProducer
+import org.apache.kafka.clients.producer.ProducerRecord
+import org.apache.kafka.common.serialization.StringSerializer
 import org.eclipse.jetty.server.Server
 import org.eclipse.jetty.servlet.ServletContextHandler
 import org.eclipse.jetty.servlet.ServletHolder
@@ -45,6 +54,7 @@ import org.mockito.Mockito
 import org.mockito.Mockito.mock
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import java.time.Duration
 import javax.jms.Connection
 import javax.jms.ConnectionFactory
 import javax.jms.MessageProducer
@@ -87,6 +97,11 @@ class EmbeddedEnvironment {
 
     private lateinit var session: Session
 
+    private val embeddedKafkaEnvironment: KafkaEnvironment = KafkaEnvironment(
+            autoStart = false,
+            topics = listOf("aapen-kafka-topic")
+    )
+
     fun start() {
         activeMQServer = ActiveMQServers.newActiveMQServer(ConfigurationImpl()
                 .setPersistenceEnabled(false)
@@ -100,21 +115,15 @@ class EmbeddedEnvironment {
         server = createJettyServer()
         mockWebserver = createHttpMock()
 
-        val topic = "aapen-test-topic"
-
-        val embeddedEnvironment = KafkaEnvironment(
-                autoStart = false,
-                topics = listOf(topic)
-        )
         val env = Environment(
-                kafkaBootstrapServersURL = embeddedEnvironment.brokersURL
+                kafkaBootstrapServersURL = embeddedKafkaEnvironment.brokersURL
         )
 
+        embeddedKafkaEnvironment.start()
         val consumer = KafkaConsumer<String, ExternalAttachment>(readConsumerConfig(env).apply {
             remove("security.protocol")
             remove("sasl.mechanism")
         })
-        consumer.subscribe(listOf(topic))
 
         val fastlegeregisteretClient = JaxWsProxyFactoryBean().apply {
             address = "$wsBaseUrl/ws/flr"
@@ -189,6 +198,7 @@ class EmbeddedEnvironment {
     }
 
     fun shutdown() {
+        embeddedKafkaEnvironment.stop()
         activeMQServer.stop(true)
         runBlocking {
             job.cancel()
@@ -197,11 +207,21 @@ class EmbeddedEnvironment {
         CollectorRegistry.defaultRegistry.clear()
     }
 
-    fun defaultMocks(
-            // geografiskTilknytning: GeografiskTilknytning? = Kommune().withGeografiskTilknytning("navkontor"),
-    ) {
+    fun defaultMocks() {
         log.info("Setting up mocks")
         Mockito.`when`(fastlegeregisterMock.getPatientGPDetails(ArgumentMatchers.any())).thenReturn(PatientToGPContractAssociation())
+
+        Mockito.`when`(organisasjonV4Mock.hentOrganisasjon(ArgumentMatchers.any())).thenReturn(HentOrganisasjonResponse())
+
+        Mockito.`when`(journalbehandlingMock.lagreDokumentOgOpprettJournalpost(ArgumentMatchers.any())).thenReturn(LagreDokumentOgOpprettJournalpostResponse())
+
+        Mockito.`when`(dokumentProduksjonV3Mock.produserIkkeredigerbartDokument(ArgumentMatchers.any())).thenReturn(ProduserIkkeredigerbartDokumentResponse())
+
+        Mockito.`when`(adresseRegisterV1Mock.getOrganizationPersonDetails(ArgumentMatchers.any())).thenReturn(OrganizationPerson())
+
+        Mockito.`when`(partnerEmottakMock.hentPartnerIDViaOrgnummer(ArgumentMatchers.any())).thenReturn(HentPartnerIDViaOrgnummerResponse())
+
+        Mockito.`when`(pdfGenMock.getPDF(ArgumentMatchers.anyString())).thenReturn("Sample PDF".toByteArray(Charsets.UTF_8))
     }
 
     fun produceMessage(message: String) {
@@ -265,5 +285,37 @@ class EmbeddedEnvironment {
                 embeddedEnvironment.shutdown()
             })
         }
+    }
+    fun createKafkaMessage(topicName: String, message: String) {
+        val embeddedEnvironment = KafkaEnvironment(
+                autoStart = false,
+                topics = listOf(topicName)
+        )
+        val env = Environment(
+                kafkaBootstrapServersURL = embeddedEnvironment.brokersURL
+        )
+        val producer = KafkaProducer<String, String>(readProducerConfig(env, StringSerializer::class).apply {
+            remove("security.protocol")
+            remove("sasl.mechanism")
+        })
+
+        producer.send(ProducerRecord(topicName, message))
+        log.info("Pushed message to kafka topic ")
+    }
+
+    fun readKafkaMessage(topicName: String): List<ConsumerRecord<String, String>> {
+        val embeddedEnvironment = KafkaEnvironment(
+                autoStart = false,
+                topics = listOf(topicName)
+        )
+        val env = Environment(
+                kafkaBootstrapServersURL = embeddedEnvironment.brokersURL
+        )
+        val consumer = KafkaConsumer<String, String>(readConsumerConfig(env).apply {
+            remove("security.protocol")
+            remove("sasl.mechanism")
+        })
+        consumer.subscribe(listOf(topicName))
+        return consumer.poll(Duration.ofMillis(10000)).toList()
     }
 }
