@@ -93,7 +93,7 @@ fun createProduserIkkeredigerbartDokumentRequest(
             value = "AO01"
         }
         dokumenttilhoerendeFagomraade = Fagomraader().apply {
-            value = "SYK"
+            value = "UFO"
         }
         journalfoerendeEnhet = "N/A"
         saksbehandlernavn = "PAOP"
