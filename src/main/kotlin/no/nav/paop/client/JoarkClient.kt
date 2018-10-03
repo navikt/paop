@@ -76,7 +76,7 @@ fun createProduserIkkeredigerbartDokumentRequest(
     xmlContent: String
 ): ProduserIkkeredigerbartDokumentRequest = ProduserIkkeredigerbartDokumentRequest().apply {
     dokumentbestillingsinformasjon = Dokumentbestillingsinformasjon().apply {
-        dokumenttypeId = "brev"
+        dokumenttypeId = "000001"
         bestillendeFagsystem = Fagsystemer().apply {
             value = "AO01"
         }
