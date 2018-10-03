@@ -40,7 +40,7 @@ val arenaMarshaller: Marshaller = arenaEiaInfoJaxBContext.createMarshaller()
 val arenabrevnfoJaxBContext: JAXBContext = JAXBContext.newInstance(ArenaBrevTilArbeidsgiver::class.java)
 val arenabrevMarshaller: Marshaller = arenabrevnfoJaxBContext.createMarshaller()
 
-val arenabrevdataJaxBContext: JAXBContext = JAXBContext.newInstance(Brevdata::class.java, FellesType::class.java, FagType::class.java)
+val arenabrevdataJaxBContext: JAXBContext = JAXBContext.newInstance(Brevdata::class.java)
 val arenabrevdataMarshaller: Marshaller = arenabrevdataJaxBContext.createMarshaller()
 
 fun extractDataBatch(dataBatchString: String): DataBatch =
