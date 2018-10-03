@@ -76,6 +76,9 @@ configurations {
     navWsdl {
         transitive = false
     }
+    navXsd {
+        transitive = false
+    }
     generateJaxb2
 }
 
@@ -179,6 +182,15 @@ class Jaxb2Task extends DefaultTask {
                 'fork': 'true'
         )
 
+        // TODO this is only TMP
+        ant.xjc(
+                'destdir': outputDir,
+                'package': 'no.nav.model.arena.brev',
+                'schema': "${project.buildDir}/xsd/arenabrev/arena_000001.xsd",
+                'encoding': 'UTF-8',
+                'fork': 'true'
+        )
+
     }
 }
 
@@ -203,7 +215,19 @@ wsdl2java {
     ]
 }
 
+task copyXsdsFromArtifacts(type: Copy) {
+    includeEmptyDirs = false
+    from {
+        configurations.navXsd.asFileTree.forEach { artifact ->
+            from zipTree(artifact)
+        }
+    }
+    into "$buildDir/xsd/"
+    include('**/*.xsd')
+}
+
 task generateJaxb2(type: Jaxb2Task) {
+    dependsOn copyXsdsFromArtifacts
     outputDir = jaxb2SourceDir
     sourceDir = file("$projectDir/src/main/resources/xsd")
     xjbDir = file("$projectDir/src/main/xjb")
@@ -304,6 +328,9 @@ dependencies {
     implementation "no.nav.syfo.tjenester:kith-hodemelding:$kith_hodemelding_version"
     implementation "no.nav.syfo.tjenester:kith-base64:$kith_base64_version"
     implementation "org.mockito:mockito-core:$mockito_version"
+
+    // TODO this is only TMP
+    navXsd "no.nav.dok.metaforcemal:arenabrev:7.2.5"
 
     testImplementation "org.spekframework.spek2:spek-dsl-jvm:$spek2_version"
     testImplementation "org.amshove.kluent:kluent:$kluent_version"
