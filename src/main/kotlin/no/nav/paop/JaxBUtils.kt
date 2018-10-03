@@ -1,6 +1,8 @@
 package no.nav.paop
 
-import no.nav.model.arena.brev.BrevdataType
+import no.nav.model.arena.brev.FagType
+import no.nav.model.arena.brev.FellesType
+import no.nav.model.arena.brevdata.Brevdata
 import no.nav.model.arenaBrevTilArbeidsgiver.ArenaBrevTilArbeidsgiver
 import no.nav.model.arenaOppfolging.ArenaOppfolgingPlan
 import no.nav.model.dataBatch.DataBatch
@@ -38,7 +40,7 @@ val arenaMarshaller: Marshaller = arenaEiaInfoJaxBContext.createMarshaller()
 val arenabrevnfoJaxBContext: JAXBContext = JAXBContext.newInstance(ArenaBrevTilArbeidsgiver::class.java)
 val arenabrevMarshaller: Marshaller = arenabrevnfoJaxBContext.createMarshaller()
 
-val arenabrevdataJaxBContext: JAXBContext = JAXBContext.newInstance(BrevdataType::class.java)
+val arenabrevdataJaxBContext: JAXBContext = JAXBContext.newInstance(Brevdata::class.java, FellesType::class.java, FagType::class.java)
 val arenabrevdataMarshaller: Marshaller = arenabrevdataJaxBContext.createMarshaller()
 
 fun extractDataBatch(dataBatchString: String): DataBatch =

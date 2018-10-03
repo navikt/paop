@@ -34,7 +34,6 @@ import no.nav.emottak.schemas.PartnerInformasjon
 import no.nav.emottak.schemas.PartnerResource
 import no.nav.model.arena.brev.AktivitetsType
 import no.nav.model.arena.brev.BesoksadresseType
-import no.nav.model.arena.brev.BrevdataType
 import no.nav.model.arena.brev.FagType
 import no.nav.model.arena.brev.FellesType
 import no.nav.model.arena.brev.KontaktInformasjonType
@@ -47,6 +46,7 @@ import no.nav.model.arena.brev.ReturadresseType
 import no.nav.model.arena.brev.SakspartType
 import no.nav.model.arena.brev.SakspartTypeKode
 import no.nav.model.arena.brev.SignerendeSaksbehandlerType
+import no.nav.model.arena.brevdata.Brevdata
 import no.nav.model.dataBatch.DataBatch
 import no.nav.model.navOppfPlan.OppfolgingsplanMetadata
 import no.nav.paop.client.PdfClient
@@ -748,55 +748,58 @@ fun createDialogmelding(
     })
 }
 
-fun createArenaBrevdata(): BrevdataType = BrevdataType().apply {
+fun createArenaBrevdata(): Brevdata = Brevdata().apply {
     // TODO this is only TMP
-    felles = FellesType().apply {
-        spraakkode = "NB"
-        fagsaksnummer = "2014122950"
-        signerendeSaksbehandler = SignerendeSaksbehandlerType().apply {
-            signerendeSaksbehandlerNavn = "Sagne Sakbehandler"
-        }
-        sakspart = SakspartType().apply {
-            sakspartId = "01010112345".toLong()
-            sakspartTypeKode = SakspartTypeKode.PERSON
-            sakspartNavn = "Liv Mona Olsen"
-        }
-        mottaker = MottakerType().apply {
-            mottakerId = "01010112345".toLong()
-            mottakerTypeKode = MottakerTypeKode.PERSON
-            mottakerNavn = "Liv Mona Olsen"
-            mottakerAdresse = MottakerAdresseType().apply {
-                adresselinje1 = "Rolfsbuktalleen 7"
-                adresselinje2 = "Oslo"
-                adresselinje3 = "Moss"
-                postNr = 1364
-                poststed = "FORNEBU"
-                land = "Norge"
-            }
-        }
-        navnAvsenderEnhet = "Dagpenger Inn"
-        kontaktInformasjon = KontaktInformasjonType().apply {
-            kontaktTelefonnummer = "55 55 33 33"
-            returadresse = ReturadresseType().apply {
+    content.add(
+            FellesType().apply {
+                spraakkode = "NB"
+                fagsaksnummer = "2014122950"
+                signerendeSaksbehandler = SignerendeSaksbehandlerType().apply {
+                    signerendeSaksbehandlerNavn = "Sagne Sakbehandler"
+                }
+                sakspart = SakspartType().apply {
+                    sakspartId = "01010112345".toLong()
+                    sakspartTypeKode = SakspartTypeKode.PERSON
+                    sakspartNavn = "Liv Mona Olsen"
+                }
+                mottaker = MottakerType().apply {
+                    mottakerId = "01010112345".toLong()
+                    mottakerTypeKode = MottakerTypeKode.PERSON
+                    mottakerNavn = "Liv Mona Olsen"
+                    mottakerAdresse = MottakerAdresseType().apply {
+                        adresselinje1 = "Rolfsbuktalleen 7"
+                        adresselinje2 = "Oslo"
+                        adresselinje3 = "Moss"
+                        postNr = 1364
+                        poststed = "FORNEBU"
+                        land = "Norge"
+                    }
+                }
                 navnAvsenderEnhet = "Dagpenger Inn"
-                adresselinje = "Postboks 6944 St.Olavs plass"
-                postNr = "0130".toShort()
-                poststed = "OSLO"
+                kontaktInformasjon = KontaktInformasjonType().apply {
+                    kontaktTelefonnummer = "55 55 33 33"
+                    returadresse = ReturadresseType().apply {
+                        navnAvsenderEnhet = "Dagpenger Inn"
+                        adresselinje = "Postboks 6944 St.Olavs plass"
+                        postNr = "0130".toShort()
+                        poststed = "OSLO"
+                    }
+                    postadresse = PostadresseType().apply {
+                        navnAvsenderEnhet = "Dagpenger Inn"
+                        adresselinje = "Postboks 6944 St.Olavs plass"
+                        postNr = "0130".toShort()
+                        poststed = "OSLO"
+                    }
+                    besoksadresse = BesoksadresseType().apply {
+                        adresselinje = "Adresselinje"
+                        postNr = "0130"
+                        poststed = "OSLO"
+                    }
+                }
             }
-            postadresse = PostadresseType().apply {
-                navnAvsenderEnhet = "Dagpenger Inn"
-                adresselinje = "Postboks 6944 St.Olavs plass"
-                postNr = "0130".toShort()
-                poststed = "OSLO"
-            }
-            besoksadresse = BesoksadresseType().apply {
-                adresselinje = "Adresselinje"
-                postNr = "0130"
-                poststed = "OSLO"
-            }
-        }
-    }
-    fag = FagType().apply {
+    )
+
+    content.add(FagType().apply {
         aktivitetsNavn = "aktivitet"
         aktivitetsType = AktivitetsType.VGINT
         isSvarslipp = true
@@ -809,5 +812,5 @@ fun createArenaBrevdata(): BrevdataType = BrevdataType().apply {
             brevTekst = "Brevtekst"
         }
         isVisReaksjon = true
-    }
+    })
 }
