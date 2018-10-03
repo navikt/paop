@@ -1,7 +1,5 @@
 package no.nav.paop
 
-import no.nav.model.arena.brev.FagType
-import no.nav.model.arena.brev.FellesType
 import no.nav.model.arena.brevdata.Brevdata
 import no.nav.model.arenaBrevTilArbeidsgiver.ArenaBrevTilArbeidsgiver
 import no.nav.model.arenaOppfolging.ArenaOppfolgingPlan
