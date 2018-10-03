@@ -414,8 +414,10 @@ fun handleNonFastlegeFollowupPlan(
     val orgpostnummer = finnOrganisasjonResponse.organisasjonSammendragListe.firstOrNull()!!.postnummer.value
     val orgpoststed = finnOrganisasjonResponse.organisasjonSammendragListe.firstOrNull()!!.poststed
 
+    // TODO TMP
+    val brevdata = arenabrevdataMarshaller.toString(createArenaBrevdata())
     createPhysicalLetter(dokumentProduksjonV3, arenaProducer, session, metadata, metadata.senderOrgId, metadata.senderOrgName,
-            orgpostnummer, orgpoststed, "<TEST></TEST>")
+            orgpostnummer, orgpoststed, brevdata)
 }
 
 fun handleDoctorFollowupPlanAltinn(
@@ -483,9 +485,10 @@ fun handleDoctorFollowupPlanAltinn(
                     gpHprNumber)
             sendDialogmeldingOppfolginsplan(receiptProducer, session, fellesformat)
         } else {
-            val brevdata = createArenaBrevdata()
+            // TODO TMP
+            val brevdata = arenabrevdataMarshaller.toString(createArenaBrevdata())
             createPhysicalLetter(dokumentProduksjonV3, arenaProducer, session, incomingMetadata, gpOfficeOrganizationNumber,
-                    gpName, gpOfficePostnr, gpOfficePoststed, "<TEST></TEST>")
+                    gpName, gpOfficePostnr, gpOfficePoststed, brevdata)
         }
     }
 }
