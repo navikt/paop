@@ -748,7 +748,7 @@ fun createDialogmelding(
     })
 }
 
-fun createArenaBrevdata() { BrevdataType().apply {
+fun createArenaBrevdata(): BrevdataType = BrevdataType().apply {
     // TODO this is only TMP
     felles = FellesType().apply {
         spraakkode = "NB"
@@ -810,5 +810,4 @@ fun createArenaBrevdata() { BrevdataType().apply {
         }
         isVisReaksjon = true
     }
-}
 }
