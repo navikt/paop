@@ -193,7 +193,7 @@ class Jaxb2Task extends DefaultTask {
         ant.xjc(
                 'destdir': outputDir,
                 'package': 'no.nav.model.arena.brevdata',
-                'schema': "${project.buildDir}/xsd/arenabrev/Allow_Almost_All.xsd",
+                'schema': "${project.buildDir}/xsd/arenabrev/Allow_Any_All.xsd",
                 'encoding': 'UTF-8',
                 'fork': 'true'
         )

@@ -415,8 +415,6 @@ fun handleNonFastlegeFollowupPlan(
     val orgpoststed = finnOrganisasjonResponse.organisasjonSammendragListe.firstOrNull()!!.poststed
 
     // TODO TMP
-    arenabrevdataMarshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true)
-    arenabrevdataMarshaller.setProperty(Marshaller.JAXB_ENCODING, "UTF-8")
     val brevdata = arenabrevdataMarshaller.toString(createArenaBrevdata())
     createPhysicalLetter(dokumentProduksjonV3, arenaProducer, session, metadata, metadata.senderOrgId, metadata.senderOrgName,
             orgpostnummer, orgpoststed, brevdata)
@@ -488,8 +486,6 @@ fun handleDoctorFollowupPlanAltinn(
             sendDialogmeldingOppfolginsplan(receiptProducer, session, fellesformat)
         } else {
             // TODO TMP
-            arenabrevdataMarshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true)
-            arenabrevdataMarshaller.setProperty(Marshaller.JAXB_ENCODING, "UTF-8")
             val brevdata = arenabrevdataMarshaller.toString(createArenaBrevdata())
             createPhysicalLetter(dokumentProduksjonV3, arenaProducer, session, incomingMetadata, gpOfficeOrganizationNumber,
                     gpName, gpOfficePostnr, gpOfficePoststed, brevdata)
