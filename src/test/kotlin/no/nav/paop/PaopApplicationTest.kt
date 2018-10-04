@@ -204,4 +204,12 @@ object PaopApplicationTest : Spek({
             msgHead.msgInfo.type.v shouldEqual "DIALOG_NOTAT"
         }
     }
+
+    describe("tests the functions createArenaBrevdata") {
+        it("Should marshall brevdata to a valid string") {
+
+            val brevdata = arenabrevdataMarshaller.toString(createArenaBrevdata())
+            brevdata shouldEqual "string"
+        }
+    }
 })
