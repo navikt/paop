@@ -101,7 +101,9 @@ import java.util.UUID
 import javax.jms.MessageProducer
 import javax.jms.Session
 import javax.security.auth.callback.CallbackHandler
+import javax.xml.bind.JAXBElement
 import javax.xml.bind.Marshaller
+import javax.xml.namespace.QName
 import javax.xml.parsers.DocumentBuilder
 import javax.xml.parsers.DocumentBuilderFactory
 
@@ -750,8 +752,7 @@ fun createDialogmelding(
 
 fun createArenaBrevdata(): Brevdata = Brevdata().apply {
     // TODO this is only TMP
-    content.add(
-            FellesType().apply {
+    content.add(JAXBElement(QName("felles"), FellesType::class.java, FellesType().apply {
                 spraakkode = "NB"
                 fagsaksnummer = "2014122950"
                 signerendeSaksbehandler = SignerendeSaksbehandlerType().apply {
@@ -796,10 +797,9 @@ fun createArenaBrevdata(): Brevdata = Brevdata().apply {
                         poststed = "OSLO"
                     }
                 }
-            }
-    )
+            }))
 
-    content.add(FagType().apply {
+    content.add(JAXBElement(QName("fag"), FagType::class.java, FagType().apply {
         aktivitetsNavn = "aktivitet"
         aktivitetsType = AktivitetsType.VGINT
         isSvarslipp = true
@@ -812,5 +812,5 @@ fun createArenaBrevdata(): Brevdata = Brevdata().apply {
             brevTekst = "Brevtekst"
         }
         isVisReaksjon = true
-    })
+    }))
 }
