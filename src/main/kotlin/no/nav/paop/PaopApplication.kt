@@ -780,13 +780,13 @@ fun createArenaBrevdata(): Brevdata = Brevdata().apply {
                 kontaktInformasjon = KontaktInformasjonType().apply {
                     kontaktTelefonnummer = "55 55 33 33"
                     returadresse = ReturadresseType().apply {
-                        navnAvsenderEnhet = "Dagpenger Inn"
+                        navEnhetsNavn = "Dagpenger Inn"
                         adresselinje = "Postboks 6944 St.Olavs plass"
                         postNr = "0130".toShort()
                         poststed = "OSLO"
                     }
                     postadresse = PostadresseType().apply {
-                        navnAvsenderEnhet = "Dagpenger Inn"
+                        navEnhetsNavn = "Dagpenger Inn"
                         adresselinje = "Postboks 6944 St.Olavs plass"
                         postNr = "0130".toShort()
                         poststed = "OSLO"
