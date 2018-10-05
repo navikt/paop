@@ -321,6 +321,8 @@ fun handleDoctorFollowupPlanAltinn(
         // TODO: We shouldn't just fail here
         null
     }
+    // TODO remove after testing
+    handleNonFastlegeFollowupPlan(fagmelding, iCorrespondenceAgencyExternalBasic, incomingMetadata, altinnUserUsername, altinnUserPassword)
 
     if (patientToGPContractAssociation != null) {
         val gpName = patientToGPContractAssociation.extractGPName()
