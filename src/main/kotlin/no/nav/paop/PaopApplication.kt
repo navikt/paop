@@ -172,7 +172,7 @@ fun handleOppfoelgingsplan(
         return
     }
 
-    val oppfolgingsplanType = findOppfolingsplanType(serviceCode, serviceEditionCode)
+    val oppfolgingsplanType = Oppfolginsplan.OP2016 // TODO findOppfolingsplanType(serviceCode, serviceEditionCode)
     if (oppfolgingsplanType in arrayOf(Oppfolginsplan.OP2012, Oppfolginsplan.OP2014, Oppfolginsplan.OP2016)) {
         val fagmelding = pdfClient.generatePDF(PdfType.FAGMELDING, mapFormdataToFagmelding(skjemainnhold, incomingMetadata))
         if (skjemainnhold.mottaksInformasjon.isOppfolgingsplanSendesTiNav) {
