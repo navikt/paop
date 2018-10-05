@@ -11,6 +11,14 @@ import io.prometheus.client.hotspot.DefaultExports
 import kotlinx.coroutines.experimental.delay
 import kotlinx.coroutines.experimental.launch
 import kotlinx.coroutines.experimental.runBlocking
+import no.altinn.schemas.services.serviceengine.correspondence._2010._10.AttachmentsV2
+import no.altinn.schemas.services.serviceengine.correspondence._2010._10.ExternalContentV2
+import no.altinn.schemas.services.serviceengine.correspondence._2010._10.InsertCorrespondenceV2
+import no.altinn.schemas.services.serviceengine.correspondence._2010._10.UserTypeRestriction
+import no.altinn.schemas.services.serviceengine.subscription._2009._10.AttachmentFunctionType
+import no.altinn.services.serviceengine.correspondence._2009._10.ICorrespondenceAgencyExternalBasic
+import no.altinn.services.serviceengine.reporteeelementlist._2010._10.BinaryAttachmentExternalBEV2List
+import no.altinn.services.serviceengine.reporteeelementlist._2010._10.BinaryAttachmentV2
 import no.kith.xmlstds.XMLCV
 import no.kith.xmlstds.base64container.XMLBase64Container
 import no.kith.xmlstds.dialog._2006_10_11.XMLNotat
@@ -213,11 +221,20 @@ fun main(args: Array<String>) = runBlocking {
         }.create() as PartnerResource
         configureBasicAuthFor(partnerEmottak, env.srvPaopUsername, env.srvPaopPassword)
 
+        val iCorrespondenceAgencyExternalBasic = JaxWsProxyFactoryBean().apply {
+            address = env.behandlealtinnmeldingV1EndpointURL
+            features.add(LoggingFeature())
+            features.add(WSAddressingFeature())
+            serviceClass = ICorrespondenceAgencyExternalBasic::class.java
+        }.create() as ICorrespondenceAgencyExternalBasic
+        configureSTSFor(iCorrespondenceAgencyExternalBasic, env.srvPaopUsername,
+                env.srvPaopPassword, env.securityTokenServiceUrl)
+
         val arenaProducer = session.createProducer(arenaQueue)
         val receiptProducer = session.createProducer(receiptQueue)
 
         listen(PdfClient(env.pdfGeneratorURL), journalbehandling, fastlegeregisteret, organisasjonV4,
-                dokumentProduksjonV3, adresseRegisterV1, partnerEmottak, arenaProducer, receiptProducer, session, consumer).join()
+                dokumentProduksjonV3, adresseRegisterV1, partnerEmottak, iCorrespondenceAgencyExternalBasic, arenaProducer, receiptProducer, session, consumer, env.altinnUserUsername, env.altinnUserPassword).join()
     }
 }
 
@@ -229,10 +246,14 @@ fun listen(
     dokumentProduksjonV3: DokumentproduksjonV3,
     adresseRegisterV1: ICommunicationPartyService,
     partnerEmottak: PartnerResource,
+    iCorrespondenceAgencyExternalBasic: ICorrespondenceAgencyExternalBasic,
     arenaProducer: MessageProducer,
     receiptProducer: MessageProducer,
     session: Session,
-    consumer: KafkaConsumer<String, ExternalAttachment>
+    consumer: KafkaConsumer<String, ExternalAttachment>,
+    altinnUserUsername: String,
+    altinnUserPassword: String
+
 ) = launch {
 
     while (true) {
@@ -289,14 +310,11 @@ fun listen(
                 if (isFollowupPlanForNAV(formData, oppfolgingsplanType)) {
                     val joarkRequest = createJoarkRequest(incomingMetadata, fagmelding)
                     journalbehandling.lagreDokumentOgOpprettJournalpost(joarkRequest)
-
                     sendArenaOppfolginsplan(arenaProducer, session, incomingMetadata, arenaBistand)
                 }
                 if (isFollowupPlanForFastlege(formData, oppfolgingsplanType)) {
-                    handleDoctorFollowupPlanAltinn(fastlegeregisteret, dokumentProduksjonV3, adresseRegisterV1,
-                            partnerEmottak, arenaProducer, receiptProducer, session, incomingMetadata, incomingPersonInfo, fagmelding)
-                } else {
-                    handleNonFastlegeFollowupPlan(organisasjonV4, dokumentProduksjonV3, arenaProducer, session, incomingMetadata)
+                    handleDoctorFollowupPlanAltinn(fastlegeregisteret, organisasjonV4, dokumentProduksjonV3, adresseRegisterV1,
+                            partnerEmottak, iCorrespondenceAgencyExternalBasic, arenaProducer, receiptProducer, session, incomingMetadata, incomingPersonInfo, fagmelding, altinnUserUsername, altinnUserPassword)
                 }
             } else if (oppfolgingsplanType == Oppfolginsplan.NAVOPPFPLAN) {
 
@@ -307,12 +325,14 @@ fun listen(
                 if (usesNavTemplate) {
                     handleNAVFollowupPlanNAVTemplate(journalbehandling, fastlegeregisteret, organisasjonV4, dokumentProduksjonV3,
                             arenaProducer, session, extractOppfolginsplan, arenaBistand, attachment, incomingMetadata)
+                } else {
+                    val fagmelding = dataBatch.attachments.attachment.first().value
+                    val joarkRequest = createJoarkRequest(incomingMetadata, fagmelding)
+                    journalbehandling.lagreDokumentOgOpprettJournalpost(joarkRequest)
+                    sendArenaOppfolginsplan(arenaProducer, session, incomingMetadata, arenaBistand)
                 }
             } else {
-                val fagmelding = dataBatch.attachments.attachment.first().value
-                val joarkRequest = createJoarkRequest(incomingMetadata, fagmelding)
-                journalbehandling.lagreDokumentOgOpprettJournalpost(joarkRequest)
-                sendArenaOppfolginsplan(arenaProducer, session, incomingMetadata, arenaBistand)
+                throw Exception("Unvalid oppfolingsplan type")
             }
         }
         delay(100)
@@ -354,7 +374,10 @@ fun handleNAVFollowupPlanNAVTemplate(
             val orgpostnummer = patientToGPContractAssociation.gpContract.value.gpOffice.value.physicalAddresses.value.physicalAddress.first().postalCode.toString()
             val orgpoststed = patientToGPContractAssociation.gpContract.value.gpOffice.value.physicalAddresses.value.physicalAddress.first().city.value.toString()
 
-            createPhysicalLetter(dokumentProduksjonV3, arenaProducer, session, incomingMetadata, orgNr, orgname, orgpostnummer, orgpoststed, "<TEST></TEST>")
+            // TODO TMP
+            val brevdata = arenabrevdataMarshaller.toString(createArenaBrevdata())
+
+            createPhysicalLetter(dokumentProduksjonV3, arenaProducer, session, incomingMetadata, orgNr, orgname, orgpostnummer, orgpoststed, brevdata)
         }
     } else {
 
@@ -370,9 +393,13 @@ fun handleNAVFollowupPlanNAVTemplate(
 
         val orgpostnummer = finnOrganisasjonResponse.organisasjonSammendragListe.firstOrNull()!!.postnummer.value
         val orgpoststed = finnOrganisasjonResponse.organisasjonSammendragListe.firstOrNull()!!.poststed
+
+        // TODO TMP
+        val brevdata = arenabrevdataMarshaller.toString(createArenaBrevdata())
+
         createPhysicalLetter(dokumentProduksjonV3, arenaProducer, session, incomingMetadata,
                 incomingMetadata.senderOrgId, incomingMetadata.senderOrgName, orgpostnummer, orgpoststed,
-                "<TEST></TEST>")
+                brevdata)
     }
 }
 
@@ -390,6 +417,7 @@ fun createPhysicalLetter(
     val brevrequest = createProduserIkkeredigerbartDokumentRequest(incomingMetadata, receiverOrgNumber, gpName, postnummer, poststed, xmlContent)
     try {
         dokumentProduksjonV3.produserIkkeredigerbartDokument(brevrequest)
+        // TODO do we need to tell ARENA that the letter is sendt?
         letterSentNotificationToArena(arenaProducer, session, incomingMetadata)
     } catch (e: Exception) {
         log.error("Call to dokprod returned Exception", e)
@@ -397,42 +425,31 @@ fun createPhysicalLetter(
 }
 
 fun handleNonFastlegeFollowupPlan(
-    organisasjonV4: OrganisasjonV4,
-    dokumentProduksjonV3: DokumentproduksjonV3,
-    arenaProducer: MessageProducer,
-    session: Session,
-    metadata: IncomingMetadata
+    fagmelding: ByteArray,
+    iCorrespondenceAgencyExternalBasic: ICorrespondenceAgencyExternalBasic,
+    metadata: IncomingMetadata,
+    altinnUserUsername: String,
+    altinnUserPassword: String
 ) {
-    val hentOrganisasjonRequest = HentOrganisasjonRequest().apply {
-        orgnummer = metadata.senderOrgId
-    }
-    val hentOrganisasjonResponse = organisasjonV4.hentOrganisasjon(hentOrganisasjonRequest)
 
-    val finnOrganisasjonRequest = FinnOrganisasjonRequest().apply {
-        navn = hentOrganisasjonResponse.organisasjon.navn.toString()
-    }
-    val finnOrganisasjonResponse = organisasjonV4.finnOrganisasjon(finnOrganisasjonRequest)
-
-    val orgpostnummer = finnOrganisasjonResponse.organisasjonSammendragListe.firstOrNull()!!.postnummer.value
-    val orgpoststed = finnOrganisasjonResponse.organisasjonSammendragListe.firstOrNull()!!.poststed
-
-    // TODO TMP
-    val brevdata = arenabrevdataMarshaller.toString(createArenaBrevdata())
-    createPhysicalLetter(dokumentProduksjonV3, arenaProducer, session, metadata, metadata.senderOrgId, metadata.senderOrgName,
-            orgpostnummer, orgpoststed, brevdata)
+    createAltinnMessage(iCorrespondenceAgencyExternalBasic, metadata.archiveReference, metadata.senderOrgId, fagmelding, altinnUserUsername, altinnUserPassword)
 }
 
 fun handleDoctorFollowupPlanAltinn(
     fastlegeregisteret: IFlrReadOperations,
+    organisasjonV4: OrganisasjonV4,
     dokumentProduksjonV3: DokumentproduksjonV3,
     adresseRegisterV1: ICommunicationPartyService,
     partnerEmottak: PartnerResource,
+    iCorrespondenceAgencyExternalBasic: ICorrespondenceAgencyExternalBasic,
     arenaProducer: MessageProducer,
     receiptProducer: MessageProducer,
     session: Session,
     incomingMetadata: IncomingMetadata,
     incomingPersonInfo: IncomingUserInfo,
-    fagmelding: ByteArray
+    fagmelding: ByteArray,
+    altinnUserUsername: String,
+    altinnUserPassword: String
 ) {
     val patientToGPContractAssociation = try {
         fastlegeregisteret.getPatientGPDetails(incomingMetadata.userPersonNumber)
@@ -489,9 +506,12 @@ fun handleDoctorFollowupPlanAltinn(
         } else {
             // TODO TMP
             val brevdata = arenabrevdataMarshaller.toString(createArenaBrevdata())
+
             createPhysicalLetter(dokumentProduksjonV3, arenaProducer, session, incomingMetadata, gpOfficeOrganizationNumber,
                     gpName, gpOfficePostnr, gpOfficePoststed, brevdata)
         }
+    } else {
+            handleNonFastlegeFollowupPlan(fagmelding, iCorrespondenceAgencyExternalBasic, incomingMetadata, altinnUserUsername, altinnUserPassword)
     }
 }
 
@@ -813,4 +833,60 @@ fun createArenaBrevdata(): Brevdata = Brevdata().apply {
         }
         isVisReaksjon = true
     }))
+}
+
+fun createAltinnMessage(
+    iCorrespondenceAgencyExternalBasic: ICorrespondenceAgencyExternalBasic,
+    archiveReference: String,
+    orgnummer: String,
+    fagmelding: ByteArray,
+    altinnUserUsername: String,
+    altinnUserPassword: String
+) {
+
+    iCorrespondenceAgencyExternalBasic.insertCorrespondenceBasicV2(
+            altinnUserUsername,
+            altinnUserPassword,
+            "NAV_DIGISYFO",
+            archiveReference,
+            createInsertCorrespondenceV2(orgnummer, archiveReference, fagmelding)
+            )
+}
+
+fun createInsertCorrespondenceV2(
+    orgnummer: String,
+    archiveReferenceIncoming: String,
+    fagmelding: ByteArray
+): InsertCorrespondenceV2 = InsertCorrespondenceV2().apply {
+    isAllowForwarding = true
+    reportee = orgnummer
+    messageSender = "brukersNavn-fnr"
+    serviceCode = "5062"
+    serviceEdition = "1"
+    content = createExternalContentV2(archiveReference, fagmelding)
+    archiveReference = archiveReferenceIncoming
+}
+
+fun createExternalContentV2(
+    archiveReference: String,
+    fagmelding: ByteArray
+): ExternalContentV2 = ExternalContentV2().apply {
+    languageCode = "1044"
+    messageTitle = "Oppfølgingsplan-$archiveReference-brukersNavn(fnr)"
+    customMessageData = null
+    attachments = createAttachmentsV2(archiveReference, fagmelding)
+}
+
+fun createAttachmentsV2(archiveReference: String, fagmelding: ByteArray): AttachmentsV2 = AttachmentsV2().apply {
+    binaryAttachments = BinaryAttachmentExternalBEV2List().apply {
+        binaryAttachmentV2 == listOf(BinaryAttachmentV2().apply {
+                destinationType = UserTypeRestriction.SHOW_TO_ALL
+                fileName = "oppfoelgingsdialog.pdf" //
+                name = "oppfoelgingsdialog"
+                functionType = AttachmentFunctionType.UNSPECIFIED
+                isEncrypted = false
+                sendersReference = archiveReference
+                data = fagmelding
+        })
+    }
 }

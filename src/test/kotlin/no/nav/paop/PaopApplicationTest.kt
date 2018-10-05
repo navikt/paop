@@ -204,13 +204,4 @@ object PaopApplicationTest : Spek({
             msgHead.msgInfo.type.v shouldEqual "DIALOG_NOTAT"
         }
     }
-
-    describe("tests the functions createArenaBrevdata") {
-        it("Should marshall brevdata to a valid string") {
-
-            val brevdata = arenabrevdataMarshaller.toString(createArenaBrevdata())
-            println(brevdata)
-            brevdata shouldEqual "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><brevdata><felles><spraakkode>NB</spraakkode><fagsaksnummer>2014122950</fagsaksnummer><signerendeSaksbehandler><signerendeSaksbehandlerNavn>Sagne Sakbehandler</signerendeSaksbehandlerNavn></signerendeSaksbehandler><sakspart><sakspartId>1010112345</sakspartId><sakspartTypeKode>PERSON</sakspartTypeKode><sakspartNavn>Liv Mona Olsen</sakspartNavn></sakspart><mottaker><mottakerId>1010112345</mottakerId><mottakerTypeKode>PERSON</mottakerTypeKode><mottakerNavn>Liv Mona Olsen</mottakerNavn><mottakerAdresse><adresselinje1>Rolfsbuktalleen 7</adresselinje1><adresselinje2>Oslo</adresselinje2><adresselinje3>Moss</adresselinje3><postNr>1364</postNr><poststed>FORNEBU</poststed><land>Norge</land></mottakerAdresse></mottaker><navnAvsenderEnhet>Dagpenger Inn</navnAvsenderEnhet><kontaktInformasjon><kontaktTelefonnummer>55 55 33 33</kontaktTelefonnummer><returadresse><navEnhetsNavn>Dagpenger Inn</navEnhetsNavn><adresselinje>Postboks 6944 St.Olavs plass</adresselinje><postNr>130</postNr><poststed>OSLO</poststed></returadresse><postadresse><navEnhetsNavn>Dagpenger Inn</navEnhetsNavn><adresselinje>Postboks 6944 St.Olavs plass</adresselinje><postNr>130</postNr><poststed>OSLO</poststed></postadresse><besoksadresse><adresselinje>Adresselinje</adresselinje><postNr>0130</postNr><poststed>OSLO</poststed></besoksadresse></kontaktInformasjon></felles><fag><aktivitetsNavn>aktivitet</aktivitetsNavn><aktivitetsType>VGINT</aktivitetsType><svarslipp>true</svarslipp><moteInfo><moteKontakt>Kurt Kursholder</moteKontakt><dato>2018-10-04+02:00</dato><klokkeslett>10:59</klokkeslett><sted>Oslo</sted><fristDato>2018-10-04+02:00</fristDato><brevTekst>Brevtekst</brevTekst></moteInfo><visReaksjon>true</visReaksjon></fag></brevdata>"
-        }
-    }
 })

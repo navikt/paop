@@ -36,6 +36,7 @@ buildscript {
     ext.kith_base64_version = '1.1'
     ext.kafka_embedded_version = '1.0.0'
     ext.mockito_version = '2.22.0'
+    ext.ekstern_altinn_correspondenceAgencyExternalSF_tjenestespesifikasjon_version = '1.0.2'
 
     ext.jaxb2SourceDir = file("$buildDir/generated-sources/jaxb2")
 }
@@ -218,7 +219,8 @@ wsdl2java {
     wsdlsToGenerate = [
             ["-xjc", "-p", "http://register.nhn.no/Common=no.nhn.register.commontypes", "$buildDir/schema/fastlegeinformasjon.wsdl"],
             ["$buildDir/schema/partner.wsdl"],
-            ["-xjc", "-p", "no.nhn.adresseregisteret", "$buildDir/schema/tjenestespesifikasjon/adresseregisteret.wsdl"]
+            ["-xjc", "-p", "no.nhn.adresseregisteret", "$buildDir/schema/tjenestespesifikasjon/adresseregisteret.wsdl"],
+            ["-xjc", "-b", "$projectDir/src/main/xjb/binding.xml", "$buildDir/schema/correspondence.wsdl"]
     ]
 }
 
@@ -319,7 +321,7 @@ dependencies {
     navWsdl "no.nav.tjenester:partner-nav-emottak-partner-web:$partner_emottak_version@zip"
     navWsdl "no.nav.syfo.tjenester:adresseregisteretV1-tjenestespesifikasjon:$adresseregisteretV1_version"
     navWsdl "no.nav.tjenester:ekstern-helse-fastlegeinformasjon-tjenestespesifikasjon:$ekstern_helse_fastlegeinformasjon_tjenestespesifikasjon_version@zip"
-
+    navWsdl "no.nav.tjenester:ekstern-altinn-correspondenceAgencyExternalSF-tjenestespesifikasjon:$ekstern_altinn_correspondenceAgencyExternalSF_tjenestespesifikasjon_version@zip"
 
     implementation "io.confluent:kafka-avro-serializer:$confluent_version"
     implementation "org.apache.kafka:kafka_2.12:$kafka_version"

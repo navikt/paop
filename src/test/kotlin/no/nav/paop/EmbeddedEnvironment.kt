@@ -15,6 +15,7 @@ import io.prometheus.client.CollectorRegistry
 import kotlinx.coroutines.experimental.Job
 import kotlinx.coroutines.experimental.runBlocking
 import net.logstash.logback.argument.StructuredArguments
+import no.altinn.services.serviceengine.correspondence._2009._10.ICorrespondenceAgencyExternalBasic
 import no.nav.altinnkanal.avro.ExternalAttachment
 import no.nav.common.KafkaEnvironment
 import no.nav.emottak.schemas.HentPartnerIDViaOrgnummerResponse
@@ -41,6 +42,7 @@ import org.apache.cxf.jaxws.JaxWsProxyFactoryBean
 import org.apache.cxf.transport.http.HTTPConduit
 import org.apache.cxf.transport.servlet.CXFNonSpringServlet
 import org.apache.cxf.transports.http.configuration.HTTPClientPolicy
+import org.apache.cxf.ws.addressing.WSAddressingFeature
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.clients.producer.KafkaProducer
@@ -167,6 +169,14 @@ class EmbeddedEnvironment {
         }.create() as PartnerResource
         configureTimeout(partnerEmottakClient)
 
+        val iCorrespondenceAgencyExternalBasic = JaxWsProxyFactoryBean().apply {
+            address = env.adresseregisteretV1EmottakEndpointURL
+            features.add(LoggingFeature())
+            features.add(WSAddressingFeature())
+            serviceClass = ICorrespondenceAgencyExternalBasic::class.java
+        }.create() as ICorrespondenceAgencyExternalBasic
+        configureTimeout(iCorrespondenceAgencyExternalBasic)
+
         val pdfClient = PdfClient("$mockHttpServerUrl/create_pdf")
 
         queueConnection = connectionFactory.createConnection()
@@ -181,7 +191,7 @@ class EmbeddedEnvironment {
         val receiptProducer = session.createProducer(receiptQueue)
 
         job = listen(pdfClient, journalbehandlingClient, fastlegeregisteretClient, organisasjonV4Client,
-                dokumentProduksjonV3Client, adresseRegisterV1Client, partnerEmottakClient, arenaProducer, receiptProducer, session, consumer)
+                dokumentProduksjonV3Client, adresseRegisterV1Client, partnerEmottakClient, iCorrespondenceAgencyExternalBasic, arenaProducer, receiptProducer, session, consumer, "brukernavn", "passord")
     }
 
     private fun configureTimeout(service: Any) {

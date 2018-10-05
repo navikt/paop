@@ -22,7 +22,10 @@ data class Environment(
     val dokumentproduksjonV3EndpointURL: String = getEnvVar("DOKUMENTPRODUKSJON_V3_ENDPOINTURL"),
     val partnerEmottakEndpointURL: String = getEnvVar("PARTNERSERVICE_ENDPOINTURL"),
     val adresseregisteretV1EmottakEndpointURL: String = getEnvVar("EKSTERN_HELSE_ADRESSEREGISTERET_V1_ENDPOINTURL"),
-    val receiptQueueName: String = getEnvVar("MOTTAK_QUEUE_UTSENDING_QUEUENAME")
+    val receiptQueueName: String = getEnvVar("MOTTAK_QUEUE_UTSENDING_QUEUENAME"),
+    val behandlealtinnmeldingV1EndpointURL: String = getEnvVar("EKSTERN_ALTINN_BEHANDLEALTINNMELDING_V1_ENDPOINTURL"),
+    val altinnUserUsername: String = getEnvVar("ALTINNUSER_USERNAME"),
+    val altinnUserPassword: String = getEnvVar("ALTINNUSER_PASSWORD")
 
 )
 

@@ -62,3 +62,7 @@ fasitResources:
       resourceType: Queue
       propertyMap:
         queueName: MOTTAK_QUEUE_UTSENDING_QUEUENAME
+    - alias: ekstern:altinn_behandlealtinnmelding_v1
+      resourceType: Webserviceendpoint
+    - alias: altinnUser
+      resourceType: Credential
