@@ -132,6 +132,7 @@ fun handleOppfoelgingsplan(
     val formData = dataBatch.dataUnits.dataUnit.first().formTask.form.first().formData
     var oppfolgingsplanType = findOppfolingsplanType(serviceCode, serviceEditionCode)
     oppfolgingsplanType = Oppfolginsplan.OP2016 // TODO: Delete after initial testing
+    log.info("record.value().getArchiveReference(): ", record.value().getArchiveReference())
 
     val incomingMetadata = IncomingMetadata(
             archiveReference = record.value().getArchiveReference(),
@@ -294,7 +295,7 @@ fun handleNonFastlegeFollowupPlan(
     altinnUserUsername: String,
     altinnUserPassword: String
 ) {
-
+    log.info("metadata.archiveReference: ", metadata.archiveReference)
     createAltinnMessage(iCorrespondenceAgencyExternalBasic, metadata.archiveReference, metadata.senderOrgId, fagmelding, altinnUserUsername, altinnUserPassword)
 }
 
@@ -694,7 +695,6 @@ fun createAltinnMessage(
     altinnUserUsername: String,
     altinnUserPassword: String
 ) {
-
     iCorrespondenceAgencyExternalBasic.insertCorrespondenceBasicV2(
             altinnUserUsername,
             altinnUserPassword,
