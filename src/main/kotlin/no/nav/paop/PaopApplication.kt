@@ -401,7 +401,7 @@ fun isFollowupPlanForNAV(formData: String, oppfolgingPlanType: Oppfolginsplan): 
 } ?: false
 
 fun PatientToGPContractAssociation.extractGPName() =
-        "${this.extractGPFirstName()} ${this.extractGPMiddleName()} ${this.extractGPLastName()}"
+        "${extractGPFirstName()} ${extractGPMiddleName()} ${extractGPLastName()}"
 
 fun PatientToGPContractAssociation.extractGPFirstName(): String? =
         this.doctorCycles.value.gpOnContractAssociation.first().gp.value.firstName.value
