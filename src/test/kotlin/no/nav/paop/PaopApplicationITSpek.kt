@@ -17,7 +17,7 @@ object PaopApplicationITSpek : Spek({
             e.defaultMocks()
             e.createKafkaMessage("aapen-kafka-topic", message)
             val messages = e.readKafkaMessage("aapen-kafka-topic")
-            print(messages[0].value())
+            print(messages[0]())
         }
     }
     */

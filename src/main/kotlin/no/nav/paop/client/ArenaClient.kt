@@ -74,17 +74,17 @@ fun createArenaBrevTilArbeidsgiver(
 
 fun extractAvsenderSystemSystemnavn(formData: String, oppfolgingPlanType: Oppfolginsplan): String =
         when (oppfolgingPlanType) {
-            Oppfolginsplan.OP2012 -> extractOppfolginsplan2012(formData).skjemainnhold.avsenderSystem.value.systemNavn.value
-            Oppfolginsplan.OP2014 -> extractOppfolginsplan2014(formData).skjemainnhold.avsenderSystem.value.systemNavn.value
-            Oppfolginsplan.OP2016 -> extractOppfolginsplan2016(formData).skjemainnhold.avsenderSystem.value.systemNavn.value
+            Oppfolginsplan.OP2012 -> extractOppfolginsplan2012(formData).skjemainnhold.avsenderSystem.systemNavn
+            Oppfolginsplan.OP2014 -> extractOppfolginsplan2014(formData).skjemainnhold.avsenderSystem.systemNavn
+            Oppfolginsplan.OP2016 -> extractOppfolginsplan2016(formData).skjemainnhold.avsenderSystem.systemNavn
             else -> throw RuntimeException("Invalid oppfolginsplanType: $oppfolgingPlanType")
         }
 
 fun extractAvsenderSystemSystemVersjon(formData: String, oppfolgingPlanType: Oppfolginsplan): String =
         when (oppfolgingPlanType) {
-            Oppfolginsplan.OP2012 -> extractOppfolginsplan2012(formData).skjemainnhold.avsenderSystem.value.systemVersjon.value
-            Oppfolginsplan.OP2014 -> extractOppfolginsplan2014(formData).skjemainnhold.avsenderSystem.value.systemVersjon.value
-            Oppfolginsplan.OP2016 -> extractOppfolginsplan2016(formData).skjemainnhold.avsenderSystem.value.systemVersjon.value
+            Oppfolginsplan.OP2012 -> extractOppfolginsplan2012(formData).skjemainnhold.avsenderSystem.systemVersjon
+            Oppfolginsplan.OP2014 -> extractOppfolginsplan2014(formData).skjemainnhold.avsenderSystem.systemVersjon
+            Oppfolginsplan.OP2016 -> extractOppfolginsplan2016(formData).skjemainnhold.avsenderSystem.systemVersjon
             else -> throw RuntimeException("Invalid oppfolginsplanType: $oppfolgingPlanType")
         }
 

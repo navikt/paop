@@ -192,8 +192,8 @@ fun handleOppfoelgingsplan(
             handleNAVFollowupPlanNAVTemplate(journalbehandling, fastlegeregisteret, organisasjonV4, dokumentProduksjonV3,
                     arenaProducer, session, extractOppfolginsplan, arenaBistand, attachment, incomingMetadata)
         } else {
-            val fagmelding = dataBatch.attachments.attachment.first().value
-            val joarkRequest = createJoarkRequest(incomingMetadata, fagmelding)
+            val fagmelding = dataBatch.attachments.attachment.first()
+            val joarkRequest = createJoarkRequest(incomingMetadata, fagmelding.value)
             journalbehandling.lagreDokumentOgOpprettJournalpost(joarkRequest)
             sendArenaOppfolginsplan(arenaProducer, session, incomingMetadata, arenaBistand)
         }
@@ -232,10 +232,10 @@ fun handleNAVFollowupPlanNAVTemplate(
         }
 
         if (fastlegefunnet && patientToGPContractAssociation.gpContract != null) {
-            val orgname = patientToGPContractAssociation.gpContract.value.gpOffice.value.name.value
-            val orgNr = patientToGPContractAssociation.gpContract.value.gpOffice.value.organizationNumber.toString()
-            val orgpostnummer = patientToGPContractAssociation.gpContract.value.gpOffice.value.physicalAddresses.value.physicalAddress.first().postalCode.toString()
-            val orgpoststed = patientToGPContractAssociation.gpContract.value.gpOffice.value.physicalAddresses.value.physicalAddress.first().city.value.toString()
+            val orgname = patientToGPContractAssociation.gpContract.gpOffice.name
+            val orgNr = patientToGPContractAssociation.gpContract.gpOffice.organizationNumber.toString()
+            val orgpostnummer = patientToGPContractAssociation.gpContract.gpOffice.physicalAddresses.physicalAddress.first().postalCode.toString()
+            val orgpoststed = patientToGPContractAssociation.gpContract.gpOffice.physicalAddresses.physicalAddress.first().city.toString()
 
             // TODO TMP
             val brevdata = arenabrevdataMarshaller.toString(createArenaBrevdata())
@@ -254,14 +254,14 @@ fun handleNAVFollowupPlanNAVTemplate(
         }
         val finnOrganisasjonResponse = organisasjonV4.finnOrganisasjon(finnOrganisasjonRequest)
 
-        val orgpostnummer = finnOrganisasjonResponse.organisasjonSammendragListe.firstOrNull()!!.postnummer.value
+        val orgpostnummer = finnOrganisasjonResponse.organisasjonSammendragListe.firstOrNull()!!.postnummer
         val orgpoststed = finnOrganisasjonResponse.organisasjonSammendragListe.firstOrNull()!!.poststed
 
         // TODO TMP
         val brevdata = arenabrevdataMarshaller.toString(createArenaBrevdata())
 
         createPhysicalLetter(dokumentProduksjonV3, arenaProducer, session, incomingMetadata,
-                incomingMetadata.senderOrgId, incomingMetadata.senderOrgName, orgpostnummer, orgpoststed,
+                incomingMetadata.senderOrgId, incomingMetadata.senderOrgName, orgpostnummer.value, orgpoststed,
                 brevdata)
     }
 }
@@ -332,14 +332,14 @@ fun handleDoctorFollowupPlanAltinn(
         val gpOfficePostnr = patientToGPContractAssociation.extractGPOfficePostalCode()
         val gpOfficePoststed = patientToGPContractAssociation.extractGPOfficePhysicalAddress()
 
-        val gpHerIdFlr = patientToGPContractAssociation.gpHerId.value
+        val gpHerIdFlr = patientToGPContractAssociation.gpHerId
 
         val getCommunicationPartyDetailsResponse = adresseRegisterV1.getOrganizationPersonDetails(gpHerIdFlr)
 
         // Should only return one org
-        val herIDAdresseregister = getCommunicationPartyDetailsResponse.organizations.value.organization.first().herId
-        val gpOfficeOrganizationNumber = getCommunicationPartyDetailsResponse.organizations.value.organization.first().organizationNumber.toString()
-        val gpOfficeOrganizationName = getCommunicationPartyDetailsResponse.organizations.value.organization.first().name.value
+        val herIDAdresseregister = getCommunicationPartyDetailsResponse.organizations.organization.first().herId
+        val gpOfficeOrganizationNumber = getCommunicationPartyDetailsResponse.organizations.organization.first().organizationNumber.toString()
+        val gpOfficeOrganizationName = getCommunicationPartyDetailsResponse.organizations.organization.first().name
 
         val hentPartnerIDViaOrgnummerRequest = HentPartnerIDViaOrgnummerRequest().apply {
             orgnr = gpOfficeOrganizationNumber
@@ -387,16 +387,16 @@ fun Marshaller.toString(input: Any): String = StringWriter().use {
 }
 
 fun isFollowupPlanForFastlege(formData: String, oppfolgingPlanType: Oppfolginsplan): Boolean = when (oppfolgingPlanType) {
-    Oppfolginsplan.OP2012 -> extractOppfolginsplan2012(formData).skjemainnhold?.mottaksInformasjon?.value?.oppfolgingsplanSendesTilFastlege?.value
-    Oppfolginsplan.OP2014 -> extractOppfolginsplan2014(formData).skjemainnhold?.mottaksInformasjon?.value?.oppfolgingsplanSendesTilFastlege?.value
-    Oppfolginsplan.OP2016 -> extractOppfolginsplan2016(formData).skjemainnhold?.mottaksInformasjon?.value?.oppfolgingsplanSendesTilFastlege?.value
+    Oppfolginsplan.OP2012 -> extractOppfolginsplan2012(formData).skjemainnhold?.mottaksInformasjon?.isOppfolgingsplanSendesTilFastlege
+    Oppfolginsplan.OP2014 -> extractOppfolginsplan2014(formData).skjemainnhold?.mottaksInformasjon?.isOppfolgingsplanSendesTilFastlege
+    Oppfolginsplan.OP2016 -> extractOppfolginsplan2016(formData).skjemainnhold?.mottaksInformasjon?.isOppfolgingsplanSendesTilFastlege
     else -> throw RuntimeException("Invalid oppfolginsplanType: $oppfolgingPlanType")
 } ?: false
 
 fun isFollowupPlanForNAV(formData: String, oppfolgingPlanType: Oppfolginsplan): Boolean = when (oppfolgingPlanType) {
-    Oppfolginsplan.OP2012 -> extractOppfolginsplan2012(formData).skjemainnhold?.mottaksInformasjon?.value?.oppfolgingsplanSendesTiNav?.value
-    Oppfolginsplan.OP2014 -> extractOppfolginsplan2014(formData).skjemainnhold?.mottaksInformasjon?.value?.oppfolgingsplanSendesTiNav?.value
-    Oppfolginsplan.OP2016 -> extractOppfolginsplan2016(formData).skjemainnhold?.mottaksInformasjon?.value?.oppfolgingsplanSendesTiNav?.value
+    Oppfolginsplan.OP2012 -> extractOppfolginsplan2012(formData).skjemainnhold?.mottaksInformasjon?.isOppfolgingsplanSendesTiNav
+    Oppfolginsplan.OP2014 -> extractOppfolginsplan2014(formData).skjemainnhold?.mottaksInformasjon?.isOppfolgingsplanSendesTiNav
+    Oppfolginsplan.OP2016 -> extractOppfolginsplan2016(formData).skjemainnhold?.mottaksInformasjon?.isOppfolgingsplanSendesTiNav
     else -> throw RuntimeException("Invalid oppfolginsplanType: $oppfolgingPlanType")
 } ?: false
 
@@ -404,25 +404,25 @@ fun PatientToGPContractAssociation.extractGPName() =
         "${extractGPFirstName()} ${extractGPMiddleName()} ${extractGPLastName()}"
 
 fun PatientToGPContractAssociation.extractGPFirstName(): String? =
-        this.doctorCycles.value.gpOnContractAssociation.first().gp.value.firstName.value
+        this.doctorCycles.gpOnContractAssociation.first().gp.firstName
 
 fun PatientToGPContractAssociation.extractGPLastName(): String? =
-        this.doctorCycles.value.gpOnContractAssociation.first().gp.value.lastName.value
+        this.doctorCycles.gpOnContractAssociation.first().gp.lastName
 
 fun PatientToGPContractAssociation.extractGPMiddleName(): String =
-        this.doctorCycles.value.gpOnContractAssociation.first().gp.value.middleName.value
+        this.doctorCycles.gpOnContractAssociation.first().gp.middleName
 
 fun PatientToGPContractAssociation.extractGPFnr(): String =
-        this.doctorCycles.value.gpOnContractAssociation.first().gp.value.nin.value
+        this.doctorCycles.gpOnContractAssociation.first().gp.nin
 
 fun PatientToGPContractAssociation.extractGPHprNumber(): Int =
-        this.doctorCycles.value.gpOnContractAssociation.first().hprNumber
+        this.doctorCycles.gpOnContractAssociation.first().hprNumber
 
 fun PatientToGPContractAssociation.extractGPOfficePostalCode(): String =
-        this.gpContract.value.gpOffice.value.physicalAddresses.value.physicalAddress.first().postalCode.toString()
+        this.gpContract.gpOffice.physicalAddresses.physicalAddress.first().postalCode.toString()
 
 fun PatientToGPContractAssociation.extractGPOfficePhysicalAddress(): String =
-        this.gpContract.value.gpOffice.value.physicalAddresses.value.physicalAddress.first().city.value
+        this.gpContract.gpOffice.physicalAddresses.physicalAddress.first().city
 
 val documentBuilder: DocumentBuilder = DocumentBuilderFactory.newInstance().let {
     it.isNamespaceAware = true

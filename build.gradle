@@ -130,7 +130,9 @@ class Jaxb2Task extends DefaultTask {
                 'schema': "$sourceDir/Oppfolgingsplan2_4M.xsd",
                 'encoding': 'UTF-8',
                 'fork': 'true'
-        )
+        ) {
+            binding(dir: xjbDir, includes: "binding.xml")
+        }
 
 
         ant.xjc(
@@ -139,7 +141,9 @@ class Jaxb2Task extends DefaultTask {
                 'schema': "$sourceDir/Oppfolgingsplan201607_2.xsd",
                 'encoding': 'UTF-8',
                 'fork': 'true'
-        )
+        ) {
+            binding(dir: xjbDir, includes: "binding.xml")
+        }
 
         ant.xjc(
                 'destdir': outputDir,
@@ -147,7 +151,9 @@ class Jaxb2Task extends DefaultTask {
                 'schema': "$sourceDir/Oppfolgingsplan_Altinn.xsd",
                 'encoding': 'UTF-8',
                 'fork': 'true'
-        )
+        ) {
+            binding(dir: xjbDir, includes: "binding.xml")
+        }
 
         ant.xjc(
                 'destdir': outputDir,
@@ -155,7 +161,9 @@ class Jaxb2Task extends DefaultTask {
                 'schema': "$sourceDir/sbl_oppfolgingsplan_v4.xsd",
                 'encoding': 'UTF-8',
                 'fork': 'true'
-        )
+        ) {
+            binding(dir: xjbDir, includes: "binding.xml")
+        }
 
         ant.xjc(
                 'destdir': outputDir,
@@ -217,9 +225,9 @@ wsdl2java {
     dependsOn copyWsdlFromArtifacts
     wsdlDir = file("$buildDir/schema")
     wsdlsToGenerate = [
-            ["-xjc", "-p", "http://register.nhn.no/Common=no.nhn.register.commontypes", "$buildDir/schema/fastlegeinformasjon.wsdl"],
-            ["$buildDir/schema/partner.wsdl"],
-            ["-xjc", "-p", "no.nhn.adresseregisteret", "$buildDir/schema/tjenestespesifikasjon/adresseregisteret.wsdl"],
+            ["-xjc", "-b", "$projectDir/src/main/xjb/binding.xml", "-p", "http://register.nhn.no/Common=no.nhn.register.commontypes", "$buildDir/schema/fastlegeinformasjon.wsdl"],
+            ["-xjc", "-b", "$projectDir/src/main/xjb/binding.xml", "$buildDir/schema/partner.wsdl"],
+            ["-xjc", "-b", "$projectDir/src/main/xjb/binding.xml", "-p", "no.nhn.adresseregisteret", "$buildDir/schema/tjenestespesifikasjon/adresseregisteret.wsdl"],
             ["-xjc", "-b", "$projectDir/src/main/xjb/binding.xml", "$buildDir/schema/correspondence.wsdl"]
     ]
 }

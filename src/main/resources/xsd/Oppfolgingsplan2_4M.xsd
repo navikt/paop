@@ -32,8 +32,8 @@
          <xsd:attribute name="XSD-variant" fixed="Standard"/>
       </xsd:documentation>
    </xsd:annotation-->
-   <xsd:import namespace="http://seres.no/xsd/forvaltningsdata"
-               schemaLocation="seres.xsd"/>
+   <!--<xsd:import namespace="http://seres.no/xsd/forvaltningsdata"
+               schemaLocation="seres.xsd"/>-->
    <xsd:element name="melding" type="Oppfoelgingsplan2_M"/>
    <xsd:complexType name="Oppfoelgingsplan2_M">
       <xsd:sequence>

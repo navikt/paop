@@ -37,10 +37,10 @@
 		ft_guid_som_attributt = "false"
 		sem-ref = "false"
 -->
-<xsd:import namespace="http://seres.no/xsd/forvaltningsdata"
+<!--<xsd:import namespace="http://seres.no/xsd/forvaltningsdata"
                schemaLocation="seres.xsd"/>
    <xsd:import namespace="http://kodebibliotek.brreg.no/xsd/kodebibliotek"
-               schemaLocation="kodebibliotek.xsd"/>
+               schemaLocation="kodebibliotek.xsd"/>-->
    <xsd:element name="melding" type="Oppfoelgingsplan2_M"/>
    <xsd:complexType name="Oppfoelgingsplan2_M" seres:elementtype="Meldingsmodell">
       <xsd:sequence>
