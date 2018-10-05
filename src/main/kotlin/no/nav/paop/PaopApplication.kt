@@ -132,7 +132,6 @@ fun handleOppfoelgingsplan(
     val formData = dataBatch.dataUnits.dataUnit.first().formTask.form.first().formData
     var oppfolgingsplanType = findOppfolingsplanType(serviceCode, serviceEditionCode)
     oppfolgingsplanType = Oppfolginsplan.OP2016 // TODO: Delete after initial testing
-    log.info("record.value().getArchiveReference(): {}", record.value().getArchiveReference())
 
     val incomingMetadata = IncomingMetadata(
             archiveReference = record.value().getArchiveReference(),
@@ -180,7 +179,7 @@ fun handleOppfoelgingsplan(
             sendArenaOppfolginsplan(arenaProducer, session, incomingMetadata, arenaBistand)
         }
         if (isFollowupPlanForFastlege(formData, oppfolgingsplanType)) {
-            handleDoctorFollowupPlanAltinn(fastlegeregisteret, organisasjonV4, dokumentProduksjonV3, adresseRegisterV1,
+            handleDoctorFollowupPlanAltinn(fastlegeregisteret, dokumentProduksjonV3, adresseRegisterV1,
                     partnerEmottak, iCorrespondenceAgencyExternalBasic, arenaProducer, receiptProducer, session, incomingMetadata, incomingPersonInfo, fagmelding, altinnUserUsername, altinnUserPassword)
         }
     } else if (oppfolgingsplanType == Oppfolginsplan.NAVOPPFPLAN) {
@@ -295,13 +294,11 @@ fun handleNonFastlegeFollowupPlan(
     altinnUserUsername: String,
     altinnUserPassword: String
 ) {
-    log.info("metadata.archiveReference: {}", metadata.archiveReference)
     createAltinnMessage(iCorrespondenceAgencyExternalBasic, metadata.archiveReference, metadata.senderOrgId, fagmelding, altinnUserUsername, altinnUserPassword)
 }
 
 fun handleDoctorFollowupPlanAltinn(
     fastlegeregisteret: IFlrReadOperations,
-    organisasjonV4: OrganisasjonV4,
     dokumentProduksjonV3: DokumentproduksjonV3,
     adresseRegisterV1: ICommunicationPartyService,
     partnerEmottak: PartnerResource,
@@ -714,7 +711,7 @@ fun createInsertCorrespondenceV2(
     messageSender = "brukersNavn-fnr"
     serviceCode = "5062"
     serviceEdition = "1"
-    content = createExternalContentV2(archiveReference, fagmelding)
+    content = createExternalContentV2(archiveReferenceIncoming, fagmelding)
     archiveReference = archiveReferenceIncoming
 }
 
