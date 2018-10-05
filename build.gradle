@@ -124,31 +124,11 @@ class Jaxb2Task extends DefaultTask {
                 'fork': 'true'
         )
 
-        ant.xjc(
-                'destdir': outputDir,
-                'package': 'no.nav.model.oppfolgingsplan2014',
-                'schema': "$sourceDir/Oppfolgingsplan2_4M.xsd",
-                'encoding': 'UTF-8',
-                'fork': 'true'
-        ) {
-            binding(dir: xjbDir, includes: "binding.xml")
-        }
-
 
         ant.xjc(
                 'destdir': outputDir,
                 'package': 'no.nav.model.oppfolgingsplan2016',
                 'schema': "$sourceDir/Oppfolgingsplan201607_2.xsd",
-                'encoding': 'UTF-8',
-                'fork': 'true'
-        ) {
-            binding(dir: xjbDir, includes: "binding.xml")
-        }
-
-        ant.xjc(
-                'destdir': outputDir,
-                'package': 'no.nav.model.oppfolgingsplan2012',
-                'schema': "$sourceDir/Oppfolgingsplan_Altinn.xsd",
                 'encoding': 'UTF-8',
                 'fork': 'true'
         ) {
@@ -345,6 +325,8 @@ dependencies {
     implementation "no.nav.syfo.tjenester:kith-hodemelding:$kith_hodemelding_version"
     implementation "no.nav.syfo.tjenester:kith-base64:$kith_base64_version"
     implementation "org.mockito:mockito-core:$mockito_version"
+
+    implementation "com.fasterxml.jackson.module:jackson-module-jaxb-annotations:$jackson_version"
 
     // TODO this is only TMP
     navXsd "no.nav.dok.metaforcemal:arenabrev:7.2.5"

@@ -6,10 +6,9 @@ data class Fagmelding(
     val nokkelopplysninger: Nokkelopplysninger,
     val opplysningerOmArbeidstakeren: OpplysningerOmArbeidstakeren,
     val opplysingerOmSykefravaeret: OpplysingerOmSykefravaeret,
-    val tiltak: Tiltak,
-    val underskrift: Underskift,
-    val utfyllendeInformasjon: UtfyllendeInformasjon?
-
+    val tiltak: List<Tiltak>,
+    val arbeidstakersDeltakelse: ArbeidstakersDeltakelse?,
+    val utfyllendeInfo: String?
 )
 
 data class Nokkelopplysninger(
@@ -49,7 +48,8 @@ data class Tiltak(
     val behovForAvklaringMedLegeSykmeleder: String?,
     val tilrettelagtArbeidIkkeMulig: String?,
     val vurderingEffektAvTiltak: VurderingEffektAvTiltak,
-    val fremdrift: String?
+    val fremdrift: String?,
+    val underskrift: Underskift
 )
 
 data class TiltaketGjennonforesIPerioden(
@@ -77,8 +77,6 @@ data class VurderingEffektAvTiltak(
 
 data class Underskift(
     val datoforUnderskift: ZonedDateTime?,
-    val arbeidstaker: FornavnEtternavn?,
-    val arbeidsgiver: FornavnEtternavn?,
     val signertPapirkopiForeliggerPaaArbeidsplasssen: Boolean?
 )
 
@@ -87,8 +85,7 @@ data class FornavnEtternavn(
     val etternavn: String?
 )
 
-data class UtfyllendeInformasjon(
+data class ArbeidstakersDeltakelse(
     val arbeidstakerMedvirkGjeonnforingOppfolginsplan: Boolean?,
-    val hvorforHarIkkeArbeidstakerenMedvirket: String?,
-    val utfyllendeOpplysinger: String?
+    val hvorforHarIkkeArbeidstakerenMedvirket: String?
 )

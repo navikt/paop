@@ -1,14 +1,9 @@
 package no.nav.paop
 
+import com.fasterxml.jackson.module.kotlin.readValue
 import no.kith.xmlstds.msghead._2006_05_24.XMLMsgHead
 import no.nav.emottak.schemas.PartnerInformasjon
-import no.nav.paop.client.extractAvsenderSystemSystemVersjon
-import no.nav.paop.client.extractAvsenderSystemSystemnavn
-import no.nav.paop.mapping.extractOrgNr
-import no.nav.paop.mapping.extractOrgnavn
-import no.nav.paop.mapping.extractSykmeldtArbeidstakerEtternavn
-import no.nav.paop.mapping.extractSykmeldtArbeidstakerFnr
-import no.nav.paop.mapping.extractSykmeldtArbeidstakerFornavn
+import no.nav.model.oppfolgingsplan2016.Oppfoelgingsplan4UtfyllendeInfoM
 import no.nav.paop.model.IncomingMetadata
 import no.nav.paop.model.IncomingUserInfo
 import org.amshove.kluent.shouldEqual
@@ -89,7 +84,7 @@ object PaopApplicationTest : Spek({
                     "src/test/resources/oppfolging_2913_04.xml"))
             dataBatch.dataUnits.dataUnit.first().formTask.form.first().reference shouldEqual "77423963"
 
-            val op2016 = extractOppfolginsplan2016(
+            val op2016 = xmlMapper.readValue<Oppfoelgingsplan4UtfyllendeInfoM>(
                     dataBatch.dataUnits.dataUnit.first().formTask.form.first().formData)
 
             op2016.skjemainnhold.arbeidsgiver.annenKontaktpersonEtternavn shouldEqual "Etternavn"
@@ -102,7 +97,7 @@ object PaopApplicationTest : Spek({
                     "src/test/resources/oppfolging_2913_03.xml"))
             dataBatch.dataUnits.dataUnit.first().formTask.form.first().reference shouldEqual "77423963"
 
-            val op2014 = extractOppfolginsplan2014(
+            val op2014 = xmlMapper.readValue<Oppfoelgingsplan4UtfyllendeInfoM>(
                     dataBatch.dataUnits.dataUnit.first().formTask.form.first().formData)
 
             op2014.skjemainnhold.arbeidsgiver.annenKontaktpersonEtternavn shouldEqual "Navnesen"
@@ -115,7 +110,7 @@ object PaopApplicationTest : Spek({
                     "src/test/resources/oppfolging_2913_02.xml"))
             dataBatch.dataUnits.dataUnit.first().formTask.form.first().reference shouldEqual "77426094"
 
-            val op2012 = extractOppfolginsplan2012(
+            val op2012 = xmlMapper.readValue<Oppfoelgingsplan4UtfyllendeInfoM>(
                     dataBatch.dataUnits.dataUnit.first().formTask.form.first().formData)
 
             op2012.skjemainnhold.arbeidsgiver.annenKontaktpersonEtternavn shouldEqual "Navnesen"
@@ -153,21 +148,21 @@ object PaopApplicationTest : Spek({
             val serviceCode = "2913"
             val serviceEditionCode = "2"
             val formData = dataBatch.dataUnits.dataUnit.first().formTask.form.first().formData
-            var oppfolgingsplanType = findOppfolingsplanType(serviceCode, serviceEditionCode)
+            val skjemainnhold = xmlMapper.readValue<Oppfoelgingsplan4UtfyllendeInfoM>(formData).skjemainnhold
 
             val incomingMetadata = IncomingMetadata(
                     archiveReference = dataBatch.dataUnits.dataUnit.first().archiveReference,
-                    senderOrgName = extractOrgnavn(formData, oppfolgingsplanType),
-                    senderOrgId = extractOrgNr(formData, oppfolgingsplanType),
-                    senderSystemName = extractAvsenderSystemSystemnavn(formData, oppfolgingsplanType),
-                    senderSystemVersion = extractAvsenderSystemSystemVersjon(formData, oppfolgingsplanType),
-                    userPersonNumber = extractSykmeldtArbeidstakerFnr(formData, oppfolgingsplanType)
+                    senderOrgName = skjemainnhold.arbeidsgiver.orgnavn,
+                    senderOrgId = skjemainnhold.arbeidsgiver.orgnr,
+                    senderSystemName = skjemainnhold.avsenderSystem.systemNavn,
+                    senderSystemVersion = skjemainnhold.avsenderSystem.systemVersjon,
+                    userPersonNumber = skjemainnhold.sykmeldtArbeidstaker.fnr
             )
 
             val incomingPersonInfo = IncomingUserInfo(
-                    userPersonNumber = extractSykmeldtArbeidstakerFnr(formData, oppfolgingsplanType),
-                    userFamilyName = extractSykmeldtArbeidstakerFornavn(formData, oppfolgingsplanType),
-                    userGivenName = extractSykmeldtArbeidstakerEtternavn(formData, oppfolgingsplanType)
+                    userFamilyName = skjemainnhold.sykmeldtArbeidstaker?.fornavn,
+                    userGivenName = skjemainnhold.sykmeldtArbeidstaker?.etternavn,
+                    userPersonNumber = skjemainnhold.sykmeldtArbeidstaker.fnr
             )
 
             val gpOfficeOrganizationName = "Kule helsetjenester AS"

@@ -1,8 +1,13 @@
 package no.nav.paop
 
+import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
+import com.fasterxml.jackson.dataformat.xml.JacksonXmlModule
+import com.fasterxml.jackson.dataformat.xml.XmlMapper
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
+import com.fasterxml.jackson.module.jaxb.JaxbAnnotationModule
+import com.fasterxml.jackson.module.kotlin.readValue
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.ibm.mq.jms.MQConnectionFactory
 import com.ibm.msg.client.wmq.WMQConstants
@@ -53,24 +58,14 @@ import no.nav.model.arena.brev.SignerendeSaksbehandlerType
 import no.nav.model.arena.brevdata.Brevdata
 import no.nav.model.dataBatch.DataBatch
 import no.nav.model.navOppfPlan.OppfolgingsplanMetadata
+import no.nav.model.oppfolgingsplan2016.Oppfoelgingsplan4UtfyllendeInfoM
 import no.nav.paop.client.PdfClient
 import no.nav.paop.client.PdfType
 import no.nav.paop.client.createJoarkRequest
 import no.nav.paop.client.createProduserIkkeredigerbartDokumentRequest
-import no.nav.paop.client.extractAvsenderSystemSystemVersjon
-import no.nav.paop.client.extractAvsenderSystemSystemnavn
 import no.nav.paop.client.letterSentNotificationToArena
 import no.nav.paop.client.sendArenaOppfolginsplan
 import no.nav.paop.client.sendDialogmeldingOppfolginsplan
-import no.nav.paop.mapping.extractOrgNr
-import no.nav.paop.mapping.extractOrgnavn
-import no.nav.paop.mapping.extractSykmeldtArbeidstakerEtternavn
-import no.nav.paop.mapping.extractSykmeldtArbeidstakerFnr
-import no.nav.paop.mapping.extractSykmeldtArbeidstakerFornavn
-import no.nav.paop.mapping.extractTiltakBistandArbeidsrettedeTiltakOgVirkemidler
-import no.nav.paop.mapping.extractTiltakBistandDialogMoeteMedNav
-import no.nav.paop.mapping.extractTiltakBistandHjelpemidler
-import no.nav.paop.mapping.extractTiltakBistandRaadOgVeiledning
 import no.nav.paop.mapping.mapFormdataToFagmelding
 import no.nav.paop.model.ArenaBistand
 import no.nav.paop.model.IncomingMetadata
@@ -110,6 +105,12 @@ val objectMapper: ObjectMapper = ObjectMapper()
         .registerKotlinModule()
         .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
 
+val xmlMapper: ObjectMapper = XmlMapper(JacksonXmlModule().apply {
+    setDefaultUseWrapper(false)
+}).registerModule(JaxbAnnotationModule())
+        .registerKotlinModule()
+        .configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true)
+
 fun handleOppfoelgingsplan(
     record: ConsumerRecord<String, ExternalAttachment>,
     pdfClient: PdfClient,
@@ -129,37 +130,37 @@ fun handleOppfoelgingsplan(
     val dataBatch = dataBatchUnmarshaller.unmarshal(StringReader(record.value().getBatch())) as DataBatch
     val serviceCode = record.value().getServiceCode()
     val serviceEditionCode = record.value().getServiceEditionCode()
-    val formData = dataBatch.dataUnits.dataUnit.first().formTask.form.first().formData
-    var oppfolgingsplanType = findOppfolingsplanType(serviceCode, serviceEditionCode)
-    oppfolgingsplanType = Oppfolginsplan.OP2016 // TODO: Delete after initial testing
+    val payload = dataBatch.dataUnits.dataUnit.first().formTask.form.first().formData
+    val oppfolgingsplan = xmlMapper.readValue<Oppfoelgingsplan4UtfyllendeInfoM>(payload)
+    val skjemainnhold = oppfolgingsplan.skjemainnhold
 
     val incomingMetadata = IncomingMetadata(
             archiveReference = record.value().getArchiveReference(),
-            senderOrgName = extractOrgnavn(formData, oppfolgingsplanType),
-            senderOrgId = extractOrgNr(formData, oppfolgingsplanType),
-            senderSystemName = extractAvsenderSystemSystemnavn(formData, oppfolgingsplanType),
-            senderSystemVersion = extractAvsenderSystemSystemVersjon(formData, oppfolgingsplanType),
-            userPersonNumber = extractSykmeldtArbeidstakerFnr(formData, oppfolgingsplanType)
+            senderOrgName = skjemainnhold.arbeidsgiver.orgnavn,
+            senderOrgId = skjemainnhold.arbeidsgiver.orgnr,
+            senderSystemName = skjemainnhold.avsenderSystem.systemNavn,
+            senderSystemVersion = skjemainnhold.avsenderSystem.systemVersjon,
+            userPersonNumber = skjemainnhold.sykmeldtArbeidstaker.fnr
     )
 
     val incomingPersonInfo = IncomingUserInfo(
-            userPersonNumber = extractSykmeldtArbeidstakerFnr(formData, oppfolgingsplanType),
-            userFamilyName = extractSykmeldtArbeidstakerFornavn(formData, oppfolgingsplanType),
-            userGivenName = extractSykmeldtArbeidstakerEtternavn(formData, oppfolgingsplanType)
+            userFamilyName = skjemainnhold.sykmeldtArbeidstaker?.fornavn,
+            userGivenName = skjemainnhold.sykmeldtArbeidstaker?.etternavn,
+            userPersonNumber = skjemainnhold.sykmeldtArbeidstaker.fnr
     )
 
     val arenaBistand = ArenaBistand(
-            bistandNavHjelpemidler = extractTiltakBistandHjelpemidler(formData, oppfolgingsplanType),
-            bistandNavVeiledning = extractTiltakBistandRaadOgVeiledning(formData, oppfolgingsplanType),
-            bistandDialogmote = extractTiltakBistandDialogMoeteMedNav(formData, oppfolgingsplanType),
-            bistandVirkemidler = extractTiltakBistandArbeidsrettedeTiltakOgVirkemidler(formData, oppfolgingsplanType)
+            bistandNavHjelpemidler = skjemainnhold.tiltak.tiltaksinformasjon.any { it.isBistandHjelpemidler },
+            bistandNavVeiledning = skjemainnhold.tiltak.tiltaksinformasjon.any { it.isBistandRaadOgVeiledning },
+            bistandDialogmote = skjemainnhold.tiltak.tiltaksinformasjon.any { it.isBistandDialogMoeteMedNav },
+            bistandVirkemidler = skjemainnhold.tiltak.tiltaksinformasjon.any { it.isBistandArbeidsrettedeTiltakOgVirkemidler }
     )
 
     val attachment = dataBatch.attachments?.attachment?.firstOrNull()?.value
 
     val validOrganizationNumber = try {
         organisasjonV4.validerOrganisasjon(ValiderOrganisasjonRequest().apply {
-            orgnummer = extractOrgNr(formData, oppfolgingsplanType)
+            orgnummer = incomingMetadata.senderOrgId
         }).isGyldigOrgnummer
     } catch (e: Exception) {
         log.error("Failed to validate organization number due to an exception", e)
@@ -171,20 +172,21 @@ fun handleOppfoelgingsplan(
         return
     }
 
+    val oppfolgingsplanType = findOppfolingsplanType(serviceCode, serviceEditionCode)
     if (oppfolgingsplanType in arrayOf(Oppfolginsplan.OP2012, Oppfolginsplan.OP2014, Oppfolginsplan.OP2016)) {
-        val fagmelding = pdfClient.generatePDF(PdfType.FAGMELDING, mapFormdataToFagmelding(formData, oppfolgingsplanType))
-        if (isFollowupPlanForNAV(formData, oppfolgingsplanType)) {
+        val fagmelding = pdfClient.generatePDF(PdfType.FAGMELDING, mapFormdataToFagmelding(skjemainnhold, incomingMetadata))
+        if (skjemainnhold.mottaksInformasjon.isOppfolgingsplanSendesTiNav) {
             val joarkRequest = createJoarkRequest(incomingMetadata, fagmelding)
             journalbehandling.lagreDokumentOgOpprettJournalpost(joarkRequest)
             sendArenaOppfolginsplan(arenaProducer, session, incomingMetadata, arenaBistand)
         }
-        if (isFollowupPlanForFastlege(formData, oppfolgingsplanType)) {
+        if (skjemainnhold.mottaksInformasjon.isOppfolgingsplanSendesTilFastlege) {
             handleDoctorFollowupPlanAltinn(fastlegeregisteret, dokumentProduksjonV3, adresseRegisterV1,
                     partnerEmottak, iCorrespondenceAgencyExternalBasic, arenaProducer, receiptProducer, session, incomingMetadata, incomingPersonInfo, fagmelding, altinnUserUsername, altinnUserPassword)
         }
     } else if (oppfolgingsplanType == Oppfolginsplan.NAVOPPFPLAN) {
 
-        val extractOppfolginsplan = extractNavOppfPlan(formData)
+        val extractOppfolginsplan = extractNavOppfPlan(payload)
         val usesNavTemplate = !extractOppfolginsplan.isBistandHjelpemidler
 
         // TODO: Don't silently fail
@@ -385,20 +387,6 @@ fun Marshaller.toString(input: Any): String = StringWriter().use {
     marshal(input, it)
     it.toString()
 }
-
-fun isFollowupPlanForFastlege(formData: String, oppfolgingPlanType: Oppfolginsplan): Boolean = when (oppfolgingPlanType) {
-    Oppfolginsplan.OP2012 -> extractOppfolginsplan2012(formData).skjemainnhold?.mottaksInformasjon?.isOppfolgingsplanSendesTilFastlege
-    Oppfolginsplan.OP2014 -> extractOppfolginsplan2014(formData).skjemainnhold?.mottaksInformasjon?.isOppfolgingsplanSendesTilFastlege
-    Oppfolginsplan.OP2016 -> extractOppfolginsplan2016(formData).skjemainnhold?.mottaksInformasjon?.isOppfolgingsplanSendesTilFastlege
-    else -> throw RuntimeException("Invalid oppfolginsplanType: $oppfolgingPlanType")
-} ?: false
-
-fun isFollowupPlanForNAV(formData: String, oppfolgingPlanType: Oppfolginsplan): Boolean = when (oppfolgingPlanType) {
-    Oppfolginsplan.OP2012 -> extractOppfolginsplan2012(formData).skjemainnhold?.mottaksInformasjon?.isOppfolgingsplanSendesTiNav
-    Oppfolginsplan.OP2014 -> extractOppfolginsplan2014(formData).skjemainnhold?.mottaksInformasjon?.isOppfolgingsplanSendesTiNav
-    Oppfolginsplan.OP2016 -> extractOppfolginsplan2016(formData).skjemainnhold?.mottaksInformasjon?.isOppfolgingsplanSendesTiNav
-    else -> throw RuntimeException("Invalid oppfolginsplanType: $oppfolgingPlanType")
-} ?: false
 
 fun PatientToGPContractAssociation.extractGPName() =
         "${extractGPFirstName()} ${extractGPMiddleName()} ${extractGPLastName()}"

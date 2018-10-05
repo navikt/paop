@@ -5,13 +5,9 @@ import no.nav.model.arenaOppfolging.ArbeidsgiverType
 import no.nav.model.arenaOppfolging.ArenaOppfolgingPlan
 import no.nav.model.arenaOppfolging.DokumentInfoType
 import no.nav.model.arenaOppfolging.EiaDokumentInfoType
-import no.nav.paop.Oppfolginsplan
 import no.nav.paop.PaopConstant
 import no.nav.paop.arenaMarshaller
 import no.nav.paop.arenabrevMarshaller
-import no.nav.paop.extractOppfolginsplan2012
-import no.nav.paop.extractOppfolginsplan2014
-import no.nav.paop.extractOppfolginsplan2016
 import no.nav.paop.model.ArenaBistand
 import no.nav.paop.model.IncomingMetadata
 import no.nav.paop.newInstance
@@ -71,22 +67,6 @@ fun createArenaBrevTilArbeidsgiver(
     bedriftsNr = metadata.senderOrgId
     fodselsNr = metadata.userPersonNumber
 }
-
-fun extractAvsenderSystemSystemnavn(formData: String, oppfolgingPlanType: Oppfolginsplan): String =
-        when (oppfolgingPlanType) {
-            Oppfolginsplan.OP2012 -> extractOppfolginsplan2012(formData).skjemainnhold.avsenderSystem.systemNavn
-            Oppfolginsplan.OP2014 -> extractOppfolginsplan2014(formData).skjemainnhold.avsenderSystem.systemNavn
-            Oppfolginsplan.OP2016 -> extractOppfolginsplan2016(formData).skjemainnhold.avsenderSystem.systemNavn
-            else -> throw RuntimeException("Invalid oppfolginsplanType: $oppfolgingPlanType")
-        }
-
-fun extractAvsenderSystemSystemVersjon(formData: String, oppfolgingPlanType: Oppfolginsplan): String =
-        when (oppfolgingPlanType) {
-            Oppfolginsplan.OP2012 -> extractOppfolginsplan2012(formData).skjemainnhold.avsenderSystem.systemVersjon
-            Oppfolginsplan.OP2014 -> extractOppfolginsplan2014(formData).skjemainnhold.avsenderSystem.systemVersjon
-            Oppfolginsplan.OP2016 -> extractOppfolginsplan2016(formData).skjemainnhold.avsenderSystem.systemVersjon
-            else -> throw RuntimeException("Invalid oppfolginsplanType: $oppfolgingPlanType")
-        }
 
 fun sendArenaOppfolginsplan(
     producer: MessageProducer,
