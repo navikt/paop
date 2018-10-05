@@ -7,10 +7,6 @@ import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.ibm.mq.jms.MQConnectionFactory
 import com.ibm.msg.client.wmq.WMQConstants
 import com.ibm.msg.client.wmq.compat.base.internal.MQC
-import io.prometheus.client.hotspot.DefaultExports
-import kotlinx.coroutines.experimental.delay
-import kotlinx.coroutines.experimental.launch
-import kotlinx.coroutines.experimental.runBlocking
 import no.altinn.schemas.services.serviceengine.correspondence._2010._10.AttachmentsV2
 import no.altinn.schemas.services.serviceengine.correspondence._2010._10.ExternalContentV2
 import no.altinn.schemas.services.serviceengine.correspondence._2010._10.InsertCorrespondenceV2
@@ -76,8 +72,9 @@ import no.nav.paop.mapping.extractTiltakBistandDialogMoeteMedNav
 import no.nav.paop.mapping.extractTiltakBistandHjelpemidler
 import no.nav.paop.mapping.extractTiltakBistandRaadOgVeiledning
 import no.nav.paop.mapping.mapFormdataToFagmelding
-import no.nav.paop.ws.configureBasicAuthFor
-import no.nav.paop.ws.configureSTSFor
+import no.nav.paop.model.ArenaBistand
+import no.nav.paop.model.IncomingMetadata
+import no.nav.paop.model.IncomingUserInfo
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.DokumentproduksjonV3
 import no.nav.tjeneste.virksomhet.organisasjon.v4.binding.OrganisasjonV4
 import no.nav.tjeneste.virksomhet.organisasjon.v4.meldinger.FinnOrganisasjonRequest
@@ -89,156 +86,32 @@ import no.nhn.schemas.reg.flr.IFlrReadOperations
 import no.nhn.schemas.reg.flr.PatientToGPContractAssociation
 import no.trygdeetaten.xml.eiff._1.XMLEIFellesformat
 import no.trygdeetaten.xml.eiff._1.XMLMottakenhetBlokk
-import org.apache.cxf.ext.logging.LoggingFeature
-import org.apache.cxf.jaxws.JaxWsProxyFactoryBean
-import org.apache.cxf.ws.addressing.WSAddressingFeature
-import org.apache.cxf.ws.security.wss4j.WSS4JOutInterceptor
-import org.apache.kafka.clients.consumer.KafkaConsumer
-import org.apache.wss4j.common.ext.WSPasswordCallback
-import org.apache.wss4j.dom.WSConstants
-import org.apache.wss4j.dom.handler.WSHandlerConstants
+import org.apache.kafka.clients.consumer.ConsumerRecord
+import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.w3c.dom.Element
 import org.xml.sax.InputSource
 import java.io.StringReader
 import java.io.StringWriter
-import java.time.Duration
 import java.time.LocalDateTime
 import java.util.GregorianCalendar
 import java.util.UUID
 import javax.jms.MessageProducer
 import javax.jms.Session
-import javax.security.auth.callback.CallbackHandler
 import javax.xml.bind.JAXBElement
 import javax.xml.bind.Marshaller
 import javax.xml.namespace.QName
 import javax.xml.parsers.DocumentBuilder
 import javax.xml.parsers.DocumentBuilderFactory
 
-private val log = LoggerFactory.getLogger("nav.paop-application")
+val log: Logger = LoggerFactory.getLogger("nav.paop-application")
 val objectMapper: ObjectMapper = ObjectMapper()
         .registerModule(JavaTimeModule())
         .registerKotlinModule()
         .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
 
-data class IncomingMetadata(
-    val archiveReference: String,
-    val senderOrgId: String,
-    val senderOrgName: String,
-    val senderSystemName: String,
-    val senderSystemVersion: String,
-    val userPersonNumber: String
-)
-
-data class IncomingUserInfo(
-    val userFamilyName: String?,
-    val userGivenName: String?,
-    val userPersonNumber: String
-)
-
-data class ArenaBistand(
-    val bistandNavHjelpemidler: Boolean,
-    val bistandNavVeiledning: Boolean,
-    val bistandDialogmote: Boolean,
-    val bistandVirkemidler: Boolean
-)
-
-fun main(args: Array<String>) = runBlocking {
-    DefaultExports.initialize()
-    val env = Environment()
-    createHttpServer(applicationVersion = env.appVersion)
-
-    val consumerProperties = readConsumerConfig(env)
-    val consumer = KafkaConsumer<String, ExternalAttachment>(consumerProperties)
-    consumer.subscribe(listOf(env.kafkaTopicOppfolginsplan))
-
-    connectionFactory(env).createConnection(env.mqUsername, env.mqPassword).use {
-        connection ->
-        connection.start()
-
-        val session = connection.createSession()
-        val arenaQueue = session.createQueue(env.arenaIAQueue)
-        val receiptQueue = session.createQueue(env.receiptQueueName)
-
-        val interceptorProperties = mapOf(
-                WSHandlerConstants.USER to env.srvPaopUsername,
-                WSHandlerConstants.ACTION to WSHandlerConstants.USERNAME_TOKEN,
-                WSHandlerConstants.PASSWORD_TYPE to WSConstants.PW_TEXT,
-                WSHandlerConstants.PW_CALLBACK_REF to CallbackHandler {
-                    (it[0] as WSPasswordCallback).password = env.srvPaopPassword
-                }
-        )
-
-        val fastlegeregisteret = JaxWsProxyFactoryBean().apply {
-            address = env.fastlegeregiserHdirURL
-            features.add(LoggingFeature())
-            features.add(WSAddressingFeature())
-            serviceClass = IFlrReadOperations::class.java
-        }.create() as IFlrReadOperations
-        configureSTSFor(fastlegeregisteret, env.srvPaopUsername,
-                env.srvPaopPassword, env.securityTokenServiceUrl)
-
-        val organisasjonV4 = JaxWsProxyFactoryBean().apply {
-            address = env.organisasjonV4EndpointURL
-            features.add(LoggingFeature())
-            features.add(WSAddressingFeature())
-            serviceClass = OrganisasjonV4::class.java
-        }.create() as OrganisasjonV4
-        configureSTSFor(organisasjonV4, env.srvPaopUsername,
-                env.srvPaopPassword, env.securityTokenServiceUrl)
-
-        val journalbehandling = JaxWsProxyFactoryBean().apply {
-            address = env.journalbehandlingEndpointURL
-            features.add(LoggingFeature())
-            features.add(WSAddressingFeature())
-            outInterceptors.add(WSS4JOutInterceptor(interceptorProperties))
-            serviceClass = Journalbehandling::class.java
-        }.create() as Journalbehandling
-
-        val dokumentProduksjonV3 = JaxWsProxyFactoryBean().apply {
-            address = env.dokumentproduksjonV3EndpointURL
-            features.add(LoggingFeature())
-            features.add(WSAddressingFeature())
-            serviceClass = DokumentproduksjonV3::class.java
-        }.create() as DokumentproduksjonV3
-        configureSTSFor(dokumentProduksjonV3, env.srvPaopUsername,
-                env.srvPaopPassword, env.securityTokenServiceUrl)
-
-        val adresseRegisterV1 = JaxWsProxyFactoryBean().apply {
-            address = env.adresseregisteretV1EmottakEndpointURL
-            features.add(LoggingFeature())
-            features.add(WSAddressingFeature())
-            serviceClass = ICommunicationPartyService::class.java
-        }.create() as ICommunicationPartyService
-        configureSTSFor(adresseRegisterV1, env.srvPaopUsername,
-                env.srvPaopPassword, env.securityTokenServiceUrl)
-
-        val partnerEmottak = JaxWsProxyFactoryBean().apply {
-            address = env.partnerEmottakEndpointURL
-            features.add(LoggingFeature())
-            features.add(WSAddressingFeature())
-            serviceClass = PartnerResource::class.java
-        }.create() as PartnerResource
-        configureBasicAuthFor(partnerEmottak, env.srvPaopUsername, env.srvPaopPassword)
-
-        val iCorrespondenceAgencyExternalBasic = JaxWsProxyFactoryBean().apply {
-            address = env.behandlealtinnmeldingV1EndpointURL
-            features.add(LoggingFeature())
-            features.add(WSAddressingFeature())
-            serviceClass = ICorrespondenceAgencyExternalBasic::class.java
-        }.create() as ICorrespondenceAgencyExternalBasic
-        configureSTSFor(iCorrespondenceAgencyExternalBasic, env.srvPaopUsername,
-                env.srvPaopPassword, env.securityTokenServiceUrl)
-
-        val arenaProducer = session.createProducer(arenaQueue)
-        val receiptProducer = session.createProducer(receiptQueue)
-
-        listen(PdfClient(env.pdfGeneratorURL), journalbehandling, fastlegeregisteret, organisasjonV4,
-                dokumentProduksjonV3, adresseRegisterV1, partnerEmottak, iCorrespondenceAgencyExternalBasic, arenaProducer, receiptProducer, session, consumer, env.altinnUserUsername, env.altinnUserPassword).join()
-    }
-}
-
-fun listen(
+fun handleOppfoelgingsplan(
+    record: ConsumerRecord<String, ExternalAttachment>,
     pdfClient: PdfClient,
     journalbehandling: Journalbehandling,
     fastlegeregisteret: IFlrReadOperations,
@@ -250,92 +123,82 @@ fun listen(
     arenaProducer: MessageProducer,
     receiptProducer: MessageProducer,
     session: Session,
-    consumer: KafkaConsumer<String, ExternalAttachment>,
     altinnUserUsername: String,
     altinnUserPassword: String
+) {
+    val dataBatch = dataBatchUnmarshaller.unmarshal(StringReader(record.value().getBatch())) as DataBatch
+    val serviceCode = record.value().getServiceCode()
+    val serviceEditionCode = record.value().getServiceEditionCode()
+    val formData = dataBatch.dataUnits.dataUnit.first().formTask.form.first().formData
+    var oppfolgingsplanType = findOppfolingsplanType(serviceCode, serviceEditionCode)
+    oppfolgingsplanType = Oppfolginsplan.OP2016 // TODO: Delete after initial testing
 
-) = launch {
+    val incomingMetadata = IncomingMetadata(
+            archiveReference = record.value().getArchiveReference(),
+            senderOrgName = extractOrgnavn(formData, oppfolgingsplanType),
+            senderOrgId = extractOrgNr(formData, oppfolgingsplanType),
+            senderSystemName = extractAvsenderSystemSystemnavn(formData, oppfolgingsplanType),
+            senderSystemVersion = extractAvsenderSystemSystemVersjon(formData, oppfolgingsplanType),
+            userPersonNumber = extractSykmeldtArbeidstakerFnr(formData, oppfolgingsplanType)
+    )
 
-    while (true) {
-        consumer.poll(Duration.ofMillis(0)).forEach {
-            log.info("Recived a kafka message")
+    val incomingPersonInfo = IncomingUserInfo(
+            userPersonNumber = extractSykmeldtArbeidstakerFnr(formData, oppfolgingsplanType),
+            userFamilyName = extractSykmeldtArbeidstakerFornavn(formData, oppfolgingsplanType),
+            userGivenName = extractSykmeldtArbeidstakerEtternavn(formData, oppfolgingsplanType)
+    )
 
-            val dataBatch = dataBatchUnmarshaller.unmarshal(StringReader(it.value().getBatch())) as DataBatch
-            val serviceCode = it.value().getServiceCode()
-            val serviceEditionCode = it.value().getServiceEditionCode()
-            val formData = dataBatch.dataUnits.dataUnit.first().formTask.form.first().formData
-            var oppfolgingsplanType = findOppfolingsplanType(serviceCode, serviceEditionCode)
-            oppfolgingsplanType = Oppfolginsplan.OP2016 // TODO: Delete after initial testing
+    val arenaBistand = ArenaBistand(
+            bistandNavHjelpemidler = extractTiltakBistandHjelpemidler(formData, oppfolgingsplanType),
+            bistandNavVeiledning = extractTiltakBistandRaadOgVeiledning(formData, oppfolgingsplanType),
+            bistandDialogmote = extractTiltakBistandDialogMoeteMedNav(formData, oppfolgingsplanType),
+            bistandVirkemidler = extractTiltakBistandArbeidsrettedeTiltakOgVirkemidler(formData, oppfolgingsplanType)
+    )
 
-            val incomingMetadata = IncomingMetadata(
-                    archiveReference = it.value().getArchiveReference(),
-                    senderOrgName = extractOrgnavn(formData, oppfolgingsplanType),
-                    senderOrgId = extractOrgNr(formData, oppfolgingsplanType),
-                    senderSystemName = extractAvsenderSystemSystemnavn(formData, oppfolgingsplanType),
-                    senderSystemVersion = extractAvsenderSystemSystemVersjon(formData, oppfolgingsplanType),
-                    userPersonNumber = extractSykmeldtArbeidstakerFnr(formData, oppfolgingsplanType)
-            )
+    val attachment = dataBatch.attachments?.attachment?.firstOrNull()?.value
 
-            val incomingPersonInfo = IncomingUserInfo(
-                    userPersonNumber = extractSykmeldtArbeidstakerFnr(formData, oppfolgingsplanType),
-                    userFamilyName = extractSykmeldtArbeidstakerFornavn(formData, oppfolgingsplanType),
-                    userGivenName = extractSykmeldtArbeidstakerEtternavn(formData, oppfolgingsplanType)
-            )
+    val validOrganizationNumber = try {
+        organisasjonV4.validerOrganisasjon(ValiderOrganisasjonRequest().apply {
+            orgnummer = extractOrgNr(formData, oppfolgingsplanType)
+        }).isGyldigOrgnummer
+    } catch (e: Exception) {
+        log.error("Failed to validate organization number due to an exception", e)
+        false
+    }
 
-            val arenaBistand = ArenaBistand(
-                    bistandNavHjelpemidler = extractTiltakBistandHjelpemidler(formData, oppfolgingsplanType),
-                    bistandNavVeiledning = extractTiltakBistandRaadOgVeiledning(formData, oppfolgingsplanType),
-                    bistandDialogmote = extractTiltakBistandDialogMoeteMedNav(formData, oppfolgingsplanType),
-                    bistandVirkemidler = extractTiltakBistandArbeidsrettedeTiltakOgVirkemidler(formData, oppfolgingsplanType)
-            )
+    if (!validOrganizationNumber) {
+        // TODO: Do something else then silently fail
+        return
+    }
 
-            val attachment = dataBatch.attachments?.attachment?.firstOrNull()?.value
-
-            val validOrganizationNumber = try {
-                organisasjonV4.validerOrganisasjon(ValiderOrganisasjonRequest().apply {
-                    orgnummer = extractOrgNr(formData, oppfolgingsplanType)
-                }).isGyldigOrgnummer
-            } catch (e: Exception) {
-                log.error("Failed to validate organization number due to an exception", e)
-                false
-            }
-
-            if (!validOrganizationNumber) {
-                // TODO: Do something else then silently fail
-                return@forEach
-            }
-
-            if (oppfolgingsplanType in arrayOf(Oppfolginsplan.OP2012, Oppfolginsplan.OP2014, Oppfolginsplan.OP2016)) {
-                val fagmelding = pdfClient.generatePDF(PdfType.FAGMELDING, mapFormdataToFagmelding(formData, oppfolgingsplanType))
-                if (isFollowupPlanForNAV(formData, oppfolgingsplanType)) {
-                    val joarkRequest = createJoarkRequest(incomingMetadata, fagmelding)
-                    journalbehandling.lagreDokumentOgOpprettJournalpost(joarkRequest)
-                    sendArenaOppfolginsplan(arenaProducer, session, incomingMetadata, arenaBistand)
-                }
-                if (isFollowupPlanForFastlege(formData, oppfolgingsplanType)) {
-                    handleDoctorFollowupPlanAltinn(fastlegeregisteret, organisasjonV4, dokumentProduksjonV3, adresseRegisterV1,
-                            partnerEmottak, iCorrespondenceAgencyExternalBasic, arenaProducer, receiptProducer, session, incomingMetadata, incomingPersonInfo, fagmelding, altinnUserUsername, altinnUserPassword)
-                }
-            } else if (oppfolgingsplanType == Oppfolginsplan.NAVOPPFPLAN) {
-
-                val extractOppfolginsplan = extractNavOppfPlan(formData)
-                val usesNavTemplate = !extractOppfolginsplan.isBistandHjelpemidler
-
-                // TODO: Don't silently fail
-                if (usesNavTemplate) {
-                    handleNAVFollowupPlanNAVTemplate(journalbehandling, fastlegeregisteret, organisasjonV4, dokumentProduksjonV3,
-                            arenaProducer, session, extractOppfolginsplan, arenaBistand, attachment, incomingMetadata)
-                } else {
-                    val fagmelding = dataBatch.attachments.attachment.first().value
-                    val joarkRequest = createJoarkRequest(incomingMetadata, fagmelding)
-                    journalbehandling.lagreDokumentOgOpprettJournalpost(joarkRequest)
-                    sendArenaOppfolginsplan(arenaProducer, session, incomingMetadata, arenaBistand)
-                }
-            } else {
-                throw Exception("Unvalid oppfolingsplan type")
-            }
+    if (oppfolgingsplanType in arrayOf(Oppfolginsplan.OP2012, Oppfolginsplan.OP2014, Oppfolginsplan.OP2016)) {
+        val fagmelding = pdfClient.generatePDF(PdfType.FAGMELDING, mapFormdataToFagmelding(formData, oppfolgingsplanType))
+        if (isFollowupPlanForNAV(formData, oppfolgingsplanType)) {
+            val joarkRequest = createJoarkRequest(incomingMetadata, fagmelding)
+            journalbehandling.lagreDokumentOgOpprettJournalpost(joarkRequest)
+            sendArenaOppfolginsplan(arenaProducer, session, incomingMetadata, arenaBistand)
         }
-        delay(100)
+        if (isFollowupPlanForFastlege(formData, oppfolgingsplanType)) {
+            handleDoctorFollowupPlanAltinn(fastlegeregisteret, organisasjonV4, dokumentProduksjonV3, adresseRegisterV1,
+                    partnerEmottak, iCorrespondenceAgencyExternalBasic, arenaProducer, receiptProducer, session, incomingMetadata, incomingPersonInfo, fagmelding, altinnUserUsername, altinnUserPassword)
+        }
+    } else if (oppfolgingsplanType == Oppfolginsplan.NAVOPPFPLAN) {
+
+        val extractOppfolginsplan = extractNavOppfPlan(formData)
+        val usesNavTemplate = !extractOppfolginsplan.isBistandHjelpemidler
+
+        // TODO: Don't silently fail
+        if (usesNavTemplate) {
+            handleNAVFollowupPlanNAVTemplate(journalbehandling, fastlegeregisteret, organisasjonV4, dokumentProduksjonV3,
+                    arenaProducer, session, extractOppfolginsplan, arenaBistand, attachment, incomingMetadata)
+        } else {
+            val fagmelding = dataBatch.attachments.attachment.first().value
+            val joarkRequest = createJoarkRequest(incomingMetadata, fagmelding)
+            journalbehandling.lagreDokumentOgOpprettJournalpost(joarkRequest)
+            sendArenaOppfolginsplan(arenaProducer, session, incomingMetadata, arenaBistand)
+        }
+    } else {
+        throw Exception("Unvalid oppfolingsplan type")
     }
 }
 
@@ -460,14 +323,14 @@ fun handleDoctorFollowupPlanAltinn(
     }
 
     if (patientToGPContractAssociation != null) {
-        val gpName = extractGPName(patientToGPContractAssociation)!!
-        val gpFirstName = extractGPFirstName(patientToGPContractAssociation)!!
-        val gpMiddleName = extractGPMiddleName(patientToGPContractAssociation)
-        val gpLastName = extractGPLastName(patientToGPContractAssociation)!!
-        val gpFnr = extractGPFnr(patientToGPContractAssociation)
-        val gpHprNumber = extractGPHprNumber(patientToGPContractAssociation)
-        val gpOfficePostnr = patientToGPContractAssociation.gpContract.value.gpOffice.value.physicalAddresses.value.physicalAddress.first().postalCode.toString()
-        val gpOfficePoststed = patientToGPContractAssociation.gpContract.value.gpOffice.value.physicalAddresses.value.physicalAddress.first().city.value
+        val gpName = patientToGPContractAssociation.extractGPName()
+        val gpFirstName = patientToGPContractAssociation.extractGPFirstName()!!
+        val gpMiddleName = patientToGPContractAssociation.extractGPMiddleName()
+        val gpLastName = patientToGPContractAssociation.extractGPLastName()!!
+        val gpFnr = patientToGPContractAssociation.extractGPFnr()
+        val gpHprNumber = patientToGPContractAssociation.extractGPHprNumber()
+        val gpOfficePostnr = patientToGPContractAssociation.extractGPOfficePostalCode()
+        val gpOfficePoststed = patientToGPContractAssociation.extractGPOfficePhysicalAddress()
 
         val gpHerIdFlr = patientToGPContractAssociation.gpHerId.value
 
@@ -488,20 +351,10 @@ fun handleDoctorFollowupPlanAltinn(
             it.heRid.toInt() == herIDAdresseregister
         }
         if (canReceiveDialogMessage != null) {
-            val fellesformat = createDialogmelding(
-                    incomingMetadata,
-                    incomingPersonInfo,
-                    gpOfficeOrganizationName,
-                    gpOfficeOrganizationNumber,
-                    herIDAdresseregister,
-                    fagmelding,
-                    canReceiveDialogMessage,
-                    gpFirstName,
-                    gpMiddleName,
-                    gpLastName,
-                    gpHerIdFlr,
-                    gpFnr,
-                    gpHprNumber)
+            val fellesformat = createDialogmelding(incomingMetadata, incomingPersonInfo,
+                    gpOfficeOrganizationName, gpOfficeOrganizationNumber, herIDAdresseregister, fagmelding,
+                    canReceiveDialogMessage, gpFirstName, gpMiddleName, gpLastName, gpHerIdFlr, gpFnr, gpHprNumber)
+
             sendDialogmeldingOppfolginsplan(receiptProducer, session, fellesformat)
         } else {
             // TODO TMP
@@ -547,33 +400,29 @@ fun isFollowupPlanForNAV(formData: String, oppfolgingPlanType: Oppfolginsplan): 
     else -> throw RuntimeException("Invalid oppfolginsplanType: $oppfolgingPlanType")
 } ?: false
 
-fun extractGPName(patientToGPContractAssociation: PatientToGPContractAssociation): String? =
-        patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first().gp.value.let {
-            "${it.firstName.value} ${it.middleName.value} ${it.lastName.value}"
-        }
+fun PatientToGPContractAssociation.extractGPName() =
+        "${this.extractGPFirstName()} ${this.extractGPMiddleName()} ${this.extractGPLastName()}"
 
-fun extractGPFirstName(patientToGPContractAssociation: PatientToGPContractAssociation): String? =
-        patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first().gp.value.let {
-            "${it.firstName.value}"
-        }
+fun PatientToGPContractAssociation.extractGPFirstName(): String? =
+        this.doctorCycles.value.gpOnContractAssociation.first().gp.value.firstName.value
 
-fun extractGPLastName(patientToGPContractAssociation: PatientToGPContractAssociation): String? =
-        patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first().gp.value.let {
-            "${it.lastName.value}"
-        }
+fun PatientToGPContractAssociation.extractGPLastName(): String? =
+        this.doctorCycles.value.gpOnContractAssociation.first().gp.value.lastName.value
 
-fun extractGPMiddleName(patientToGPContractAssociation: PatientToGPContractAssociation): String =
-        patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first().gp.value.let {
-            "${it.middleName.value}"
-        }
+fun PatientToGPContractAssociation.extractGPMiddleName(): String =
+        this.doctorCycles.value.gpOnContractAssociation.first().gp.value.middleName.value
 
-fun extractGPFnr(patientToGPContractAssociation: PatientToGPContractAssociation): String =
-        patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first().gp.value.let {
-            "${it.nin.value}"
-        }
+fun PatientToGPContractAssociation.extractGPFnr(): String =
+        this.doctorCycles.value.gpOnContractAssociation.first().gp.value.nin.value
 
-fun extractGPHprNumber(patientToGPContractAssociation: PatientToGPContractAssociation): Int =
-        patientToGPContractAssociation.doctorCycles.value.gpOnContractAssociation.first().hprNumber
+fun PatientToGPContractAssociation.extractGPHprNumber(): Int =
+        this.doctorCycles.value.gpOnContractAssociation.first().hprNumber
+
+fun PatientToGPContractAssociation.extractGPOfficePostalCode(): String =
+        this.gpContract.value.gpOffice.value.physicalAddresses.value.physicalAddress.first().postalCode.toString()
+
+fun PatientToGPContractAssociation.extractGPOfficePhysicalAddress(): String =
+        this.gpContract.value.gpOffice.value.physicalAddresses.value.physicalAddress.first().city.value
 
 val documentBuilder: DocumentBuilder = DocumentBuilderFactory.newInstance().let {
     it.isNamespaceAware = true

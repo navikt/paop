@@ -54,7 +54,7 @@ plugins {
 group 'no.nav.paop'
 version '1.0-SNAPSHOT'
 
-mainClassName = 'no.nav.paop.PaopApplicationKt'
+mainClassName = 'no.nav.paop.BootstrapKt'
 
 applicationDefaultJvmArgs = [
         '-Dcom.ibm.mq.cfg.useIBMCipherMappings=false',
