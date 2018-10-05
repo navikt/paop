@@ -22,8 +22,8 @@ import javax.jms.MessageProducer
 import javax.jms.Session
 
 fun createArenaOppfolgingsplan(
-        metadata: IncomingMetadata,
-        arenaBistand: ArenaBistand
+    metadata: IncomingMetadata,
+    arenaBistand: ArenaBistand
 ): ArenaOppfolgingPlan = ArenaOppfolgingPlan().apply {
             eiaDokumentInfo = EiaDokumentInfoType().apply {
                 dokumentInfo = DokumentInfoType().apply {
