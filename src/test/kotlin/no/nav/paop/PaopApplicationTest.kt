@@ -9,6 +9,8 @@ import no.nav.paop.mapping.extractOrgnavn
 import no.nav.paop.mapping.extractSykmeldtArbeidstakerEtternavn
 import no.nav.paop.mapping.extractSykmeldtArbeidstakerFnr
 import no.nav.paop.mapping.extractSykmeldtArbeidstakerFornavn
+import no.nav.paop.model.IncomingMetadata
+import no.nav.paop.model.IncomingUserInfo
 import org.amshove.kluent.shouldEqual
 import org.spekframework.spek2.Spek
 import org.spekframework.spek2.style.specification.describe

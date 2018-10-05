@@ -728,7 +728,7 @@ fun createExternalContentV2(
 
 fun createAttachmentsV2(archiveReference: String, fagmelding: ByteArray): AttachmentsV2 = AttachmentsV2().apply {
     binaryAttachments = BinaryAttachmentExternalBEV2List().apply {
-        binaryAttachmentV2 == listOf(BinaryAttachmentV2().apply {
+        binaryAttachmentV2.add(BinaryAttachmentV2().apply {
                 destinationType = UserTypeRestriction.SHOW_TO_ALL
                 fileName = "oppfoelgingsdialog.pdf" //
                 name = "oppfoelgingsdialog"

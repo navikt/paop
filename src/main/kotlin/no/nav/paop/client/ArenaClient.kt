@@ -5,8 +5,6 @@ import no.nav.model.arenaOppfolging.ArbeidsgiverType
 import no.nav.model.arenaOppfolging.ArenaOppfolgingPlan
 import no.nav.model.arenaOppfolging.DokumentInfoType
 import no.nav.model.arenaOppfolging.EiaDokumentInfoType
-import no.nav.paop.ArenaBistand
-import no.nav.paop.IncomingMetadata
 import no.nav.paop.Oppfolginsplan
 import no.nav.paop.PaopConstant
 import no.nav.paop.arenaMarshaller
@@ -14,6 +12,8 @@ import no.nav.paop.arenabrevMarshaller
 import no.nav.paop.extractOppfolginsplan2012
 import no.nav.paop.extractOppfolginsplan2014
 import no.nav.paop.extractOppfolginsplan2016
+import no.nav.paop.model.ArenaBistand
+import no.nav.paop.model.IncomingMetadata
 import no.nav.paop.newInstance
 import no.nav.paop.toString
 import no.trygdeetaten.xml.eiff._1.XMLEIFellesformat
@@ -22,8 +22,8 @@ import javax.jms.MessageProducer
 import javax.jms.Session
 
 fun createArenaOppfolgingsplan(
-    metadata: IncomingMetadata,
-    arenaBistand: ArenaBistand
+        metadata: IncomingMetadata,
+        arenaBistand: ArenaBistand
 ): ArenaOppfolgingPlan = ArenaOppfolgingPlan().apply {
             eiaDokumentInfo = EiaDokumentInfoType().apply {
                 dokumentInfo = DokumentInfoType().apply {
