@@ -51,7 +51,7 @@ object PaopApplicationTest : Spek({
                     "src/test/resources/oppfolging_2913_04.xml"))
             val expectedDate = LocalDateTime.of(2017, Month.MARCH, 14, 12, 52)
             dataBatch.dataUnits.dataUnit.first().archiveTimeStamp.year shouldEqual expectedDate.year
-            dataBatch.dataUnits.dataUnit.first().archiveTimeStamp.month shouldEqual expectedDate.month
+            dataBatch.dataUnits.dataUnit.first().archiveTimeStamp.month shouldEqual expectedDate.month.value
             dataBatch.dataUnits.dataUnit.first().archiveTimeStamp.day shouldEqual expectedDate.dayOfMonth
             dataBatch.dataUnits.dataUnit.first().archiveTimeStamp.hour shouldEqual expectedDate.hour
             dataBatch.dataUnits.dataUnit.first().archiveTimeStamp.minute shouldEqual expectedDate.minute
