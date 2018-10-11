@@ -703,6 +703,7 @@ fun createAltinnMessage(
             archiveReference,
             createInsertCorrespondenceV2(orgnummer, archiveReference, fagmelding)
             )
+    log.info("Oppfoløginsplan send to altinn")
 }
 
 fun createInsertCorrespondenceV2(
