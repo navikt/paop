@@ -293,6 +293,7 @@ dependencies {
     implementation "io.prometheus:simpleclient_hotspot:$io_prometheus_version"
     implementation "io.prometheus:simpleclient_common:$io_prometheus_version"
     implementation "io.ktor:ktor-server-netty:$ktor_version"
+    implementation "io.ktor:ktor-jackson:$ktor_version"
 
     implementation "com.fasterxml.jackson.module:jackson-module-jaxb-annotations:$jackson_version"
     implementation "com.fasterxml.jackson.module:jackson-module-kotlin:$jackson_version"

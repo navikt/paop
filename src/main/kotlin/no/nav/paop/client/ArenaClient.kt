@@ -11,7 +11,7 @@ import no.nav.paop.arenabrevMarshaller
 import no.nav.paop.model.ArenaBistand
 import no.nav.paop.model.IncomingMetadata
 import no.nav.paop.newInstance
-import no.nav.paop.toString
+import no.nav.paop.xml.toString
 import no.trygdeetaten.xml.eiff._1.XMLEIFellesformat
 import java.util.GregorianCalendar
 import javax.jms.MessageProducer

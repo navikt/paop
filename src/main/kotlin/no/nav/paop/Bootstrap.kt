@@ -1,5 +1,8 @@
 package no.nav.paop
 
+import com.ibm.mq.jms.MQConnectionFactory
+import com.ibm.msg.client.wmq.WMQConstants
+import com.ibm.msg.client.wmq.compat.base.internal.MQC
 import io.prometheus.client.hotspot.DefaultExports
 import kotlinx.coroutines.experimental.delay
 import kotlinx.coroutines.experimental.launch
@@ -8,6 +11,8 @@ import no.altinn.services.serviceengine.correspondence._2009._10.ICorrespondence
 import no.nav.altinnkanal.avro.ExternalAttachment
 import no.nav.emottak.schemas.PartnerResource
 import no.nav.paop.client.PdfClient
+import no.nav.paop.routes.handleAltinnFollowupPlan
+import no.nav.paop.routes.handleNAVFollowupPlan
 import no.nav.paop.ws.configureBasicAuthFor
 import no.nav.paop.ws.configureSTSFor
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.DokumentproduksjonV3
@@ -23,10 +28,14 @@ import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.wss4j.common.ext.WSPasswordCallback
 import org.apache.wss4j.dom.WSConstants
 import org.apache.wss4j.dom.handler.WSHandlerConstants
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import java.time.Duration
 import javax.jms.MessageProducer
 import javax.jms.Session
 import javax.security.auth.callback.CallbackHandler
+
+val log: Logger = LoggerFactory.getLogger("nav.paop-application")
 
 fun main(args: Array<String>) = runBlocking {
     DefaultExports.initialize()
@@ -34,8 +43,10 @@ fun main(args: Array<String>) = runBlocking {
     createHttpServer(applicationVersion = env.appVersion)
 
     val consumerProperties = readConsumerConfig(env)
-    val consumer = KafkaConsumer<String, ExternalAttachment>(consumerProperties)
-    consumer.subscribe(listOf(env.kafkaTopicOppfolginsplan))
+    val altinnConsumer = KafkaConsumer<String, ExternalAttachment>(consumerProperties)
+    altinnConsumer.subscribe(listOf(env.kafkaTopicOppfolginsplan))
+    // val navnoConsumer = KafkaConsumer<String, ExternalAttachment>(consumerProperties)
+    // navnoConsumer.subscribe(listOf(env.kafkaNavOppfolgingsplanTopic))
 
     connectionFactory(env).createConnection(env.mqUsername, env.mqPassword).use {
         connection ->
@@ -119,8 +130,23 @@ fun main(args: Array<String>) = runBlocking {
         val receiptProducer = session.createProducer(receiptQueue)
 
         listen(PdfClient(env.pdfGeneratorURL), journalbehandling, fastlegeregisteret, organisasjonV4,
-                dokumentProduksjonV3, adresseRegisterV1, partnerEmottak, iCorrespondenceAgencyExternalBasic, arenaProducer, receiptProducer, session, consumer, consumer, env.altinnUserUsername, env.altinnUserPassword).join()
+                dokumentProduksjonV3, adresseRegisterV1, partnerEmottak, iCorrespondenceAgencyExternalBasic,
+                arenaProducer, receiptProducer, session, altinnConsumer, altinnConsumer, env.altinnUserUsername,
+                env.altinnUserPassword).join()
     }
+}
+
+fun connectionFactory(environment: Environment) = MQConnectionFactory().apply {
+    hostName = environment.mqHostname
+    port = environment.mqPort
+    queueManager = environment.mqQueueManagerName
+    transportType = WMQConstants.WMQ_CM_CLIENT
+    // TODO mq crypo
+    // sslCipherSuite = "TLS_RSA_WITH_AES_256_CBC_SHA"
+    channel = environment.mqChannelName
+    ccsid = 1208
+    setIntProperty(WMQConstants.JMS_IBM_ENCODING, MQC.MQENC_NATIVE)
+    setIntProperty(WMQConstants.JMS_IBM_CHARACTER_SET, 1208)
 }
 
 fun listen(

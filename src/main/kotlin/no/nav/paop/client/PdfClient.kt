@@ -1,13 +1,21 @@
 package no.nav.paop.client
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.SerializationFeature
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
+import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import net.logstash.logback.argument.StructuredArguments
-import no.nav.paop.objectMapper
 import okhttp3.MediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody
 import org.slf4j.LoggerFactory
 import java.io.IOException
+
+val objectMapper: ObjectMapper = ObjectMapper()
+        .registerModule(JavaTimeModule())
+        .registerKotlinModule()
+        .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
 
 class PdfClient(private val baseUrl: String) {
     private val client: OkHttpClient = OkHttpClient()

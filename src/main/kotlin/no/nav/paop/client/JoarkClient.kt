@@ -3,7 +3,6 @@ package no.nav.paop.client
 import no.nav.paop.PaopConstant
 import no.nav.paop.model.IncomingMetadata
 import no.nav.paop.newInstance
-import no.nav.paop.wrapFormData
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.Dokumentbestillingsinformasjon
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.Fagomraader
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.Fagsystemer
