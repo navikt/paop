@@ -136,6 +136,7 @@ fun listen(
     receiptProducer: MessageProducer,
     session: Session,
     consumer: KafkaConsumer<String, ExternalAttachment>,
+    navOppfPlanConsumer: KafkaConsumer<String, ExternalAttachment>,
     altinnUserUsername: String,
     altinnUserPassword: String
 ) = launch {
@@ -143,9 +144,13 @@ fun listen(
         consumer.poll(Duration.ofMillis(0)).forEach {
             log.info("Recived a kafka message")
 
-            handleOppfoelgingsplan(it, pdfClient, journalbehandling, fastlegeregisteret, organisasjonV4,
+            handleAltinnFollowupPlan(it, pdfClient, journalbehandling, fastlegeregisteret, organisasjonV4,
                     dokumentProduksjonV3, adresseRegisterV1, partnerEmottak, iCorrespondenceAgencyExternalBasic,
                     arenaProducer, receiptProducer, session, altinnUserUsername, altinnUserPassword)
+        }
+        navOppfPlanConsumer.poll(Duration.ofMillis(0)).forEach {
+            handleNAVFollowupPlan(it, journalbehandling, fastlegeregisteret, organisasjonV4, dokumentProduksjonV3,
+                    arenaProducer, session)
         }
         delay(100)
     }

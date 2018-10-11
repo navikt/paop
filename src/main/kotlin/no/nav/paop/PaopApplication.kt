@@ -72,7 +72,11 @@ import no.nav.paop.model.IncomingMetadata
 import no.nav.paop.model.IncomingUserInfo
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.DokumentproduksjonV3
 import no.nav.tjeneste.virksomhet.organisasjon.v4.binding.OrganisasjonV4
+import no.nav.tjeneste.virksomhet.organisasjon.v4.informasjon.Organisasjon
+import no.nav.tjeneste.virksomhet.organisasjon.v4.informasjon.StedsadresseNorge
+import no.nav.tjeneste.virksomhet.organisasjon.v4.informasjon.UstrukturertNavn
 import no.nav.tjeneste.virksomhet.organisasjon.v4.meldinger.FinnOrganisasjonRequest
+import no.nav.tjeneste.virksomhet.organisasjon.v4.meldinger.FinnOrganisasjonResponse
 import no.nav.tjeneste.virksomhet.organisasjon.v4.meldinger.HentOrganisasjonRequest
 import no.nav.tjeneste.virksomhet.organisasjon.v4.meldinger.ValiderOrganisasjonRequest
 import no.nav.virksomhet.tjenester.arkiv.journalbehandling.v1.binding.Journalbehandling
@@ -111,7 +115,54 @@ val xmlMapper: ObjectMapper = XmlMapper(JacksonXmlModule().apply {
         .registerKotlinModule()
         .configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true)
 
-fun handleOppfoelgingsplan(
+fun handleNAVFollowupPlan(
+    record: ConsumerRecord<String, ExternalAttachment>,
+    journalbehandling: Journalbehandling,
+    fastlegeregisteret: IFlrReadOperations,
+    organisasjonV4: OrganisasjonV4,
+    dokumentProduksjonV3: DokumentproduksjonV3,
+    arenaProducer: MessageProducer,
+    session: Session
+) {
+    val dataBatch = dataBatchUnmarshaller.unmarshal(StringReader(record.value().getBatch())) as DataBatch
+    val payload = dataBatch.dataUnits.dataUnit.first().formTask.form.first().formData
+
+    val attachment = dataBatch.attachments?.attachment?.firstOrNull()?.value
+
+    val oppfPlan = extractNavOppfPlan(payload)
+    val usesNavTemplate = !oppfPlan.isBistandHjelpemidler
+
+    val org = organisasjonV4.hentOrganisasjon(HentOrganisasjonRequest().apply {
+        orgnummer = oppfPlan.bedriftsNr
+    }).organisasjon
+
+    val incomingMetadata = IncomingMetadata(
+            archiveReference = record.value().getArchiveReference(),
+            senderOrgName = (org.navn as UstrukturertNavn).navnelinje.first(),
+            senderOrgId = oppfPlan.bedriftsNr,
+            senderSystemName = "NAV_NO",
+            senderSystemVersion = "UNKNOWN",
+            userPersonNumber = oppfPlan.fodselsNr
+    )
+
+    val bistand = ArenaBistand(
+            bistandNavHjelpemidler = oppfPlan.isBistandHjelpemidler,
+            bistandNavVeiledning = oppfPlan.isBistandRaadOgVeiledning,
+            bistandDialogmote = oppfPlan.isBistandDialogMoeteMedNav,
+            bistandVirkemidler = oppfPlan.isBistandArbeidsrettedeTiltakOgVirkemidler
+    )
+
+    if (usesNavTemplate) {
+        handleNAVFollowupPlanNAVTemplate(journalbehandling, fastlegeregisteret, dokumentProduksjonV3,
+                arenaProducer, session, oppfPlan, bistand, attachment, incomingMetadata, org)
+    } else {
+        val joarkRequest = createJoarkRequest(incomingMetadata, attachment)
+        journalbehandling.lagreDokumentOgOpprettJournalpost(joarkRequest)
+        sendArenaOppfolginsplan(arenaProducer, session, incomingMetadata, bistand)
+    }
+}
+
+fun handleAltinnFollowupPlan(
     record: ConsumerRecord<String, ExternalAttachment>,
     pdfClient: PdfClient,
     journalbehandling: Journalbehandling,
@@ -128,8 +179,6 @@ fun handleOppfoelgingsplan(
     altinnUserPassword: String
 ) {
     val dataBatch = dataBatchUnmarshaller.unmarshal(StringReader(record.value().getBatch())) as DataBatch
-    val serviceCode = record.value().getServiceCode()
-    val serviceEditionCode = record.value().getServiceEditionCode()
     val payload = dataBatch.dataUnits.dataUnit.first().formTask.form.first().formData
     val oppfolgingsplan = xmlMapper.readValue<Oppfoelgingsplan4UtfyllendeInfoM>(payload)
     val skjemainnhold = oppfolgingsplan.skjemainnhold
@@ -142,6 +191,21 @@ fun handleOppfoelgingsplan(
             senderSystemVersion = skjemainnhold.avsenderSystem.systemVersjon,
             userPersonNumber = skjemainnhold.sykmeldtArbeidstaker.fnr
     )
+
+    val fagmelding = pdfClient.generatePDF(PdfType.FAGMELDING, mapFormdataToFagmelding(skjemainnhold, incomingMetadata))
+
+    val validOrganizationNumber = try {
+        organisasjonV4.validerOrganisasjon(ValiderOrganisasjonRequest().apply {
+            orgnummer = incomingMetadata.senderOrgId
+        }).isGyldigOrgnummer
+    } catch (e: Exception) {
+        log.error("Failed to validate organization number due to an exception", e)
+        false
+    }
+    if (!validOrganizationNumber) {
+        // TODO: Do something else then silently fail
+        return
+    }
 
     val incomingPersonInfo = IncomingUserInfo(
             userFamilyName = skjemainnhold.sykmeldtArbeidstaker?.fornavn,
@@ -156,65 +220,28 @@ fun handleOppfoelgingsplan(
             bistandVirkemidler = skjemainnhold.tiltak.tiltaksinformasjon.any { it.isBistandArbeidsrettedeTiltakOgVirkemidler }
     )
 
-    val attachment = dataBatch.attachments?.attachment?.firstOrNull()?.value
-
-    val validOrganizationNumber = try {
-        organisasjonV4.validerOrganisasjon(ValiderOrganisasjonRequest().apply {
-            orgnummer = incomingMetadata.senderOrgId
-        }).isGyldigOrgnummer
-    } catch (e: Exception) {
-        log.error("Failed to validate organization number due to an exception", e)
-        false
+    if (skjemainnhold.mottaksInformasjon.isOppfolgingsplanSendesTiNav) {
+        val joarkRequest = createJoarkRequest(incomingMetadata, fagmelding)
+        journalbehandling.lagreDokumentOgOpprettJournalpost(joarkRequest)
+        sendArenaOppfolginsplan(arenaProducer, session, incomingMetadata, arenaBistand)
     }
-
-    if (!validOrganizationNumber) {
-        // TODO: Do something else then silently fail
-        return
-    }
-
-    val oppfolgingsplanType = Oppfolginsplan.OP2016 // TODO findOppfolingsplanType(serviceCode, serviceEditionCode)
-    if (oppfolgingsplanType in arrayOf(Oppfolginsplan.OP2012, Oppfolginsplan.OP2014, Oppfolginsplan.OP2016)) {
-        val fagmelding = pdfClient.generatePDF(PdfType.FAGMELDING, mapFormdataToFagmelding(skjemainnhold, incomingMetadata))
-        if (skjemainnhold.mottaksInformasjon.isOppfolgingsplanSendesTiNav) {
-            val joarkRequest = createJoarkRequest(incomingMetadata, fagmelding)
-            journalbehandling.lagreDokumentOgOpprettJournalpost(joarkRequest)
-            sendArenaOppfolginsplan(arenaProducer, session, incomingMetadata, arenaBistand)
-        }
-        if (skjemainnhold.mottaksInformasjon.isOppfolgingsplanSendesTilFastlege) {
-            handleDoctorFollowupPlanAltinn(fastlegeregisteret, dokumentProduksjonV3, adresseRegisterV1,
-                    partnerEmottak, iCorrespondenceAgencyExternalBasic, arenaProducer, receiptProducer, session, incomingMetadata, incomingPersonInfo, fagmelding, altinnUserUsername, altinnUserPassword)
-        }
-    } else if (oppfolgingsplanType == Oppfolginsplan.NAVOPPFPLAN) {
-
-        val extractOppfolginsplan = extractNavOppfPlan(payload)
-        val usesNavTemplate = !extractOppfolginsplan.isBistandHjelpemidler
-
-        // TODO: Don't silently fail
-        if (usesNavTemplate) {
-            handleNAVFollowupPlanNAVTemplate(journalbehandling, fastlegeregisteret, organisasjonV4, dokumentProduksjonV3,
-                    arenaProducer, session, extractOppfolginsplan, arenaBistand, attachment, incomingMetadata)
-        } else {
-            val fagmelding = dataBatch.attachments.attachment.first()
-            val joarkRequest = createJoarkRequest(incomingMetadata, fagmelding.value)
-            journalbehandling.lagreDokumentOgOpprettJournalpost(joarkRequest)
-            sendArenaOppfolginsplan(arenaProducer, session, incomingMetadata, arenaBistand)
-        }
-    } else {
-        throw Exception("Unvalid oppfolingsplan type")
+    if (skjemainnhold.mottaksInformasjon.isOppfolgingsplanSendesTilFastlege) {
+        handleDoctorFollowupPlanAltinn(fastlegeregisteret, dokumentProduksjonV3, adresseRegisterV1,
+                partnerEmottak, iCorrespondenceAgencyExternalBasic, arenaProducer, receiptProducer, session, incomingMetadata, incomingPersonInfo, fagmelding, altinnUserUsername, altinnUserPassword)
     }
 }
 
 fun handleNAVFollowupPlanNAVTemplate(
     journalbehandling: Journalbehandling,
     fastlegeregisteret: IFlrReadOperations,
-    organisasjonV4: OrganisasjonV4,
     dokumentProduksjonV3: DokumentproduksjonV3,
     arenaProducer: MessageProducer,
     session: Session,
     oppfolgingsplan: OppfolgingsplanMetadata,
     arenaBistand: ArenaBistand,
     attachment: ByteArray?,
-    incomingMetadata: IncomingMetadata
+    incomingMetadata: IncomingMetadata,
+    org: Organisasjon
 ) {
     if (oppfolgingsplan.mottaksinformasjon.isOppfoelgingsplanSendesTiNav) {
         val joarkRequest = createJoarkRequest(incomingMetadata, attachment)
@@ -230,7 +257,7 @@ fun handleNAVFollowupPlanNAVTemplate(
             patientToGPContractAssociation = fastlegeregisteret.getPatientGPDetails(patientFnr)
             fastlegefunnet = true
         } catch (e: Exception) {
-            log.error("Call to flr returned Exception", e)
+            log.error("Call to fastlegeregisteret returned Exception", e)
         }
 
         if (fastlegefunnet && patientToGPContractAssociation.gpContract != null) {
@@ -246,24 +273,15 @@ fun handleNAVFollowupPlanNAVTemplate(
         }
     } else {
 
-        val hentOrganisasjonRequest = HentOrganisasjonRequest().apply {
-            orgnummer = incomingMetadata.senderOrgId
-        }
-        val hentOrganisasjonResponse = organisasjonV4.hentOrganisasjon(hentOrganisasjonRequest)
-
-        val finnOrganisasjonRequest = FinnOrganisasjonRequest().apply {
-            navn = hentOrganisasjonResponse.organisasjon.navn.toString()
-        }
-        val finnOrganisasjonResponse = organisasjonV4.finnOrganisasjon(finnOrganisasjonRequest)
-
-        val orgpostnummer = finnOrganisasjonResponse.organisasjonSammendragListe.firstOrNull()!!.postnummer
-        val orgpoststed = finnOrganisasjonResponse.organisasjonSammendragListe.firstOrNull()!!.poststed
+        val address = org.organisasjonDetaljer.postadresse.find { it is StedsadresseNorge } as StedsadresseNorge
+        val orgpostnummer = address.poststed.value
+        val orgpoststed = "Kirkenær"
 
         // TODO TMP
         val brevdata = arenabrevdataMarshaller.toString(createArenaBrevdata())
 
         createPhysicalLetter(dokumentProduksjonV3, arenaProducer, session, incomingMetadata,
-                incomingMetadata.senderOrgId, incomingMetadata.senderOrgName, orgpostnummer.value, orgpoststed,
+                incomingMetadata.senderOrgId, incomingMetadata.senderOrgName, orgpostnummer, orgpoststed,
                 brevdata)
     }
 }
