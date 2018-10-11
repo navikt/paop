@@ -711,7 +711,8 @@ fun createInsertCorrespondenceV2(
     fagmelding: ByteArray
 ): InsertCorrespondenceV2 = InsertCorrespondenceV2().apply {
     isAllowForwarding = true
-    reportee = orgnummer
+    // TODO after test stage put back inn reportee = orgnummer
+    reportee = "910067494"
     messageSender = "brukersNavn-fnr"
     serviceCode = "5062"
     serviceEdition = "1"
