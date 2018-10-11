@@ -7,6 +7,7 @@ import com.fasterxml.jackson.dataformat.xml.XmlMapper
 import com.fasterxml.jackson.module.jaxb.JaxbAnnotationModule
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import net.logstash.logback.argument.StructuredArguments.keyValue
 import no.altinn.services.serviceengine.correspondence._2009._10.ICorrespondenceAgencyExternalBasic
 import no.nav.altinnkanal.avro.ExternalAttachment
 import no.nav.emottak.schemas.HentPartnerIDViaOrgnummerRequest
@@ -85,19 +86,22 @@ fun handleAltinnFollowupPlan(
             userPersonNumber = skjemainnhold.sykmeldtArbeidstaker.fnr
     )
 
+    val logKeys = arrayOf(
+            keyValue("archiveReference", record.value().getArchiveReference()),
+            keyValue("senderOrganisationNumber", incomingMetadata.senderOrgId),
+            keyValue("topic", record.topic())
+    )
+    val logFormat = logKeys.joinToString(",", "(", ")") { "{}" }
+
+    log.info("Received a Altinn oppfølgingsplan $logFormat", *logKeys)
+
     val fagmelding = pdfClient.generatePDF(PdfType.FAGMELDING, mapFormdataToFagmelding(skjemainnhold, incomingMetadata))
 
-    val validOrganizationNumber = try {
-        organisasjonV4.validerOrganisasjon(ValiderOrganisasjonRequest().apply {
+    val validOrganizationNumber = organisasjonV4.validerOrganisasjon(ValiderOrganisasjonRequest().apply {
             orgnummer = incomingMetadata.senderOrgId
         }).isGyldigOrgnummer
-    } catch (e: Exception) {
-        log.error("Failed to validate organization number due to an exception", e)
-        false
-    }
     if (!validOrganizationNumber) {
-        // TODO: Do something else then silently fail
-        return
+        throw RuntimeException("Failed because the incoming organization ${incomingMetadata.senderOrgId} was invalid")
     }
 
     val incomingPersonInfo = IncomingUserInfo(
@@ -124,16 +128,6 @@ fun handleAltinnFollowupPlan(
     }
 }
 
-fun handleNonFastlegeFollowupPlan(
-    fagmelding: ByteArray,
-    iCorrespondenceAgencyExternalBasic: ICorrespondenceAgencyExternalBasic,
-    metadata: IncomingMetadata,
-    altinnUserUsername: String,
-    altinnUserPassword: String
-) {
-    createAltinnMessage(iCorrespondenceAgencyExternalBasic, metadata.archiveReference, metadata.senderOrgId, fagmelding, altinnUserUsername, altinnUserPassword)
-}
-
 fun handleDoctorFollowupPlanAltinn(
     fastlegeregisteret: IFlrReadOperations,
     dokumentProduksjonV3: DokumentproduksjonV3,
@@ -149,15 +143,10 @@ fun handleDoctorFollowupPlanAltinn(
     altinnUserUsername: String,
     altinnUserPassword: String
 ) {
-    val patientToGPContractAssociation = try {
-        fastlegeregisteret.getPatientGPDetails(incomingMetadata.userPersonNumber)
-    } catch (e: Exception) {
-        log.error("Call to flr returned Exception", e)
-        // TODO: We shouldn't just fail here
-        null
-    }
+    val patientToGPContractAssociation = fastlegeregisteret.getPatientGPDetails(incomingMetadata.userPersonNumber)
     // TODO remove after testing
-    handleNonFastlegeFollowupPlan(fagmelding, iCorrespondenceAgencyExternalBasic, incomingMetadata, altinnUserUsername, altinnUserPassword)
+    createAltinnMessage(iCorrespondenceAgencyExternalBasic, incomingMetadata.archiveReference,
+            incomingMetadata.senderOrgId, fagmelding, altinnUserUsername, altinnUserPassword)
 
     if (patientToGPContractAssociation != null) {
         val gpName = patientToGPContractAssociation.extractGPName()
@@ -178,13 +167,12 @@ fun handleDoctorFollowupPlanAltinn(
         val gpOfficeOrganizationNumber = getCommunicationPartyDetailsResponse.organizations.organization.first().organizationNumber.toString()
         val gpOfficeOrganizationName = getCommunicationPartyDetailsResponse.organizations.organization.first().name
 
-        val hentPartnerIDViaOrgnummerRequest = HentPartnerIDViaOrgnummerRequest().apply {
+
+        val partner = partnerEmottak.hentPartnerIDViaOrgnummer(HentPartnerIDViaOrgnummerRequest().apply {
             orgnr = gpOfficeOrganizationNumber
-        }
+        }).partnerInformasjon
 
-        val hentPartnerIDViaOrgnummerResponse = partnerEmottak.hentPartnerIDViaOrgnummer(hentPartnerIDViaOrgnummerRequest)
-
-        val canReceiveDialogMessage = hentPartnerIDViaOrgnummerResponse.partnerInformasjon.firstOrNull {
+        val canReceiveDialogMessage = partner.firstOrNull {
             it.heRid.toInt() == herIDAdresseregister
         }
         if (canReceiveDialogMessage != null) {
@@ -201,6 +189,7 @@ fun handleDoctorFollowupPlanAltinn(
                     gpName, gpOfficePostnr, gpOfficePoststed, brevdata)
         }
     } else {
-        handleNonFastlegeFollowupPlan(fagmelding, iCorrespondenceAgencyExternalBasic, incomingMetadata, altinnUserUsername, altinnUserPassword)
+        createAltinnMessage(iCorrespondenceAgencyExternalBasic, incomingMetadata.archiveReference,
+                incomingMetadata.senderOrgId, fagmelding, altinnUserUsername, altinnUserPassword)
     }
 }

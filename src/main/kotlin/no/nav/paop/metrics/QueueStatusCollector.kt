@@ -9,7 +9,7 @@ import javax.jms.Queue
 import javax.jms.Session
 
 private val log = LoggerFactory.getLogger("queue-metrics-collector")
-class QueueStatusCollector(val connection: Connection, vararg val queues: Queue) : Collector() {
+class QueueStatusCollector(private val connection: Connection, private vararg val queues: Queue) : Collector() {
     override fun collect(): MutableList<MetricFamilySamples> = mutableListOf(
             CounterMetricFamily("jms_queue_message_counter", "Counts the number of available messages on a queue", listOf("queue_name")).apply {
                 connection.createSession(false, Session.AUTO_ACKNOWLEDGE).use {

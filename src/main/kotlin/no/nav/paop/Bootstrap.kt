@@ -168,8 +168,6 @@ fun listen(
 ) = launch {
     while (true) {
         consumer.poll(Duration.ofMillis(0)).forEach {
-            log.info("Recived a kafka message")
-
             handleAltinnFollowupPlan(it, pdfClient, journalbehandling, fastlegeregisteret, organisasjonV4,
                     dokumentProduksjonV3, adresseRegisterV1, partnerEmottak, iCorrespondenceAgencyExternalBasic,
                     arenaProducer, receiptProducer, session, altinnUserUsername, altinnUserPassword)

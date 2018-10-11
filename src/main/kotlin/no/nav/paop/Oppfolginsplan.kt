@@ -9,6 +9,5 @@ enum class Oppfolginsplan(val serviceCode: String, val ServiceEdition: String) {
 }
 
 fun findOppfolingsplanType(serviceCode: String, serviceEditionCode: String): Oppfolginsplan {
-
     return Oppfolginsplan.values().first { it.serviceCode == serviceCode && it.ServiceEdition == serviceEditionCode }
 }

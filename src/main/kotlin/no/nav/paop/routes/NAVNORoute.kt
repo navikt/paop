@@ -1,5 +1,6 @@
 package no.nav.paop.routes
 
+import net.logstash.logback.argument.StructuredArguments
 import no.nav.altinnkanal.avro.ExternalAttachment
 import no.nav.model.dataBatch.DataBatch
 import no.nav.model.navOppfPlan.OppfolgingsplanMetadata
@@ -58,6 +59,15 @@ fun handleNAVFollowupPlan(
             userPersonNumber = oppfPlan.fodselsNr
     )
 
+    val logKeys = arrayOf(
+            StructuredArguments.keyValue("archiveReference", record.value().getArchiveReference()),
+            StructuredArguments.keyValue("senderOrganisationNumber", incomingMetadata.senderOrgId),
+            StructuredArguments.keyValue("topic", record.topic())
+    )
+    val logFormat = logKeys.joinToString(",", "(", ")") { "{}" }
+
+    log.info("Received a nav.no oppfølgingsplan $logFormat", *logKeys)
+
     val bistand = ArenaBistand(
             bistandNavHjelpemidler = oppfPlan.isBistandHjelpemidler,
             bistandNavVeiledning = oppfPlan.isBistandRaadOgVeiledning,
@@ -94,17 +104,9 @@ fun handleNAVFollowupPlanNAVTemplate(
         sendArenaOppfolginsplan(arenaProducer, session, incomingMetadata, arenaBistand)
     }
     if (oppfolgingsplan.mottaksinformasjon.isOppfoelgingsplanSendesTilFastlege) {
-        var fastlegefunnet = false
-        val patientFnr = oppfolgingsplan.fodselsNr
-        var patientToGPContractAssociation = PatientToGPContractAssociation()
-        try {
-            patientToGPContractAssociation = fastlegeregisteret.getPatientGPDetails(patientFnr)
-            fastlegefunnet = true
-        } catch (e: Exception) {
-            log.error("Call to fastlegeregisteret returned Exception", e)
-        }
+        val patientToGPContractAssociation = fastlegeregisteret.getPatientGPDetails(oppfolgingsplan.fodselsNr)
 
-        if (fastlegefunnet && patientToGPContractAssociation.gpContract != null) {
+        if (patientToGPContractAssociation.gpContract != null) {
             val orgname = patientToGPContractAssociation.gpContract.gpOffice.name
             val orgNr = patientToGPContractAssociation.gpContract.gpOffice.organizationNumber.toString()
             val orgpostnummer = patientToGPContractAssociation.gpContract.gpOffice.physicalAddresses.physicalAddress.first().postalCode.toString()
@@ -116,7 +118,6 @@ fun handleNAVFollowupPlanNAVTemplate(
             createPhysicalLetter(dokumentProduksjonV3, arenaProducer, session, incomingMetadata, orgNr, orgname, orgpostnummer, orgpoststed, brevdata)
         }
     } else {
-
         val address = org.organisasjonDetaljer.postadresse.find { it is StedsadresseNorge } as StedsadresseNorge
         val orgpostnummer = address.poststed.value
         val orgpoststed = "Kirkenær"
