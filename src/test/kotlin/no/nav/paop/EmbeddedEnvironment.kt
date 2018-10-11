@@ -191,7 +191,7 @@ class EmbeddedEnvironment {
         val receiptProducer = session.createProducer(receiptQueue)
 
         job = listen(pdfClient, journalbehandlingClient, fastlegeregisteretClient, organisasjonV4Client,
-                dokumentProduksjonV3Client, adresseRegisterV1Client, partnerEmottakClient, iCorrespondenceAgencyExternalBasic, arenaProducer, receiptProducer, session, consumer, "brukernavn", "passord")
+                dokumentProduksjonV3Client, adresseRegisterV1Client, partnerEmottakClient, iCorrespondenceAgencyExternalBasic, arenaProducer, receiptProducer, session, consumer, consumer, "brukernavn", "passord")
     }
 
     private fun configureTimeout(service: Any) {

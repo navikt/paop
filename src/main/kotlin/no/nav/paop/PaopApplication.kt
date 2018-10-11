@@ -75,8 +75,6 @@ import no.nav.tjeneste.virksomhet.organisasjon.v4.binding.OrganisasjonV4
 import no.nav.tjeneste.virksomhet.organisasjon.v4.informasjon.Organisasjon
 import no.nav.tjeneste.virksomhet.organisasjon.v4.informasjon.StedsadresseNorge
 import no.nav.tjeneste.virksomhet.organisasjon.v4.informasjon.UstrukturertNavn
-import no.nav.tjeneste.virksomhet.organisasjon.v4.meldinger.FinnOrganisasjonRequest
-import no.nav.tjeneste.virksomhet.organisasjon.v4.meldinger.FinnOrganisasjonResponse
 import no.nav.tjeneste.virksomhet.organisasjon.v4.meldinger.HentOrganisasjonRequest
 import no.nav.tjeneste.virksomhet.organisasjon.v4.meldinger.ValiderOrganisasjonRequest
 import no.nav.virksomhet.tjenester.arkiv.journalbehandling.v1.binding.Journalbehandling
@@ -415,7 +413,7 @@ fun PatientToGPContractAssociation.extractGPFirstName(): String? =
 fun PatientToGPContractAssociation.extractGPLastName(): String? =
         this.doctorCycles.gpOnContractAssociation.first().gp.lastName
 
-fun PatientToGPContractAssociation.extractGPMiddleName(): String =
+fun PatientToGPContractAssociation.extractGPMiddleName(): String? =
         this.doctorCycles.gpOnContractAssociation.first().gp.middleName
 
 fun PatientToGPContractAssociation.extractGPFnr(): String =
@@ -445,7 +443,7 @@ fun createDialogmelding(
     fagmelding: ByteArray,
     canReceiveDialogMessage: PartnerInformasjon,
     gpfirstname: String,
-    gpMiddelName: String,
+    gpMiddelName: String?,
     gpLastname: String,
     gpHerIdFlr: Int,
     gpFnr: String,
@@ -512,7 +510,7 @@ fun createDialogmelding(
                         }
                         familyName = gpLastname
                         givenName = gpfirstname
-                        if (gpMiddelName.isNotBlank() && gpMiddelName.isNotEmpty()) {
+                        if (gpMiddelName != null) {
                             middleName = gpMiddelName
                         }
                         ident.add(XMLIdent().apply {

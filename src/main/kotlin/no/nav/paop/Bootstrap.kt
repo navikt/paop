@@ -119,7 +119,7 @@ fun main(args: Array<String>) = runBlocking {
         val receiptProducer = session.createProducer(receiptQueue)
 
         listen(PdfClient(env.pdfGeneratorURL), journalbehandling, fastlegeregisteret, organisasjonV4,
-                dokumentProduksjonV3, adresseRegisterV1, partnerEmottak, iCorrespondenceAgencyExternalBasic, arenaProducer, receiptProducer, session, consumer, env.altinnUserUsername, env.altinnUserPassword).join()
+                dokumentProduksjonV3, adresseRegisterV1, partnerEmottak, iCorrespondenceAgencyExternalBasic, arenaProducer, receiptProducer, session, consumer, consumer, env.altinnUserUsername, env.altinnUserPassword).join()
     }
 }
 
