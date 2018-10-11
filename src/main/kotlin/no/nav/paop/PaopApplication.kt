@@ -739,7 +739,7 @@ fun createAttachmentsV2(archiveReference: String, fagmelding: ByteArray): Attach
                 name = "oppfoelgingsdialog"
                 functionType = AttachmentFunctionType.UNSPECIFIED
                 isEncrypted = false
-                sendersReference = archiveReference
+                sendersReference = UUID.randomUUID().toString()
                 data = fagmelding
         })
     }
