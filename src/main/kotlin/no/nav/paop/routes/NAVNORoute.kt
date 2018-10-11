@@ -23,7 +23,6 @@ import no.nav.tjeneste.virksomhet.organisasjon.v4.informasjon.UstrukturertNavn
 import no.nav.tjeneste.virksomhet.organisasjon.v4.meldinger.HentOrganisasjonRequest
 import no.nav.virksomhet.tjenester.arkiv.journalbehandling.v1.binding.Journalbehandling
 import no.nhn.schemas.reg.flr.IFlrReadOperations
-import no.nhn.schemas.reg.flr.PatientToGPContractAssociation
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import java.io.StringReader
 import javax.jms.MessageProducer

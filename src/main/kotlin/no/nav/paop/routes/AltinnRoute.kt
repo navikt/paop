@@ -167,7 +167,6 @@ fun handleDoctorFollowupPlanAltinn(
         val gpOfficeOrganizationNumber = getCommunicationPartyDetailsResponse.organizations.organization.first().organizationNumber.toString()
         val gpOfficeOrganizationName = getCommunicationPartyDetailsResponse.organizations.organization.first().name
 
-
         val partner = partnerEmottak.hentPartnerIDViaOrgnummer(HentPartnerIDViaOrgnummerRequest().apply {
             orgnr = gpOfficeOrganizationNumber
         }).partnerInformasjon

@@ -13,57 +13,41 @@ import java.util.UUID
 
 fun createAltinnMessage(
     iCorrespondenceAgencyExternalBasic: ICorrespondenceAgencyExternalBasic,
-    archiveReference: String,
+    incomingArchRef: String,
     orgnummer: String,
     fagmelding: ByteArray,
     altinnUserUsername: String,
     altinnUserPassword: String
 ) {
-    iCorrespondenceAgencyExternalBasic.insertCorrespondenceBasicV2(
-            altinnUserUsername,
-            altinnUserPassword,
-            "NAV_DIGISYFO",
-            archiveReference,
-            createInsertCorrespondenceV2(orgnummer, archiveReference, fagmelding)
-    )
-    log.info("Oppfoløginsplan send to altinn")
-}
-
-fun createInsertCorrespondenceV2(
-    orgnummer: String,
-    archiveReferenceIncoming: String,
-    fagmelding: ByteArray
-): InsertCorrespondenceV2 = InsertCorrespondenceV2().apply {
-    isAllowForwarding = true
-    // TODO after test stage put back inn reportee = orgnummer
-    reportee = "910067494"
-    messageSender = "brukersNavn-fnr"
-    serviceCode = "5062"
-    serviceEdition = "1"
-    content = createExternalContentV2(archiveReferenceIncoming, fagmelding)
-    archiveReference = null
-}
-
-fun createExternalContentV2(
-    archiveReference: String,
-    fagmelding: ByteArray
-): ExternalContentV2 = ExternalContentV2().apply {
-    languageCode = "1044"
-    messageTitle = "Oppfølgingsplan-$archiveReference-brukersNavn(fnr)"
-    customMessageData = null
-    attachments = createAttachmentsV2(archiveReference, fagmelding)
-}
-
-fun createAttachmentsV2(archiveReference: String, fagmelding: ByteArray): AttachmentsV2 = AttachmentsV2().apply {
-    binaryAttachments = BinaryAttachmentExternalBEV2List().apply {
-        binaryAttachmentV2.add(BinaryAttachmentV2().apply {
-            destinationType = UserTypeRestriction.SHOW_TO_ALL
-            fileName = "oppfoelgingsdialog.pdf" //
-            name = "oppfoelgingsdialog"
-            functionType = AttachmentFunctionType.UNSPECIFIED
-            isEncrypted = false
-            sendersReference = UUID.randomUUID().toString()
-            data = fagmelding
-        })
+    val insertCorrespondenceV2 = InsertCorrespondenceV2().apply {
+        isAllowForwarding = true
+        // TODO after test stage put back inn reportee = orgnummer
+        reportee = "910067494"
+        messageSender = "brukersNavn-fnr"
+        serviceCode = "5062"
+        serviceEdition = "1"
+        content = ExternalContentV2().apply {
+            languageCode = "1044"
+            messageTitle = "Oppfølgingsplan-$archiveReference-brukersNavn(fnr)"
+            customMessageData = null
+            attachments = AttachmentsV2().apply {
+                binaryAttachments = BinaryAttachmentExternalBEV2List().apply {
+                    binaryAttachmentV2.add(BinaryAttachmentV2().apply {
+                        destinationType = UserTypeRestriction.SHOW_TO_ALL
+                        fileName = "oppfoelgingsdialog.pdf" //
+                        name = "oppfoelgingsdialog"
+                        functionType = AttachmentFunctionType.UNSPECIFIED
+                        isEncrypted = false
+                        sendersReference = UUID.randomUUID().toString()
+                        data = fagmelding
+                    })
+                }
+            }
+        }
+        archiveReference = null
     }
+
+    iCorrespondenceAgencyExternalBasic.insertCorrespondenceBasicV2(altinnUserUsername, altinnUserPassword,
+            "NAV_DIGISYFO", incomingArchRef, insertCorrespondenceV2)
+    log.info("Oppfoløginsplan send to altinn")
 }
