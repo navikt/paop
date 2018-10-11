@@ -700,7 +700,7 @@ fun createAltinnMessage(
             altinnUserUsername,
             altinnUserPassword,
             "NAV_DIGISYFO",
-            //TODO archiveReference,
+            // TODO archiveReference,
             null,
             createInsertCorrespondenceV2(orgnummer, archiveReference, fagmelding)
             )
