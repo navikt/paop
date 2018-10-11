@@ -700,8 +700,7 @@ fun createAltinnMessage(
             altinnUserUsername,
             altinnUserPassword,
             "NAV_DIGISYFO",
-            // TODO archiveReference,
-            null,
+            archiveReference,
             createInsertCorrespondenceV2(orgnummer, archiveReference, fagmelding)
             )
     log.info("Oppfoløginsplan send to altinn")
@@ -719,7 +718,7 @@ fun createInsertCorrespondenceV2(
     serviceCode = "5062"
     serviceEdition = "1"
     content = createExternalContentV2(archiveReferenceIncoming, fagmelding)
-    archiveReference = archiveReferenceIncoming
+    archiveReference = null
 }
 
 fun createExternalContentV2(
