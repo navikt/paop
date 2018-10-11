@@ -13,7 +13,6 @@ import no.nav.emottak.schemas.HentPartnerIDViaOrgnummerRequest
 import no.nav.emottak.schemas.PartnerResource
 import no.nav.model.dataBatch.DataBatch
 import no.nav.model.oppfolgingsplan2016.Oppfoelgingsplan4UtfyllendeInfoM
-import no.nav.paop.arenabrevdataMarshaller
 import no.nav.paop.client.PdfClient
 import no.nav.paop.client.PdfType
 import no.nav.paop.client.createAltinnMessage
@@ -23,12 +22,13 @@ import no.nav.paop.client.createJoarkRequest
 import no.nav.paop.client.createPhysicalLetter
 import no.nav.paop.client.sendArenaOppfolginsplan
 import no.nav.paop.client.sendDialogmeldingOppfolginsplan
-import no.nav.paop.dataBatchUnmarshaller
 import no.nav.paop.log
 import no.nav.paop.mapping.mapFormdataToFagmelding
 import no.nav.paop.model.ArenaBistand
 import no.nav.paop.model.IncomingMetadata
 import no.nav.paop.model.IncomingUserInfo
+import no.nav.paop.xml.arenabrevdataMarshaller
+import no.nav.paop.xml.dataBatchUnmarshaller
 import no.nav.paop.xml.extractGPFirstName
 import no.nav.paop.xml.extractGPFnr
 import no.nav.paop.xml.extractGPHprNumber

@@ -8,6 +8,8 @@ import no.nav.paop.client.createDialogmelding
 import no.nav.paop.model.IncomingMetadata
 import no.nav.paop.model.IncomingUserInfo
 import no.nav.paop.routes.xmlMapper
+import no.nav.paop.xml.extractDataBatch
+import no.nav.paop.xml.extractNavOppfPlan
 import no.nav.tjeneste.virksomhet.organisasjon.v4.binding.OrganisasjonV4
 import no.nav.tjeneste.virksomhet.organisasjon.v4.binding.ValiderOrganisasjonOrganisasjonIkkeFunnet
 import no.nav.tjeneste.virksomhet.organisasjon.v4.binding.ValiderOrganisasjonUgyldigInput
@@ -131,10 +133,10 @@ object PaopApplicationTest : Spek({
         it("Should set dataBatch.dataUnits.dataUnit.first().formTask.form.first().formData to NavOppfPlan") {
             val dataBatch = extractDataBatch(getFileAsString(
                     "src/test/resources/oppfolging_navoppfplan_rapportering_sykemeldte.xml"))
-            dataBatch.dataUnits.dataUnit.first().formTask.form.first().reference shouldEqual "rapportering-sykmeldte"
+            val form = dataBatch.dataUnits.dataUnit.first().formTask.form.first()
+            form.reference shouldEqual "rapportering-sykmeldte"
 
-            val navOppfPlan = extractNavOppfPlan(
-                    dataBatch.dataUnits.dataUnit.first().formTask.form.first().formData)
+            val navOppfPlan = extractNavOppfPlan(form.formData)
 
             navOppfPlan.fodselsNr shouldEqual "01010112345"
         }

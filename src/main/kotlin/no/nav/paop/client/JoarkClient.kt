@@ -2,7 +2,7 @@ package no.nav.paop.client
 
 import no.nav.paop.PaopConstant
 import no.nav.paop.model.IncomingMetadata
-import no.nav.paop.newInstance
+import no.nav.paop.xml.datatypeFactory
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.Dokumentbestillingsinformasjon
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.Fagomraader
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.Fagsystemer
@@ -53,12 +53,12 @@ fun createJoarkRequest(
 
     merknad = PaopConstant.OppfolingsplanFraArbeidsgiver.string
     mottakskanalKode = PaopConstant.eia.string
-    mottattDato = newInstance.newXMLGregorianCalendar(GregorianCalendar())
+    mottattDato = datatypeFactory.newXMLGregorianCalendar(GregorianCalendar())
     innhold = PaopConstant.OppfolingsplanFraArbeidsgiver.string
     journalForendeEnhetId = null
     journalposttypeKode = PaopConstant.journalposttypeKodeI.string
     journalstatusKode = PaopConstant.journalstatusKodeMO.string
-    dokumentDato = newInstance.newXMLGregorianCalendar(GregorianCalendar())
+    dokumentDato = datatypeFactory.newXMLGregorianCalendar(GregorianCalendar())
     fagomradeKode = PaopConstant.opp.string
     fordeling = PaopConstant.eiaOk.string
     avsenderMottaker = metadata.senderOrgName

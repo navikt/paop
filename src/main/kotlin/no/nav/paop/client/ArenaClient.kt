@@ -6,11 +6,11 @@ import no.nav.model.arenaOppfolging.ArenaOppfolgingPlan
 import no.nav.model.arenaOppfolging.DokumentInfoType
 import no.nav.model.arenaOppfolging.EiaDokumentInfoType
 import no.nav.paop.PaopConstant
-import no.nav.paop.arenaMarshaller
-import no.nav.paop.arenabrevMarshaller
 import no.nav.paop.model.ArenaBistand
 import no.nav.paop.model.IncomingMetadata
-import no.nav.paop.newInstance
+import no.nav.paop.xml.arenaMarshaller
+import no.nav.paop.xml.arenabrevMarshaller
+import no.nav.paop.xml.datatypeFactory
 import no.nav.paop.xml.toString
 import no.trygdeetaten.xml.eiff._1.XMLEIFellesformat
 import java.util.GregorianCalendar
@@ -26,7 +26,7 @@ fun createArenaOppfolgingsplan(
                     dokumentType = PaopConstant.dokumentType2913.string
                     dokumentreferanse = metadata.archiveReference
                     ediLoggId = metadata.archiveReference
-                    dokumentDato = newInstance.newXMLGregorianCalendar(GregorianCalendar())
+                    dokumentDato = datatypeFactory.newXMLGregorianCalendar(GregorianCalendar())
                 }
                 behandlingInfo = null
                 avsender = EiaDokumentInfoType.Avsender().apply {

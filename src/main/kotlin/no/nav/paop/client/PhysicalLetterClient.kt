@@ -17,7 +17,7 @@ import no.nav.model.arena.brev.SignerendeSaksbehandlerType
 import no.nav.model.arena.brevdata.Brevdata
 import no.nav.paop.log
 import no.nav.paop.model.IncomingMetadata
-import no.nav.paop.newInstance
+import no.nav.paop.xml.datatypeFactory
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.DokumentproduksjonV3
 import org.w3c.dom.Element
 import org.xml.sax.InputSource
@@ -112,10 +112,10 @@ fun createArenaBrevdata(): Brevdata = Brevdata().apply {
         isSvarslipp = true
         moteInfo = MoteInfoType().apply {
             moteKontakt = "Kurt Kursholder"
-            dato = newInstance.newXMLGregorianCalendar(GregorianCalendar())
+            dato = datatypeFactory.newXMLGregorianCalendar(GregorianCalendar())
             klokkeslett = "10:59"
             sted = "Oslo"
-            fristDato = newInstance.newXMLGregorianCalendar(GregorianCalendar())
+            fristDato = datatypeFactory.newXMLGregorianCalendar(GregorianCalendar())
             brevTekst = "Brevtekst"
         }
         isVisReaksjon = true
