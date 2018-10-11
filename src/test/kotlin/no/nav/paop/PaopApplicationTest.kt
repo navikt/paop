@@ -6,7 +6,15 @@ import no.nav.emottak.schemas.PartnerInformasjon
 import no.nav.model.oppfolgingsplan2016.Oppfoelgingsplan4UtfyllendeInfoM
 import no.nav.paop.model.IncomingMetadata
 import no.nav.paop.model.IncomingUserInfo
+import no.nav.tjeneste.virksomhet.organisasjon.v4.binding.OrganisasjonV4
+import no.nav.tjeneste.virksomhet.organisasjon.v4.binding.ValiderOrganisasjonOrganisasjonIkkeFunnet
+import no.nav.tjeneste.virksomhet.organisasjon.v4.binding.ValiderOrganisasjonUgyldigInput
+import no.nav.tjeneste.virksomhet.organisasjon.v4.feil.OrganisasjonIkkeFunnet
+import no.nav.tjeneste.virksomhet.organisasjon.v4.feil.UgyldigInput
+import no.nav.tjeneste.virksomhet.organisasjon.v4.meldinger.ValiderOrganisasjonRequest
+import no.nav.tjeneste.virksomhet.organisasjon.v4.meldinger.ValiderOrganisasjonResponse
 import org.amshove.kluent.shouldEqual
+import org.mockito.Mockito
 import org.spekframework.spek2.Spek
 import org.spekframework.spek2.style.specification.describe
 import java.time.LocalDateTime
@@ -199,6 +207,77 @@ object PaopApplicationTest : Spek({
 
             msgHead.msgInfo.type.dn shouldEqual "Notat"
             msgHead.msgInfo.type.v shouldEqual "DIALOG_NOTAT"
+        }
+    }
+    describe("tests the call to validerOrganisasjon should throw ValiderOrganisasjonOrganisasjonIkkeFunnet") {
+        it("Should try to validate the orgnummer and throw ValiderOrganisasjonOrganisasjonIkkeFunnet") {
+
+            val organisasjonV4Mock: OrganisasjonV4 = Mockito.mock(OrganisasjonV4::class.java)
+
+            val validerOrganisasjonRequestOrgIkkeFunnet = ValiderOrganisasjonRequest().apply {
+                orgnummer = "973123453"
+            }
+
+            Mockito.`when`(organisasjonV4Mock.validerOrganisasjon(validerOrganisasjonRequestOrgIkkeFunnet))
+                    .thenThrow(ValiderOrganisasjonOrganisasjonIkkeFunnet("Organisasjon ikke funnet", OrganisasjonIkkeFunnet()))
+
+            val validOrganizationNumber = try {
+                organisasjonV4Mock.validerOrganisasjon(validerOrganisasjonRequestOrgIkkeFunnet).isGyldigOrgnummer
+            } catch (e: Exception) {
+                log.error("Failed to validate organization number due to an exception", e)
+                false
+            }
+
+            validOrganizationNumber shouldEqual false
+        }
+    }
+
+    describe("tests the call to validerOrganisasjon and the exception ValiderOrganisasjonUgyldigInput") {
+        it("Should throw ValiderOrganisasjonUgyldigInput") {
+
+            val organisasjonV4Mock: OrganisasjonV4 = Mockito.mock(OrganisasjonV4::class.java)
+
+            val validerOrganisasjonRequestUgyldigInput = ValiderOrganisasjonRequest().apply {
+                orgnummer = "werwrwrwr"
+            }
+
+            Mockito.`when`(organisasjonV4Mock.validerOrganisasjon(validerOrganisasjonRequestUgyldigInput))
+                    .thenThrow(ValiderOrganisasjonUgyldigInput("Organisasjon ugyldig input", UgyldigInput()))
+
+            val validOrganizationNumber = try {
+                organisasjonV4Mock.validerOrganisasjon(validerOrganisasjonRequestUgyldigInput).isGyldigOrgnummer
+            } catch (e: Exception) {
+                log.error("Failed to validate organization number due to an exception", e)
+                false
+            }
+
+            validOrganizationNumber shouldEqual false
+        }
+    }
+
+    describe("tests the call to validerOrganisasjon") {
+        it("Should validate OK") {
+
+            val organisasjonV4Mock: OrganisasjonV4 = Mockito.mock(OrganisasjonV4::class.java)
+
+            val validerOrganisasjonRequest = ValiderOrganisasjonRequest().apply {
+                orgnummer = "973123456"
+            }
+
+            val validerOrganisasjonResponse = ValiderOrganisasjonResponse().apply {
+                isGyldigOrgnummer = true
+            }
+
+            Mockito.`when`(organisasjonV4Mock.validerOrganisasjon(validerOrganisasjonRequest)).thenReturn(validerOrganisasjonResponse)
+
+            val validOrganizationNumber = try {
+                organisasjonV4Mock.validerOrganisasjon(validerOrganisasjonRequest).isGyldigOrgnummer
+            } catch (e: Exception) {
+                log.error("Failed to validate organization number due to an exception", e)
+                false
+            }
+
+            validOrganizationNumber shouldEqual true
         }
     }
 })
