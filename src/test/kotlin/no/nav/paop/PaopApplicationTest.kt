@@ -8,6 +8,7 @@ import no.nav.paop.client.createDialogmelding
 import no.nav.paop.model.IncomingMetadata
 import no.nav.paop.model.IncomingUserInfo
 import no.nav.paop.routes.xmlMapper
+import no.nav.paop.xml.datatypeFactory
 import no.nav.paop.xml.extractDataBatch
 import no.nav.paop.xml.extractNavOppfPlan
 import no.nav.tjeneste.virksomhet.organisasjon.v4.binding.OrganisasjonV4
@@ -17,12 +18,20 @@ import no.nav.tjeneste.virksomhet.organisasjon.v4.feil.OrganisasjonIkkeFunnet
 import no.nav.tjeneste.virksomhet.organisasjon.v4.feil.UgyldigInput
 import no.nav.tjeneste.virksomhet.organisasjon.v4.meldinger.ValiderOrganisasjonRequest
 import no.nav.tjeneste.virksomhet.organisasjon.v4.meldinger.ValiderOrganisasjonResponse
+import no.nhn.schemas.reg.flr.ArrayOfGPOnContractAssociation
+import no.nhn.schemas.reg.flr.GPOnContractAssociation
+import no.nhn.schemas.reg.flr.GetPatientGPDetails
+import no.nhn.schemas.reg.flr.IFlrReadOperations
+import no.nhn.schemas.reg.flr.IFlrReadOperationsGetPatientGPDetailsGenericFaultFaultFaultMessage
+import no.nhn.schemas.reg.flr.PatientToGPContractAssociation
+import no.nhn.schemas.reg.flr.Person
 import org.amshove.kluent.shouldEqual
 import org.mockito.Mockito
 import org.spekframework.spek2.Spek
 import org.spekframework.spek2.style.specification.describe
 import java.time.LocalDateTime
 import java.time.Month
+import java.util.GregorianCalendar
 
 object PaopApplicationTest : Spek({
 
@@ -282,6 +291,60 @@ object PaopApplicationTest : Spek({
             }
 
             validOrganizationNumber shouldEqual true
+        }
+    }
+
+    describe("tests the call to fastlegeregisteret") {
+        it("Should validate OK") {
+
+            val fastlegeregisteretMock: IFlrReadOperations = Mockito.mock(IFlrReadOperations::class.java)
+            val patientFNR = "01010112345"
+            val getPatientGPDetails = GetPatientGPDetails().apply {
+                patientNin = patientFNR
+            }
+
+            val patientToGPContractAssociationMockResponse = PatientToGPContractAssociation().apply {
+                doctorCycles = ArrayOfGPOnContractAssociation().apply {
+                    gpOnContractAssociation.add(
+                            GPOnContractAssociation().apply {
+                                gp = Person().apply {
+                                    dateOfBirth = datatypeFactory.newXMLGregorianCalendar(GregorianCalendar())
+                                }
+                            }
+                    )
+                }
+            }
+
+            Mockito.`when`(fastlegeregisteretMock.getPatientGPDetails(getPatientGPDetails.patientNin)).thenReturn(patientToGPContractAssociationMockResponse)
+
+            val patientToGPContractAssociation = try {
+                fastlegeregisteretMock.getPatientGPDetails(patientFNR)
+                true
+            } catch (e: Exception) {
+                log.error("Failed to validate organization number due to an exception", e)
+                false
+            }
+
+            patientToGPContractAssociation shouldEqual true
+        }
+    }
+
+    describe("tests the call to fastlegeregisteret") {
+        it("Should throw IFlrReadOperationsGetPatientGPDetailsGenericFaultFaultFaultMessage") {
+            val fastlegeregisteretMock: IFlrReadOperations = Mockito.mock(IFlrReadOperations::class.java)
+            val patientFNR = "01010112345"
+
+            Mockito.`when`(fastlegeregisteretMock.getPatientGPDetails(patientFNR)).thenThrow(IFlrReadOperationsGetPatientGPDetailsGenericFaultFaultFaultMessage())
+
+            val patientToGPContractAssociation = try {
+                fastlegeregisteretMock.getPatientGPDetails(patientFNR)
+                true
+            } catch (e: Exception) {
+                log.error("Failed to validate organization number due to an exception", e)
+                false
+            }
+
+            patientToGPContractAssociation shouldEqual false
         }
     }
 })
