@@ -20,10 +20,23 @@ import no.kith.xmlstds.msghead._2006_05_24.XMLTS
 import no.nav.emottak.schemas.PartnerInformasjon
 import no.nav.paop.model.IncomingMetadata
 import no.nav.paop.model.IncomingUserInfo
+import no.nav.paop.xml.eIFellesformatMarshaller
+import no.nav.paop.xml.toString
 import no.trygdeetaten.xml.eiff._1.XMLEIFellesformat
 import no.trygdeetaten.xml.eiff._1.XMLMottakenhetBlokk
 import java.time.LocalDateTime
 import java.util.UUID
+import javax.jms.MessageProducer
+import javax.jms.Session
+
+fun sendDialogmeldingOppfolginsplan(
+    producer: MessageProducer,
+    session: Session,
+    fellesformat: XMLEIFellesformat
+) = producer.send(session.createTextMessage().apply {
+    val info = fellesformat
+    text = eIFellesformatMarshaller.toString(info)
+})
 
 fun createDialogmelding(
     incomingMetadata: IncomingMetadata,

@@ -7,6 +7,7 @@ import no.nav.model.arenaBrevTilArbeidsgiver.ArenaBrevTilArbeidsgiver
 import no.nav.model.arenaOppfolging.ArenaOppfolgingPlan
 import no.nav.model.dataBatch.DataBatch
 import no.nav.model.navOppfPlan.OppfolgingsplanMetadata
+import no.trygdeetaten.xml.eiff._1.XMLEIFellesformat
 import java.io.StringReader
 import java.io.StringWriter
 import javax.xml.bind.JAXBContext
@@ -30,6 +31,9 @@ val arenabrevMarshaller: Marshaller = arenabrevnfoJaxBContext.createMarshaller()
 
 val arenabrevdataJaxBContext: JAXBContext = JAXBContext.newInstance(Brevdata::class.java, FellesType::class.java, FagType::class.java)
 val arenabrevdataMarshaller: Marshaller = arenabrevdataJaxBContext.createMarshaller()
+
+val eIFellesformatJaxBContext: JAXBContext = JAXBContext.newInstance(XMLEIFellesformat::class.java)
+val eIFellesformatMarshaller: Marshaller = eIFellesformatJaxBContext.createMarshaller()
 
 fun extractDataBatch(dataBatchString: String): DataBatch =
         dataBatchUnmarshaller.unmarshal(StringReader(dataBatchString)) as DataBatch
