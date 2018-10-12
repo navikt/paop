@@ -8,7 +8,6 @@ import no.altinn.schemas.services.serviceengine.subscription._2009._10.Attachmen
 import no.altinn.services.serviceengine.correspondence._2009._10.ICorrespondenceAgencyExternalBasic
 import no.altinn.services.serviceengine.reporteeelementlist._2010._10.BinaryAttachmentExternalBEV2List
 import no.altinn.services.serviceengine.reporteeelementlist._2010._10.BinaryAttachmentV2
-import no.nav.paop.log
 import java.util.UUID
 
 fun createAltinnMessage(
