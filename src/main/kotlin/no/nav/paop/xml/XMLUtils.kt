@@ -1,5 +1,6 @@
 package no.nav.paop.xml
 
+import no.kith.xmlstds.base64container.XMLBase64Container
 import no.kith.xmlstds.dialog._2006_10_11.XMLDialogmelding
 import no.kith.xmlstds.msghead._2006_05_24.XMLMsgHead
 import no.nav.model.arena.brev.FagType
@@ -10,6 +11,7 @@ import no.nav.model.arenaOppfolging.ArenaOppfolgingPlan
 import no.nav.model.dataBatch.DataBatch
 import no.nav.model.navOppfPlan.OppfolgingsplanMetadata
 import no.trygdeetaten.xml.eiff._1.XMLEIFellesformat
+import no.trygdeetaten.xml.eiff._1.XMLMottakenhetBlokk
 import java.io.StringReader
 import java.io.StringWriter
 import javax.xml.bind.JAXBContext
@@ -34,7 +36,7 @@ val arenabrevMarshaller: Marshaller = arenabrevnfoJaxBContext.createMarshaller()
 val arenabrevdataJaxBContext: JAXBContext = JAXBContext.newInstance(Brevdata::class.java, FellesType::class.java, FagType::class.java)
 val arenabrevdataMarshaller: Marshaller = arenabrevdataJaxBContext.createMarshaller()
 
-val eIFellesformatJaxBContext: JAXBContext = JAXBContext.newInstance(XMLEIFellesformat::class.java, XMLMsgHead::class.java, XMLDialogmelding::class.java)
+val eIFellesformatJaxBContext: JAXBContext = JAXBContext.newInstance(XMLEIFellesformat::class.java, XMLMsgHead::class.java, XMLDialogmelding::class.java, XMLBase64Container::class.java, XMLMottakenhetBlokk::class.java)
 val eIFellesformatMarshaller: Marshaller = eIFellesformatJaxBContext.createMarshaller()
 
 fun extractDataBatch(dataBatchString: String): DataBatch =
