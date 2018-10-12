@@ -11,7 +11,6 @@ import net.logstash.logback.argument.StructuredArguments.keyValue
 import no.altinn.services.serviceengine.correspondence._2009._10.ICorrespondenceAgencyExternalBasic
 import no.nav.altinnkanal.avro.ExternalAttachment
 import no.nav.emottak.schemas.HentPartnerIDViaOrgnummerRequest
-import no.nav.emottak.schemas.PartnerInformasjon
 import no.nav.emottak.schemas.PartnerResource
 import no.nav.model.dataBatch.DataBatch
 import no.nav.model.oppfolgingsplan2016.Oppfoelgingsplan4UtfyllendeInfoM
@@ -172,13 +171,10 @@ fun handleDoctorFollowupPlanAltinn(
         val canReceiveDialogMessage = partner.firstOrNull {
             it.heRid.toInt() == herIDAdresseregister
         }
-        // TODO only
-        /*if (canReceiveDialogMessage != null) {*/
-        // TODO only TMP for testing
-        if (true) {
+       if (canReceiveDialogMessage != null) {
             val fellesformat = createDialogmelding(incomingMetadata, incomingPersonInfo,
                     gpOfficeOrganizationName, gpOfficeOrganizationNumber, herIDAdresseregister, fagmelding,
-                    createPartnerInformasjon(), gpFirstName, gpMiddleName, gpLastName, gpHerIdFlr, gpFnr, gpHprNumber)
+                    canReceiveDialogMessage, gpFirstName, gpMiddleName, gpLastName, gpHerIdFlr, gpFnr, gpHprNumber)
 
             sendDialogmeldingOppfolginsplan(receiptProducer, session, fellesformat)
             log.info("Dialogmessage sendt to GP")
@@ -195,9 +191,4 @@ fun handleDoctorFollowupPlanAltinn(
                 incomingMetadata.senderOrgId, fagmelding, altinnUserUsername, altinnUserPassword)
         log.info("Oppfølginsplan sendt to altinn")
     }
-}
-
-fun createPartnerInformasjon(): PartnerInformasjon = PartnerInformasjon().apply {
-    partnerID = "100156709"
-    heRid = "8134393"
 }
