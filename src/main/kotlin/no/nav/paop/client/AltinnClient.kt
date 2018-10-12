@@ -49,5 +49,4 @@ fun createAltinnMessage(
 
     iCorrespondenceAgencyExternalBasic.insertCorrespondenceBasicV2(altinnUserUsername, altinnUserPassword,
             "NAV_DIGISYFO", incomingArchRef, insertCorrespondenceV2)
-    log.info("Oppfoløginsplan send to altinn")
 }

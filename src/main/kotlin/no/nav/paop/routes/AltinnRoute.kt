@@ -11,6 +11,7 @@ import net.logstash.logback.argument.StructuredArguments.keyValue
 import no.altinn.services.serviceengine.correspondence._2009._10.ICorrespondenceAgencyExternalBasic
 import no.nav.altinnkanal.avro.ExternalAttachment
 import no.nav.emottak.schemas.HentPartnerIDViaOrgnummerRequest
+import no.nav.emottak.schemas.PartnerInformasjon
 import no.nav.emottak.schemas.PartnerResource
 import no.nav.model.dataBatch.DataBatch
 import no.nav.model.oppfolgingsplan2016.Oppfoelgingsplan4UtfyllendeInfoM
@@ -171,12 +172,16 @@ fun handleDoctorFollowupPlanAltinn(
         val canReceiveDialogMessage = partner.firstOrNull {
             it.heRid.toInt() == herIDAdresseregister
         }
-        if (canReceiveDialogMessage != null) {
+        // TODO only
+        /*if (canReceiveDialogMessage != null) {*/
+        // TODO only TMP for testing
+        if (true) {
             val fellesformat = createDialogmelding(incomingMetadata, incomingPersonInfo,
                     gpOfficeOrganizationName, gpOfficeOrganizationNumber, herIDAdresseregister, fagmelding,
-                    canReceiveDialogMessage, gpFirstName, gpMiddleName, gpLastName, gpHerIdFlr, gpFnr, gpHprNumber)
+                    createPartnerInformasjon(), gpFirstName, gpMiddleName, gpLastName, gpHerIdFlr, gpFnr, gpHprNumber)
 
             sendDialogmeldingOppfolginsplan(receiptProducer, session, fellesformat)
+            log.info("Dialogmessage sendt to GP")
         } else {
             // TODO TMP
             val brevdata = arenabrevdataMarshaller.toString(createArenaBrevdata())
@@ -184,8 +189,15 @@ fun handleDoctorFollowupPlanAltinn(
             createPhysicalLetter(dokumentProduksjonV3, arenaProducer, session, incomingMetadata, gpOfficeOrganizationNumber,
                     gpName, gpOfficePostnr, gpOfficePoststed, brevdata)
         }
+        log.info("PhysicalLetter sendt to GP\"")
     } else {
         createAltinnMessage(iCorrespondenceAgencyExternalBasic, incomingMetadata.archiveReference,
                 incomingMetadata.senderOrgId, fagmelding, altinnUserUsername, altinnUserPassword)
+        log.info("Oppfølginsplan sendt to altinn")
     }
+}
+
+fun createPartnerInformasjon(): PartnerInformasjon = PartnerInformasjon().apply {
+    partnerID = "100156709"
+    heRid = "8134393"
 }
