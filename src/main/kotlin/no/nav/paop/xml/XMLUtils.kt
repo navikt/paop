@@ -1,5 +1,6 @@
 package no.nav.paop.xml
 
+import no.kith.xmlstds.msghead._2006_05_24.XMLMsgHead
 import no.nav.model.arena.brev.FagType
 import no.nav.model.arena.brev.FellesType
 import no.nav.model.arena.brevdata.Brevdata
@@ -32,7 +33,7 @@ val arenabrevMarshaller: Marshaller = arenabrevnfoJaxBContext.createMarshaller()
 val arenabrevdataJaxBContext: JAXBContext = JAXBContext.newInstance(Brevdata::class.java, FellesType::class.java, FagType::class.java)
 val arenabrevdataMarshaller: Marshaller = arenabrevdataJaxBContext.createMarshaller()
 
-val eIFellesformatJaxBContext: JAXBContext = JAXBContext.newInstance(XMLEIFellesformat::class.java)
+val eIFellesformatJaxBContext: JAXBContext = JAXBContext.newInstance(XMLEIFellesformat::class.java, XMLMsgHead::class.java)
 val eIFellesformatMarshaller: Marshaller = eIFellesformatJaxBContext.createMarshaller()
 
 fun extractDataBatch(dataBatchString: String): DataBatch =
