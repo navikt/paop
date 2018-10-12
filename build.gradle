@@ -32,7 +32,7 @@ buildscript {
     ext.saaj_version = "1.4.0"
     ext.kith_dialogmelding_version = '1.1'
     ext.fellesformat_version = '1.0'
-    ext.kith_hodemelding_version = '1.0'
+    ext.kith_hodemelding_version = '1.1'
     ext.kith_base64_version = '1.1'
     ext.kafka_embedded_version = '1.0.0'
     ext.mockito_version = '2.22.0'
