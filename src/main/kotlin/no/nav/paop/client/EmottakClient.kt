@@ -179,10 +179,7 @@ fun createDialogmelding(
                                 s = "2.16.578.1.12.4.1.1.8127"
                                 v = "1"
                             }
-                            tekstNotatInnhold = XMLNotat().apply {
-                                tekstNotatInnhold = "Åpne PDF-vedlegg"
-                                dokIdNotat = incomingMetadata.archiveReference
-                            }
+                            tekstNotatInnhold = "Åpne PDF-vedlegg ${incomingMetadata.archiveReference}"
                             rollerRelatertNotat.add(XMLRollerRelatertNotat().apply {
                                 rolleNotat = XMLCV().apply {
                                     v = "1"
