@@ -144,9 +144,6 @@ fun handleDoctorFollowupPlanAltinn(
     altinnUserPassword: String
 ) {
     val patientToGPContractAssociation = fastlegeregisteret.getPatientGPDetails(incomingMetadata.userPersonNumber)
-    // TODO remove after testing
-    createAltinnMessage(iCorrespondenceAgencyExternalBasic, incomingMetadata.archiveReference,
-            incomingMetadata.senderOrgId, fagmelding, altinnUserUsername, altinnUserPassword)
 
     if (patientToGPContractAssociation != null) {
         val gpName = patientToGPContractAssociation.extractGPName()
