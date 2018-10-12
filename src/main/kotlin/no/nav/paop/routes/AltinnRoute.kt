@@ -171,9 +171,9 @@ fun handleDoctorFollowupPlanAltinn(
         val canReceiveDialogMessage = partner.firstOrNull {
             it.heRid.toInt() == herIDAdresseregister
         }
-       if (canReceiveDialogMessage != null) {
-            val fellesformat = createDialogmelding(incomingMetadata, incomingPersonInfo,
-                    gpOfficeOrganizationName, gpOfficeOrganizationNumber, herIDAdresseregister, fagmelding,
+        if (canReceiveDialogMessage != null) {
+            val fellesformat = createDialogmelding(incomingMetadata, incomingPersonInfo, gpOfficeOrganizationName,
+                    gpOfficeOrganizationNumber, herIDAdresseregister, fagmelding,
                     canReceiveDialogMessage, gpFirstName, gpMiddleName, gpLastName, gpHerIdFlr, gpFnr, gpHprNumber)
 
             sendDialogmeldingOppfolginsplan(receiptProducer, session, fellesformat)
