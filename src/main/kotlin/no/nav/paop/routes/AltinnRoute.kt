@@ -185,7 +185,7 @@ fun handleDoctorFollowupPlanAltinn(
             createPhysicalLetter(dokumentProduksjonV3, arenaProducer, session, incomingMetadata, gpOfficeOrganizationNumber,
                     gpName, gpOfficePostnr, gpOfficePoststed, brevdata)
         }
-        log.info("PhysicalLetter sendt to GP\"")
+        log.info("PhysicalLetter sendt to GP")
     } else {
         createAltinnMessage(iCorrespondenceAgencyExternalBasic, incomingMetadata.archiveReference,
                 incomingMetadata.senderOrgId, fagmelding, altinnUserUsername, altinnUserPassword)
