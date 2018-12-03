@@ -3,18 +3,25 @@ package no.nav.paop
 import com.ibm.mq.jms.MQConnectionFactory
 import com.ibm.msg.client.wmq.WMQConstants
 import com.ibm.msg.client.wmq.compat.base.internal.MQC
+import io.ktor.application.Application
+import io.ktor.client.HttpClient
+import io.ktor.routing.routing
+import io.ktor.server.engine.embeddedServer
+import io.ktor.server.netty.Netty
 import io.prometheus.client.hotspot.DefaultExports
-import kotlinx.coroutines.experimental.delay
-import kotlinx.coroutines.experimental.launch
-import kotlinx.coroutines.experimental.runBlocking
+import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import no.altinn.services.serviceengine.correspondence._2009._10.ICorrespondenceAgencyExternalBasic
 import no.nav.altinnkanal.avro.ExternalAttachment
 import no.nav.emottak.schemas.PartnerResource
-import no.nav.paop.client.PdfClient
+import no.nav.paop.client.createHttpClient
 import no.nav.paop.routes.handleAltinnFollowupPlan
 import no.nav.paop.routes.handleNAVFollowupPlan
 import no.nav.paop.ws.configureBasicAuthFor
 import no.nav.paop.ws.configureSTSFor
+import no.nav.syfo.api.registerNaisApi
 import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.DokumentproduksjonV3
 import no.nav.tjeneste.virksomhet.organisasjon.v4.binding.OrganisasjonV4
 import no.nav.virksomhet.tjenester.arkiv.journalbehandling.v1.binding.Journalbehandling
@@ -31,27 +38,38 @@ import org.apache.wss4j.dom.handler.WSHandlerConstants
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.time.Duration
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import javax.jms.MessageProducer
 import javax.jms.Session
 import javax.security.auth.callback.CallbackHandler
 
+data class ApplicationState(var running: Boolean = true, var initialized: Boolean = false)
+
 val log: Logger = LoggerFactory.getLogger("nav.paop-application")
 
-fun main(args: Array<String>) = runBlocking {
+fun main(args: Array<String>) = runBlocking(Executors.newFixedThreadPool(2).asCoroutineDispatcher()) {
     DefaultExports.initialize()
     val env = Environment()
-    createHttpServer(applicationVersion = env.appVersion)
+    val applicationState = ApplicationState()
+
+    val applicationServer = embeddedServer(Netty, env.applicationPort) {
+        initRouting(applicationState)
+    }.start(wait = false)
 
     val consumerProperties = readConsumerConfig(env)
     val altinnConsumer = KafkaConsumer<String, ExternalAttachment>(consumerProperties)
     altinnConsumer.subscribe(listOf(env.kafkaTopicOppfolginsplan))
+    // TODO change after testing
     // val navnoConsumer = KafkaConsumer<String, ExternalAttachment>(consumerProperties)
     // navnoConsumer.subscribe(listOf(env.kafkaNavOppfolgingsplanTopic))
 
     connectionFactory(env).createConnection(env.mqUsername, env.mqPassword).use {
         connection ->
         connection.start()
-
+        try {
+            val listeners = (1..env.applicationThreads).map {
+                launch {
         val session = connection.createSession()
         val arenaQueue = session.createQueue(env.arenaIAQueue)
         val receiptQueue = session.createQueue(env.receiptQueueName)
@@ -128,11 +146,24 @@ fun main(args: Array<String>) = runBlocking {
 
         val arenaProducer = session.createProducer(arenaQueue)
         val receiptProducer = session.createProducer(receiptQueue)
+        val httpClient = createHttpClient(env)
 
-        listen(PdfClient(env.pdfGeneratorURL), journalbehandling, fastlegeregisteret, organisasjonV4,
+                blockingApplicationLogic(env, applicationState, httpClient, journalbehandling, fastlegeregisteret, organisasjonV4,
                 dokumentProduksjonV3, adresseRegisterV1, partnerEmottak, iCorrespondenceAgencyExternalBasic,
                 arenaProducer, receiptProducer, session, altinnConsumer, altinnConsumer, env.altinnUserUsername,
-                env.altinnUserPassword).join()
+                env.altinnUserPassword)
+            }
+        }.toList()
+
+            applicationState.initialized = true
+
+            Runtime.getRuntime().addShutdownHook(Thread {
+                applicationServer.stop(10, 10, TimeUnit.SECONDS)
+            })
+            runBlocking { listeners.forEach { it.join() } }
+        } finally {
+            applicationState.running = false
+        }
     }
 }
 
@@ -149,8 +180,10 @@ fun connectionFactory(environment: Environment) = MQConnectionFactory().apply {
     setIntProperty(WMQConstants.JMS_IBM_CHARACTER_SET, 1208)
 }
 
-fun listen(
-    pdfClient: PdfClient,
+suspend fun blockingApplicationLogic(
+    env: Environment,
+    applicationState: ApplicationState,
+    pdfClient: HttpClient,
     journalbehandling: Journalbehandling,
     fastlegeregisteret: IFlrReadOperations,
     organisasjonV4: OrganisasjonV4,
@@ -165,10 +198,10 @@ fun listen(
     navOppfPlanConsumer: KafkaConsumer<String, ExternalAttachment>,
     altinnUserUsername: String,
     altinnUserPassword: String
-) = launch {
-    while (true) {
+) {
+    while (applicationState.running) {
         consumer.poll(Duration.ofMillis(0)).forEach {
-            handleAltinnFollowupPlan(it, pdfClient, journalbehandling, fastlegeregisteret, organisasjonV4,
+            handleAltinnFollowupPlan(env, it, pdfClient, journalbehandling, fastlegeregisteret, organisasjonV4,
                     dokumentProduksjonV3, adresseRegisterV1, partnerEmottak, iCorrespondenceAgencyExternalBasic,
                     arenaProducer, receiptProducer, session, altinnUserUsername, altinnUserPassword)
         }
@@ -177,5 +210,18 @@ fun listen(
                     arenaProducer, session)
         }
         delay(100)
+    }
+}
+
+fun Application.initRouting(applicationState: ApplicationState) {
+    routing {
+        registerNaisApi(
+                readynessCheck = {
+                    applicationState.initialized
+                },
+                livenessCheck = {
+                    applicationState.running
+                }
+        )
     }
 }

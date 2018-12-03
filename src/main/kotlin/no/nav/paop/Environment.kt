@@ -1,6 +1,8 @@
 package no.nav.paop
 
 data class Environment(
+    val applicationPort: Int = getEnvVar("8080").toInt(),
+    val applicationThreads: Int = getEnvVar("1").toInt(),
     val srvPaopUsername: String = getEnvVar("SRVPAOP_USERNAME"),
     val srvPaopPassword: String = getEnvVar("SRVPAOP_PASSWORD"),
     val journalbehandlingEndpointURL: String = getEnvVar("JOARK_JOURNALBEHANDLING_WS_ENDPOINT_URL"),

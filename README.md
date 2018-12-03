@@ -15,8 +15,10 @@ doing some validation, then pushing it to our internal systems.
 # Build and run tests
 ./gradlew installDist
 
-# Running locally
-
+### Building the application
+#### Compile and package application
+To build locally and run the integration tests you can simply run `./gradlew shadowJar` or  on windows 
+`gradlew.bat shadowJar`
 
 ### Contact us
 #### Code/project related questions can be sent to 

@@ -7,6 +7,8 @@ import com.fasterxml.jackson.dataformat.xml.XmlMapper
 import com.fasterxml.jackson.module.jaxb.JaxbAnnotationModule
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import io.ktor.client.HttpClient
+import kotlinx.coroutines.runBlocking
 import net.logstash.logback.argument.StructuredArguments.keyValue
 import no.altinn.services.serviceengine.correspondence._2009._10.ICorrespondenceAgencyExternalBasic
 import no.nav.altinnkanal.avro.ExternalAttachment
@@ -14,13 +16,14 @@ import no.nav.emottak.schemas.HentPartnerIDViaOrgnummerRequest
 import no.nav.emottak.schemas.PartnerResource
 import no.nav.model.dataBatch.DataBatch
 import no.nav.model.oppfolgingsplan2016.Oppfoelgingsplan4UtfyllendeInfoM
-import no.nav.paop.client.PdfClient
+import no.nav.paop.Environment
 import no.nav.paop.client.PdfType
 import no.nav.paop.client.createAltinnMessage
 import no.nav.paop.client.createArenaBrevdata
 import no.nav.paop.client.createDialogmelding
 import no.nav.paop.client.createJoarkRequest
 import no.nav.paop.client.createPhysicalLetter
+import no.nav.paop.client.generatePDF
 import no.nav.paop.client.sendArenaOppfolginsplan
 import no.nav.paop.client.sendDialogmeldingOppfolginsplan
 import no.nav.paop.log
@@ -57,8 +60,9 @@ val xmlMapper: ObjectMapper = XmlMapper(JacksonXmlModule().apply {
         .configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true)
 
 fun handleAltinnFollowupPlan(
+    env: Environment,
     record: ConsumerRecord<String, ExternalAttachment>,
-    pdfClient: PdfClient,
+    pdfClient: HttpClient,
     journalbehandling: Journalbehandling,
     fastlegeregisteret: IFlrReadOperations,
     organisasjonV4: OrganisasjonV4,
@@ -95,7 +99,10 @@ fun handleAltinnFollowupPlan(
 
     log.info("Received a Altinn oppfølgingsplan $logFormat", *logKeys)
 
-    val fagmelding = pdfClient.generatePDF(PdfType.FAGMELDING, mapFormdataToFagmelding(skjemainnhold, incomingMetadata))
+    val fagmelding =
+    runBlocking {
+        pdfClient.generatePDF(env, PdfType.FAGMELDING, mapFormdataToFagmelding(skjemainnhold, incomingMetadata))
+    }
 
     val validOrganizationNumber = organisasjonV4.validerOrganisasjon(ValiderOrganisasjonRequest().apply {
             orgnummer = incomingMetadata.senderOrgId

@@ -4,40 +4,54 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
-import net.logstash.logback.argument.StructuredArguments
-import okhttp3.MediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody
-import org.slf4j.LoggerFactory
-import java.io.IOException
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.cio.CIO
+import io.ktor.client.engine.config
+import io.ktor.client.features.auth.basic.BasicAuth
+import io.ktor.client.features.json.JacksonSerializer
+import io.ktor.client.features.json.JsonFeature
+import io.ktor.client.request.accept
+import io.ktor.client.request.post
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
+import no.nav.paop.Environment
 
 val objectMapper: ObjectMapper = ObjectMapper()
         .registerModule(JavaTimeModule())
         .registerKotlinModule()
         .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
 
-class PdfClient(private val baseUrl: String) {
-    private val client: OkHttpClient = OkHttpClient()
-    private val log = LoggerFactory.getLogger("nav.pdfClient")
-
-    fun generatePDF(pdfType: PdfType, domainObject: Any): ByteArray {
-        val request = Request.Builder()
-                .post(RequestBody.create(MediaType.parse("application/json"), objectMapper.writeValueAsBytes(domainObject)))
-                .url("$baseUrl/v1/genpdf/pale/${pdfType.pdfGenName()}")
-                .build()
-
-        val response = client.newCall(request).execute()
-        if (response.isSuccessful) {
-            val bytes = response.body()?.bytes()
-            if (bytes != null) {
-                return bytes
-            }
-            throw IOException("Received no body from the PDF generator")
-        } else {
-            log.error("Received an error while contacting the PDF generator {}", StructuredArguments.keyValue("errorBody", response.body()?.string()))
-            throw IOException("Unable to contact the PDF generator, got status code ${response.code()}")
+fun createHttpClient(env: Environment) = HttpClient(CIO.config {
+    maxConnectionsCount = 1000 // Maximum number of socket connections.
+    endpoint.apply {
+        maxConnectionsPerRoute = 100
+        pipelineMaxSize = 20
+        keepAliveTime = 5000
+        connectTimeout = 5000
+        connectRetryAttempts = 5
+    }
+}) {
+    install(BasicAuth) {
+        username = env.srvPaopUsername
+        password = env.srvPaopPassword
+    }
+    install(JsonFeature) {
+        serializer = JacksonSerializer {
+            registerKotlinModule()
+            registerModule(JavaTimeModule())
+            configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
         }
+    }
+}
+
+suspend fun HttpClient.generatePDF(env: Environment, pdfType: PdfType, domainObject: Any): ByteArray = post {
+    contentType(ContentType.Application.Json)
+    body = objectMapper.writeValueAsBytes(domainObject)
+    accept(ContentType.Application.Json)
+
+    url {
+        host = env.pdfGeneratorURL
+        path("v1", "genpdf", "pale", "${pdfType.pdfGenName()}")
     }
 }
 
