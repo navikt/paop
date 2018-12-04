@@ -144,7 +144,7 @@ fun main(args: Array<String>) = runBlocking(Executors.newFixedThreadPool(2).asCo
 
                     val arenaProducer = session.createProducer(arenaQueue)
                     val receiptProducer = session.createProducer(receiptQueue)
-                    val httpClient = createHttpClient(env)
+                    val httpClient = createHttpClient()
 
                     blockingApplicationLogic(env, applicationState, httpClient, journalbehandling, fastlegeregisteret, organisasjonV4,
                             dokumentProduksjonV3, adresseRegisterV1, partnerEmottak, iCorrespondenceAgencyExternalBasic,
