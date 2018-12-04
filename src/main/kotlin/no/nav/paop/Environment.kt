@@ -1,7 +1,5 @@
 package no.nav.paop
 
-import java.nio.file.Files
-import java.nio.file.Paths
 import java.util.Properties
 
 data class Environment(
@@ -38,13 +36,8 @@ data class Environment(
 fun getEnvVar(name: String, default: String? = null): String =
         System.getenv(name) ?: default ?: throw RuntimeException("Missing variable $name")
 
-private val vaultApplicationPropertiesPath = Paths.get("/var/run/secrets/nais.io/vault/application.properties")
-
 private val config = Properties().apply {
     putAll(Properties().apply {
         load(Environment::class.java.getResourceAsStream("/application.properties"))
     })
-    if (Files.exists(vaultApplicationPropertiesPath)) {
-        load(Files.newInputStream(vaultApplicationPropertiesPath))
-    }
 }
