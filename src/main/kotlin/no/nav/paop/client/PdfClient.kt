@@ -7,14 +7,12 @@ import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.engine.config
-import io.ktor.client.features.auth.basic.BasicAuth
 import io.ktor.client.features.json.JacksonSerializer
 import io.ktor.client.features.json.JsonFeature
 import io.ktor.client.request.accept
 import io.ktor.client.request.post
 import io.ktor.client.request.url
 import io.ktor.http.ContentType
-import io.ktor.http.URLProtocol
 import io.ktor.http.contentType
 import no.nav.paop.Environment
 
