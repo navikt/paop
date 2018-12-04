@@ -17,7 +17,6 @@ import no.nav.emottak.schemas.PartnerResource
 import no.nav.model.dataBatch.DataBatch
 import no.nav.model.oppfolgingsplan2016.Oppfoelgingsplan4UtfyllendeInfoM
 import no.nav.paop.Environment
-import no.nav.paop.client.PdfType
 import no.nav.paop.client.createAltinnMessage
 import no.nav.paop.client.createArenaBrevdata
 import no.nav.paop.client.createDialogmelding
@@ -100,9 +99,13 @@ fun handleAltinnFollowupPlan(
     log.info("Received a Altinn oppfølgingsplan $logFormat", *logKeys)
 
     val fagmelding =
-    runBlocking {
-        pdfClient.generatePDF(env, PdfType.FAGMELDING, mapFormdataToFagmelding(skjemainnhold, incomingMetadata))
-    }
+            try {
+                runBlocking {
+                    pdfClient.generatePDF(env, mapFormdataToFagmelding(skjemainnhold, incomingMetadata))
+                }
+            } catch (e: Exception) {
+                log.error("Exception when calling pdf-gen", e)
+            }
 
     val validOrganizationNumber = organisasjonV4.validerOrganisasjon(ValiderOrganisasjonRequest().apply {
             orgnummer = incomingMetadata.senderOrgId

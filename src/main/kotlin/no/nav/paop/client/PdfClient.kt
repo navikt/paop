@@ -9,7 +9,6 @@ import io.ktor.client.engine.cio.CIO
 import io.ktor.client.engine.config
 import io.ktor.client.features.json.JacksonSerializer
 import io.ktor.client.features.json.JsonFeature
-import io.ktor.client.request.accept
 import io.ktor.client.request.post
 import io.ktor.client.request.url
 import io.ktor.http.ContentType
@@ -40,18 +39,9 @@ fun createHttpClient(env: Environment) = HttpClient(CIO.config {
     }
 }
 
-suspend fun HttpClient.generatePDF(env: Environment, pdfType: PdfType, domainObject: Any): ByteArray = post {
+suspend fun HttpClient.generatePDF(env: Environment, domainObject: Any): ByteArray = post {
     contentType(ContentType.Application.Json)
     body = objectMapper.writeValueAsBytes(domainObject)
-    accept(ContentType.Application.Json)
 
-    url("${env.pdfGeneratorURL}/api/v1/genpdf/paop/${pdfType.pdfGenName()}")
+    url("${env.pdfGeneratorURL}/api/v1/genpdf/paop/oppfoelgingsplan")
 }
-
-enum class PdfType {
-    FAGMELDING,
-    BEHANDLINGSVEDLEGG
-}
-
-fun PdfType.pdfGenName(): String =
-        name.toLowerCase()
