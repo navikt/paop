@@ -55,8 +55,8 @@ fun mapFormdataToFagmelding(skjemainnhold: Skjemainnhold, incomingMetadata: Inco
                     beskrivelseAvTiltak = it.beskrivelseAvTiltaket,
                     maalMedTiltaket = it.maalMedTiltaket,
                     tiltaketGjennonforesIPerioden = TiltaketGjennonforesIPerioden(
-                            fraDato = it.tidsrom.periodeFra.toZonedDateTime(),
-                            tilDato = it.tidsrom.periodeTil.toZonedDateTime()
+                            fraDato = it?.tidsrom?.periodeFra?.toZonedDateTime(),
+                            tilDato = it?.tidsrom?.periodeTil?.toZonedDateTime()
                     ),
                     tilrettelagtArbeidIkkeMulig = it.tilrettelagtArbeidIkkeMulig,
                     sykmeldingsprosendIPerioden = it.sykmeldingsprosentIPerioden,

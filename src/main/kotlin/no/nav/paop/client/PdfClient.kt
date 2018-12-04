@@ -12,7 +12,9 @@ import io.ktor.client.features.json.JacksonSerializer
 import io.ktor.client.features.json.JsonFeature
 import io.ktor.client.request.accept
 import io.ktor.client.request.post
+import io.ktor.client.request.url
 import io.ktor.http.ContentType
+import io.ktor.http.URLProtocol
 import io.ktor.http.contentType
 import no.nav.paop.Environment
 
@@ -31,10 +33,6 @@ fun createHttpClient(env: Environment) = HttpClient(CIO.config {
         connectRetryAttempts = 5
     }
 }) {
-    install(BasicAuth) {
-        username = env.srvPaopUsername
-        password = env.srvPaopPassword
-    }
     install(JsonFeature) {
         serializer = JacksonSerializer {
             registerKotlinModule()
@@ -49,10 +47,7 @@ suspend fun HttpClient.generatePDF(env: Environment, pdfType: PdfType, domainObj
     body = objectMapper.writeValueAsBytes(domainObject)
     accept(ContentType.Application.Json)
 
-    url {
-        host = env.pdfGeneratorURL
-        path("v1", "genpdf", "pale", "${pdfType.pdfGenName()}")
-    }
+    url("${env.pdfGeneratorURL}/api/v1/genpdf/paop/${pdfType.pdfGenName()}")
 }
 
 enum class PdfType {
