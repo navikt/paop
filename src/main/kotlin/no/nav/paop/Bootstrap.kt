@@ -57,103 +57,101 @@ fun main(args: Array<String>) = runBlocking(Executors.newFixedThreadPool(2).asCo
         initRouting(applicationState)
     }.start(wait = false)
 
-    val consumerProperties = readConsumerConfig(env)
-    val altinnConsumer = KafkaConsumer<String, ExternalAttachment>(consumerProperties)
-    altinnConsumer.subscribe(listOf(env.kafkaTopicOppfolginsplan))
-    // TODO change after testing
-    // val navnoConsumer = KafkaConsumer<String, ExternalAttachment>(consumerProperties)
-    // navnoConsumer.subscribe(listOf(env.kafkaNavOppfolgingsplanTopic))
-
-    connectionFactory(env).createConnection(env.mqUsername, env.mqPassword).use {
-        connection ->
+    connectionFactory(env).createConnection(env.mqUsername, env.mqPassword).use { connection ->
         connection.start()
         try {
             val listeners = (1..env.applicationThreads).map {
                 launch {
-        val session = connection.createSession()
-        val arenaQueue = session.createQueue(env.arenaIAQueue)
-        val receiptQueue = session.createQueue(env.receiptQueueName)
+                    val session = connection.createSession()
+                    val arenaQueue = session.createQueue(env.arenaIAQueue)
+                    val receiptQueue = session.createQueue(env.receiptQueueName)
+                    val consumerProperties = readConsumerConfig(env)
+                    val altinnConsumer = KafkaConsumer<String, ExternalAttachment>(consumerProperties)
+                    altinnConsumer.subscribe(listOf(env.kafkaTopicOppfolginsplan))
+                    // TODO change after testing
+                    // val navnoConsumer = KafkaConsumer<String, ExternalAttachment>(consumerProperties)
+                    // navnoConsumer.subscribe(listOf(env.kafkaNavOppfolgingsplanTopic))
 
-        val interceptorProperties = mapOf(
-                WSHandlerConstants.USER to env.srvPaopUsername,
-                WSHandlerConstants.ACTION to WSHandlerConstants.USERNAME_TOKEN,
-                WSHandlerConstants.PASSWORD_TYPE to WSConstants.PW_TEXT,
-                WSHandlerConstants.PW_CALLBACK_REF to CallbackHandler {
-                    (it[0] as WSPasswordCallback).password = env.srvPaopPassword
+                    val interceptorProperties = mapOf(
+                        WSHandlerConstants.USER to env.srvPaopUsername,
+                        WSHandlerConstants.ACTION to WSHandlerConstants.USERNAME_TOKEN,
+                        WSHandlerConstants.PASSWORD_TYPE to WSConstants.PW_TEXT,
+                        WSHandlerConstants.PW_CALLBACK_REF to CallbackHandler {
+                            (it[0] as WSPasswordCallback).password = env.srvPaopPassword
+                        }
+                        )
+
+                    val fastlegeregisteret = JaxWsProxyFactoryBean().apply {
+                        address = env.fastlegeregiserHdirURL
+                        features.add(LoggingFeature())
+                        features.add(WSAddressingFeature())
+                        serviceClass = IFlrReadOperations::class.java
+                    }.create() as IFlrReadOperations
+                    configureSTSFor(fastlegeregisteret, env.srvPaopUsername,
+                            env.srvPaopPassword, env.securityTokenServiceUrl)
+
+                    val organisasjonV4 = JaxWsProxyFactoryBean().apply {
+                        address = env.organisasjonV4EndpointURL
+                        features.add(LoggingFeature())
+                        features.add(WSAddressingFeature())
+                        serviceClass = OrganisasjonV4::class.java
+                    }.create() as OrganisasjonV4
+                    configureSTSFor(organisasjonV4, env.srvPaopUsername,
+                            env.srvPaopPassword, env.securityTokenServiceUrl)
+
+                    val journalbehandling = JaxWsProxyFactoryBean().apply {
+                        address = env.journalbehandlingEndpointURL
+                        features.add(LoggingFeature())
+                        features.add(WSAddressingFeature())
+                        outInterceptors.add(WSS4JOutInterceptor(interceptorProperties))
+                        serviceClass = Journalbehandling::class.java
+                    }.create() as Journalbehandling
+
+                    val dokumentProduksjonV3 = JaxWsProxyFactoryBean().apply {
+                        address = env.dokumentproduksjonV3EndpointURL
+                        features.add(LoggingFeature())
+                        features.add(WSAddressingFeature())
+                        serviceClass = DokumentproduksjonV3::class.java
+                    }.create() as DokumentproduksjonV3
+                    configureSTSFor(dokumentProduksjonV3, env.srvPaopUsername,
+                            env.srvPaopPassword, env.securityTokenServiceUrl)
+
+                    val adresseRegisterV1 = JaxWsProxyFactoryBean().apply {
+                        address = env.adresseregisteretV1EmottakEndpointURL
+                        features.add(LoggingFeature())
+                        features.add(WSAddressingFeature())
+                        serviceClass = ICommunicationPartyService::class.java
+                    }.create() as ICommunicationPartyService
+                    configureSTSFor(adresseRegisterV1, env.srvPaopUsername,
+                            env.srvPaopPassword, env.securityTokenServiceUrl)
+
+                    val partnerEmottak = JaxWsProxyFactoryBean().apply {
+                        address = env.partnerEmottakEndpointURL
+                        features.add(LoggingFeature())
+                        features.add(WSAddressingFeature())
+                        serviceClass = PartnerResource::class.java
+                    }.create() as PartnerResource
+                    configureBasicAuthFor(partnerEmottak, env.srvPaopUsername, env.srvPaopPassword)
+
+                    val iCorrespondenceAgencyExternalBasic = JaxWsProxyFactoryBean().apply {
+                        address = env.behandlealtinnmeldingV1EndpointURL
+                        features.add(LoggingFeature())
+                        features.add(WSAddressingFeature())
+                        serviceClass = ICorrespondenceAgencyExternalBasic::class.java
+                    }.create() as ICorrespondenceAgencyExternalBasic
+                    configureSTSFor(iCorrespondenceAgencyExternalBasic, env.srvPaopUsername,
+                            env.srvPaopPassword, env.securityTokenServiceUrl)
+
+                    val arenaProducer = session.createProducer(arenaQueue)
+                    val receiptProducer = session.createProducer(receiptQueue)
+                    val httpClient = createHttpClient(env)
+
+                    blockingApplicationLogic(env, applicationState, httpClient, journalbehandling, fastlegeregisteret, organisasjonV4,
+                            dokumentProduksjonV3, adresseRegisterV1, partnerEmottak, iCorrespondenceAgencyExternalBasic,
+                            arenaProducer, receiptProducer, session, altinnConsumer, altinnConsumer, env.altinnUserUsername,
+                            env.altinnUserPassword)
                 }
-        )
-
-        val fastlegeregisteret = JaxWsProxyFactoryBean().apply {
-            address = env.fastlegeregiserHdirURL
-            features.add(LoggingFeature())
-            features.add(WSAddressingFeature())
-            serviceClass = IFlrReadOperations::class.java
-        }.create() as IFlrReadOperations
-        configureSTSFor(fastlegeregisteret, env.srvPaopUsername,
-                env.srvPaopPassword, env.securityTokenServiceUrl)
-
-        val organisasjonV4 = JaxWsProxyFactoryBean().apply {
-            address = env.organisasjonV4EndpointURL
-            features.add(LoggingFeature())
-            features.add(WSAddressingFeature())
-            serviceClass = OrganisasjonV4::class.java
-        }.create() as OrganisasjonV4
-        configureSTSFor(organisasjonV4, env.srvPaopUsername,
-                env.srvPaopPassword, env.securityTokenServiceUrl)
-
-        val journalbehandling = JaxWsProxyFactoryBean().apply {
-            address = env.journalbehandlingEndpointURL
-            features.add(LoggingFeature())
-            features.add(WSAddressingFeature())
-            outInterceptors.add(WSS4JOutInterceptor(interceptorProperties))
-            serviceClass = Journalbehandling::class.java
-        }.create() as Journalbehandling
-
-        val dokumentProduksjonV3 = JaxWsProxyFactoryBean().apply {
-            address = env.dokumentproduksjonV3EndpointURL
-            features.add(LoggingFeature())
-            features.add(WSAddressingFeature())
-            serviceClass = DokumentproduksjonV3::class.java
-        }.create() as DokumentproduksjonV3
-        configureSTSFor(dokumentProduksjonV3, env.srvPaopUsername,
-                env.srvPaopPassword, env.securityTokenServiceUrl)
-
-        val adresseRegisterV1 = JaxWsProxyFactoryBean().apply {
-            address = env.adresseregisteretV1EmottakEndpointURL
-            features.add(LoggingFeature())
-            features.add(WSAddressingFeature())
-            serviceClass = ICommunicationPartyService::class.java
-        }.create() as ICommunicationPartyService
-        configureSTSFor(adresseRegisterV1, env.srvPaopUsername,
-                env.srvPaopPassword, env.securityTokenServiceUrl)
-
-        val partnerEmottak = JaxWsProxyFactoryBean().apply {
-            address = env.partnerEmottakEndpointURL
-            features.add(LoggingFeature())
-            features.add(WSAddressingFeature())
-            serviceClass = PartnerResource::class.java
-        }.create() as PartnerResource
-        configureBasicAuthFor(partnerEmottak, env.srvPaopUsername, env.srvPaopPassword)
-
-        val iCorrespondenceAgencyExternalBasic = JaxWsProxyFactoryBean().apply {
-            address = env.behandlealtinnmeldingV1EndpointURL
-            features.add(LoggingFeature())
-            features.add(WSAddressingFeature())
-            serviceClass = ICorrespondenceAgencyExternalBasic::class.java
-        }.create() as ICorrespondenceAgencyExternalBasic
-        configureSTSFor(iCorrespondenceAgencyExternalBasic, env.srvPaopUsername,
-                env.srvPaopPassword, env.securityTokenServiceUrl)
-
-        val arenaProducer = session.createProducer(arenaQueue)
-        val receiptProducer = session.createProducer(receiptQueue)
-        val httpClient = createHttpClient(env)
-
-                blockingApplicationLogic(env, applicationState, httpClient, journalbehandling, fastlegeregisteret, organisasjonV4,
-                dokumentProduksjonV3, adresseRegisterV1, partnerEmottak, iCorrespondenceAgencyExternalBasic,
-                arenaProducer, receiptProducer, session, altinnConsumer, altinnConsumer, env.altinnUserUsername,
-                env.altinnUserPassword)
-            }
-        }.toList()
+            }.toList()
 
             applicationState.initialized = true
 

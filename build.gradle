@@ -55,7 +55,7 @@ group 'no.nav.paop'
 version '1.0-SNAPSHOT'
 
 jar.manifest {
-    attributes("Main-Class" : "no.nav.syfo.BootstrapKt")
+    attributes("Main-Class" : "no.nav.paop.BootstrapKt")
 }
 
 shadowJar {
