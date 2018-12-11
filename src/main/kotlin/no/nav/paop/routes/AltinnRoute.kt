@@ -9,6 +9,7 @@ import com.fasterxml.jackson.module.kotlin.readValue
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.runBlocking
+import net.logstash.logback.argument.StructuredArgument
 import net.logstash.logback.argument.StructuredArguments.keyValue
 import no.nav.altinnkanal.avro.ExternalAttachment
 import no.nav.emottak.schemas.HentPartnerIDViaOrgnummerRequest
@@ -85,14 +86,14 @@ fun handleAltinnFollowupPlan(
             userPersonNumber = skjemainnhold.sykmeldtArbeidstaker.fnr
     )
 
-    val logKeys = arrayOf(
+    val logValues = arrayOf(
             keyValue("archiveReference", record.value().getArchiveReference()),
             keyValue("senderOrganisationNumber", incomingMetadata.senderOrgId),
             keyValue("topic", record.topic())
     )
-    val logFormat = logKeys.joinToString(",", "(", ")") { "{}" }
+    val logKeys = logValues.joinToString(",", "(", ")") { "{}" }
 
-    log.info("Received a Altinn oppfølgingsplan $logFormat", *logKeys)
+    log.info("Received a Altinn oppfølgingsplan $logKeys", *logValues)
 
     val fagmelding =
                 runBlocking {
@@ -103,7 +104,7 @@ fun handleAltinnFollowupPlan(
             orgnummer = incomingMetadata.senderOrgId
         }).isGyldigOrgnummer
     if (!validOrganizationNumber) {
-        log.error("Failed because the incoming organization ${incomingMetadata.senderOrgId} was invalid $logFormat", *logKeys)
+        log.error("Failed because the incoming organization ${incomingMetadata.senderOrgId} was invalid $logKeys", *logValues)
         throw RuntimeException("Failed because the incoming organization ${incomingMetadata.senderOrgId} was invalid")
     }
 
@@ -127,7 +128,7 @@ fun handleAltinnFollowupPlan(
     }
     if (skjemainnhold.mottaksInformasjon.isOppfolgingsplanSendesTilFastlege) {
         handleDoctorFollowupPlanAltinn(fastlegeregisteret, dokumentProduksjonV3, adresseRegisterV1,
-                partnerEmottak, arenaProducer, receiptProducer, session, incomingMetadata, incomingPersonInfo, fagmelding)
+                partnerEmottak, arenaProducer, receiptProducer, session, incomingMetadata, incomingPersonInfo, fagmelding, logKeys, logValues)
     }
 }
 
@@ -141,9 +142,12 @@ fun handleDoctorFollowupPlanAltinn(
     session: Session,
     incomingMetadata: IncomingMetadata,
     incomingPersonInfo: IncomingUserInfo,
-    fagmelding: ByteArray
+    fagmelding: ByteArray,
+    logKeys: String,
+    logValues: Array<StructuredArgument>
 ) {
     try {
+            log.info("Calling fastlegeregistert $logKeys", *logValues)
             val patientToGPContractAssociation = fastlegeregisteret.getPatientGPDetails(incomingMetadata.userPersonNumber)
             val gpName = patientToGPContractAssociation.extractGPName()
             val gpFirstName = patientToGPContractAssociation.extractGPFirstName()!!
@@ -156,6 +160,7 @@ fun handleDoctorFollowupPlanAltinn(
 
             val gpHerIdFlr = patientToGPContractAssociation.gpHerId
 
+            log.info("Calling adresseregisteret $logKeys", *logValues)
             val getCommunicationPartyDetailsResponse = adresseRegisterV1.getOrganizationPersonDetails(gpHerIdFlr)
 
             // Should only return one org
@@ -163,6 +168,7 @@ fun handleDoctorFollowupPlanAltinn(
             val gpOfficeOrganizationNumber = getCommunicationPartyDetailsResponse.organizations.organization.first().organizationNumber.toString()
             val gpOfficeOrganizationName = getCommunicationPartyDetailsResponse.organizations.organization.first().name
 
+            log.info("Calling emottak $logKeys", *logValues)
             val partner = partnerEmottak.hentPartnerIDViaOrgnummer(HentPartnerIDViaOrgnummerRequest().apply {
                 orgnr = gpOfficeOrganizationNumber
             }).partnerInformasjon
@@ -176,7 +182,7 @@ fun handleDoctorFollowupPlanAltinn(
                         canReceiveDialogMessage, gpFirstName, gpMiddleName, gpLastName, gpHerIdFlr, gpFnr, gpHprNumber)
 
                 sendDialogmeldingOppfolginsplan(receiptProducer, session, fellesformat)
-                log.info("Dialogmessage sendt to GP")
+                log.info("Dialogmessage sendt to GP $logKeys", *logValues)
             } else {
                 // TODO TMP
                 val brevdata = arenabrevdataMarshaller.toString(createArenaBrevdata())
@@ -184,10 +190,10 @@ fun handleDoctorFollowupPlanAltinn(
                 createPhysicalLetter(dokumentProduksjonV3, arenaProducer, session, incomingMetadata, gpOfficeOrganizationNumber,
                         gpName, gpOfficePostnr, gpOfficePoststed, brevdata)
             }
-            log.info("PhysicalLetter sendt to GP")
+            log.info("PhysicalLetter sendt to GP $logKeys", *logValues)
         } catch (e: IFlrReadOperationsGetPatientGPDetailsGenericFaultFaultFaultMessage) {
-                log.info("Oppfølginsplan kunne ikkje sendes, feil fra fastelegeregisteret", e)
+                log.error("Oppfølginsplan kunne ikkje sendes, feil fra fastelegeregisteret $logKeys", *logValues, e)
         } catch (e: Exception) {
-                log.info("Oppfølginsplan kunne ikkje sendes", e)
+                log.error("Oppfølginsplan kunne ikkje sendes $logKeys", *logValues, e)
         }
 }
