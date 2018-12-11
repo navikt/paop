@@ -45,6 +45,7 @@ import no.nav.tjeneste.virksomhet.organisasjon.v4.meldinger.ValiderOrganisasjonR
 import no.nav.virksomhet.tjenester.arkiv.journalbehandling.v1.binding.Journalbehandling
 import no.nhn.adresseregisteret.ICommunicationPartyService
 import no.nhn.schemas.reg.flr.IFlrReadOperations
+import no.nhn.schemas.reg.flr.IFlrReadOperationsGetPatientGPDetailsGenericFaultFaultFaultMessage
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import java.io.StringReader
 import javax.jms.MessageProducer
@@ -142,50 +143,49 @@ fun handleDoctorFollowupPlanAltinn(
     incomingPersonInfo: IncomingUserInfo,
     fagmelding: ByteArray
 ) {
-    val patientToGPContractAssociation = fastlegeregisteret.getPatientGPDetails(incomingMetadata.userPersonNumber)
+    try {
+            val patientToGPContractAssociation = fastlegeregisteret.getPatientGPDetails(incomingMetadata.userPersonNumber)
+            val gpName = patientToGPContractAssociation.extractGPName()
+            val gpFirstName = patientToGPContractAssociation.extractGPFirstName()!!
+            val gpMiddleName = patientToGPContractAssociation.extractGPMiddleName()
+            val gpLastName = patientToGPContractAssociation.extractGPLastName()!!
+            val gpFnr = patientToGPContractAssociation.extractGPFnr()
+            val gpHprNumber = patientToGPContractAssociation.extractGPHprNumber()
+            val gpOfficePostnr = patientToGPContractAssociation.extractGPOfficePostalCode()
+            val gpOfficePoststed = patientToGPContractAssociation.extractGPOfficePhysicalAddress()
 
-    if (patientToGPContractAssociation != null) {
-        val gpName = patientToGPContractAssociation.extractGPName()
-        val gpFirstName = patientToGPContractAssociation.extractGPFirstName()!!
-        val gpMiddleName = patientToGPContractAssociation.extractGPMiddleName()
-        val gpLastName = patientToGPContractAssociation.extractGPLastName()!!
-        val gpFnr = patientToGPContractAssociation.extractGPFnr()
-        val gpHprNumber = patientToGPContractAssociation.extractGPHprNumber()
-        val gpOfficePostnr = patientToGPContractAssociation.extractGPOfficePostalCode()
-        val gpOfficePoststed = patientToGPContractAssociation.extractGPOfficePhysicalAddress()
+            val gpHerIdFlr = patientToGPContractAssociation.gpHerId
 
-        val gpHerIdFlr = patientToGPContractAssociation.gpHerId
+            val getCommunicationPartyDetailsResponse = adresseRegisterV1.getOrganizationPersonDetails(gpHerIdFlr)
 
-        val getCommunicationPartyDetailsResponse = adresseRegisterV1.getOrganizationPersonDetails(gpHerIdFlr)
+            // Should only return one org
+            val herIDAdresseregister = getCommunicationPartyDetailsResponse.organizations.organization.first().herId
+            val gpOfficeOrganizationNumber = getCommunicationPartyDetailsResponse.organizations.organization.first().organizationNumber.toString()
+            val gpOfficeOrganizationName = getCommunicationPartyDetailsResponse.organizations.organization.first().name
 
-        // Should only return one org
-        val herIDAdresseregister = getCommunicationPartyDetailsResponse.organizations.organization.first().herId
-        val gpOfficeOrganizationNumber = getCommunicationPartyDetailsResponse.organizations.organization.first().organizationNumber.toString()
-        val gpOfficeOrganizationName = getCommunicationPartyDetailsResponse.organizations.organization.first().name
+            val partner = partnerEmottak.hentPartnerIDViaOrgnummer(HentPartnerIDViaOrgnummerRequest().apply {
+                orgnr = gpOfficeOrganizationNumber
+            }).partnerInformasjon
 
-        val partner = partnerEmottak.hentPartnerIDViaOrgnummer(HentPartnerIDViaOrgnummerRequest().apply {
-            orgnr = gpOfficeOrganizationNumber
-        }).partnerInformasjon
+            val canReceiveDialogMessage = partner.firstOrNull {
+                it.heRid.toInt() == herIDAdresseregister
+            }
+            if (canReceiveDialogMessage != null) {
+                val fellesformat = createDialogmelding(incomingMetadata, incomingPersonInfo, gpOfficeOrganizationName,
+                        gpOfficeOrganizationNumber, herIDAdresseregister, fagmelding,
+                        canReceiveDialogMessage, gpFirstName, gpMiddleName, gpLastName, gpHerIdFlr, gpFnr, gpHprNumber)
 
-        val canReceiveDialogMessage = partner.firstOrNull {
-            it.heRid.toInt() == herIDAdresseregister
-        }
-        if (canReceiveDialogMessage != null) {
-            val fellesformat = createDialogmelding(incomingMetadata, incomingPersonInfo, gpOfficeOrganizationName,
-                    gpOfficeOrganizationNumber, herIDAdresseregister, fagmelding,
-                    canReceiveDialogMessage, gpFirstName, gpMiddleName, gpLastName, gpHerIdFlr, gpFnr, gpHprNumber)
+                sendDialogmeldingOppfolginsplan(receiptProducer, session, fellesformat)
+                log.info("Dialogmessage sendt to GP")
+            } else {
+                // TODO TMP
+                val brevdata = arenabrevdataMarshaller.toString(createArenaBrevdata())
 
-            sendDialogmeldingOppfolginsplan(receiptProducer, session, fellesformat)
-            log.info("Dialogmessage sendt to GP")
-        } else {
-            // TODO TMP
-            val brevdata = arenabrevdataMarshaller.toString(createArenaBrevdata())
-
-            createPhysicalLetter(dokumentProduksjonV3, arenaProducer, session, incomingMetadata, gpOfficeOrganizationNumber,
-                    gpName, gpOfficePostnr, gpOfficePoststed, brevdata)
-        }
-        log.info("PhysicalLetter sendt to GP")
-    } else {
-        log.info("Oppfølginsplan kunne ikkje sendes, da det ikkje fantes ein fastlege på pasienten")
+                createPhysicalLetter(dokumentProduksjonV3, arenaProducer, session, incomingMetadata, gpOfficeOrganizationNumber,
+                        gpName, gpOfficePostnr, gpOfficePoststed, brevdata)
+            }
+            log.info("PhysicalLetter sendt to GP")
+        } catch (e: IFlrReadOperationsGetPatientGPDetailsGenericFaultFaultFaultMessage) {
+    log.info("Oppfølginsplan kunne ikkje sendes, da det ikkje fantes ein fastlege på pasienten", e)
     }
 }
