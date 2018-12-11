@@ -13,7 +13,7 @@ doing some validation, then pushing it to our internal systems.
 
 ### Getting started
 # Build and run tests
-./gradlew installDist
+./gradlew clean build
 
 ### Building the application
 #### Compile and package application

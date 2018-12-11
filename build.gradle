@@ -36,7 +36,6 @@ buildscript {
     ext.kith_base64_version = '1.1'
     ext.kafka_embedded_version = '1.0.0'
     ext.mockito_version = '2.22.0'
-    ext.ekstern_altinn_correspondenceAgencyExternalSF_tjenestespesifikasjon_version = '1.0.2'
 
     ext.jaxb2SourceDir = file("$buildDir/generated-sources/jaxb2")
 }
@@ -45,8 +44,6 @@ plugins {
     id 'no.nils.wsdl2java' version '0.10'
     id 'com.github.ben-manes.versions' version '0.20.0'
     id 'org.jetbrains.kotlin.jvm' version "1.3.0"
-    id 'java'
-    id 'idea'
     id 'org.jmailen.kotlinter' version '1.14.0'
     id("com.github.johnrengelman.shadow") version "4.0.3"
 }
@@ -196,8 +193,7 @@ wsdl2java {
     wsdlsToGenerate = [
             ["-xjc", "-b", "$projectDir/src/main/xjb/binding.xml", "-p", "http://register.nhn.no/Common=no.nhn.register.commontypes", "$buildDir/schema/fastlegeinformasjon.wsdl"],
             ["-xjc", "-b", "$projectDir/src/main/xjb/binding.xml", "$buildDir/schema/partner.wsdl"],
-            ["-xjc", "-b", "$projectDir/src/main/xjb/binding.xml", "-p", "no.nhn.adresseregisteret", "$buildDir/schema/tjenestespesifikasjon/adresseregisteret.wsdl"],
-            ["-xjc", "-b", "$projectDir/src/main/xjb/binding.xml", "$buildDir/schema/correspondence.wsdl"]
+            ["-xjc", "-b", "$projectDir/src/main/xjb/binding.xml", "-p", "no.nhn.adresseregisteret", "$buildDir/schema/tjenestespesifikasjon/adresseregisteret.wsdl"]
     ]
 }
 
@@ -302,7 +298,6 @@ dependencies {
     navWsdl "no.nav.tjenester:partner-nav-emottak-partner-web:$partner_emottak_version@zip"
     navWsdl "no.nav.syfo.tjenester:adresseregisteretV1-tjenestespesifikasjon:$adresseregisteretV1_version"
     navWsdl "no.nav.tjenester:ekstern-helse-fastlegeinformasjon-tjenestespesifikasjon:$ekstern_helse_fastlegeinformasjon_tjenestespesifikasjon_version@zip"
-    navWsdl "no.nav.tjenester:ekstern-altinn-correspondenceAgencyExternalSF-tjenestespesifikasjon:$ekstern_altinn_correspondenceAgencyExternalSF_tjenestespesifikasjon_version@zip"
 
     implementation "io.confluent:kafka-avro-serializer:$confluent_version"
     implementation "org.apache.kafka:kafka_2.12:$kafka_version"

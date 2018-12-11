@@ -13,7 +13,6 @@ import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import no.altinn.services.serviceengine.correspondence._2009._10.ICorrespondenceAgencyExternalBasic
 import no.nav.altinnkanal.avro.ExternalAttachment
 import no.nav.emottak.schemas.PartnerResource
 import no.nav.paop.client.createHttpClient
@@ -133,23 +132,13 @@ fun main(args: Array<String>) = runBlocking(Executors.newFixedThreadPool(2).asCo
                     }.create() as PartnerResource
                     configureBasicAuthFor(partnerEmottak, env.srvPaopUsername, env.srvPaopPassword)
 
-                    val iCorrespondenceAgencyExternalBasic = JaxWsProxyFactoryBean().apply {
-                        address = env.behandlealtinnmeldingV1EndpointURL
-                        features.add(LoggingFeature())
-                        features.add(WSAddressingFeature())
-                        serviceClass = ICorrespondenceAgencyExternalBasic::class.java
-                    }.create() as ICorrespondenceAgencyExternalBasic
-                    configureSTSFor(iCorrespondenceAgencyExternalBasic, env.srvPaopUsername,
-                            env.srvPaopPassword, env.securityTokenServiceUrl)
-
                     val arenaProducer = session.createProducer(arenaQueue)
                     val receiptProducer = session.createProducer(receiptQueue)
                     val httpClient = createHttpClient()
 
                     blockingApplicationLogic(env, applicationState, httpClient, journalbehandling, fastlegeregisteret, organisasjonV4,
-                            dokumentProduksjonV3, adresseRegisterV1, partnerEmottak, iCorrespondenceAgencyExternalBasic,
-                            arenaProducer, receiptProducer, session, altinnConsumer, altinnConsumer, env.altinnUserUsername,
-                            env.altinnUserPassword)
+                            dokumentProduksjonV3, adresseRegisterV1, partnerEmottak,
+                            arenaProducer, receiptProducer, session, altinnConsumer, altinnConsumer)
                 }
             }.toList()
 
@@ -188,20 +177,17 @@ suspend fun blockingApplicationLogic(
     dokumentProduksjonV3: DokumentproduksjonV3,
     adresseRegisterV1: ICommunicationPartyService,
     partnerEmottak: PartnerResource,
-    iCorrespondenceAgencyExternalBasic: ICorrespondenceAgencyExternalBasic,
     arenaProducer: MessageProducer,
     receiptProducer: MessageProducer,
     session: Session,
     consumer: KafkaConsumer<String, ExternalAttachment>,
-    navOppfPlanConsumer: KafkaConsumer<String, ExternalAttachment>,
-    altinnUserUsername: String,
-    altinnUserPassword: String
+    navOppfPlanConsumer: KafkaConsumer<String, ExternalAttachment>
 ) {
     while (applicationState.running) {
         consumer.poll(Duration.ofMillis(0)).forEach {
             handleAltinnFollowupPlan(env, it, pdfClient, journalbehandling, fastlegeregisteret, organisasjonV4,
-                    dokumentProduksjonV3, adresseRegisterV1, partnerEmottak, iCorrespondenceAgencyExternalBasic,
-                    arenaProducer, receiptProducer, session, altinnUserUsername, altinnUserPassword)
+                    dokumentProduksjonV3, adresseRegisterV1, partnerEmottak,
+                    arenaProducer, receiptProducer, session)
         }
         navOppfPlanConsumer.poll(Duration.ofMillis(0)).forEach {
             handleNAVFollowupPlan(it, journalbehandling, fastlegeregisteret, organisasjonV4, dokumentProduksjonV3,

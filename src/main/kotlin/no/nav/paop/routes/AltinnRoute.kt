@@ -10,14 +10,12 @@ import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.runBlocking
 import net.logstash.logback.argument.StructuredArguments.keyValue
-import no.altinn.services.serviceengine.correspondence._2009._10.ICorrespondenceAgencyExternalBasic
 import no.nav.altinnkanal.avro.ExternalAttachment
 import no.nav.emottak.schemas.HentPartnerIDViaOrgnummerRequest
 import no.nav.emottak.schemas.PartnerResource
 import no.nav.model.dataBatch.DataBatch
 import no.nav.model.oppfolgingsplan2016.Oppfoelgingsplan4UtfyllendeInfoM
 import no.nav.paop.Environment
-import no.nav.paop.client.createAltinnMessage
 import no.nav.paop.client.createArenaBrevdata
 import no.nav.paop.client.createDialogmelding
 import no.nav.paop.client.createJoarkRequest
@@ -68,12 +66,9 @@ fun handleAltinnFollowupPlan(
     dokumentProduksjonV3: DokumentproduksjonV3,
     adresseRegisterV1: ICommunicationPartyService,
     partnerEmottak: PartnerResource,
-    iCorrespondenceAgencyExternalBasic: ICorrespondenceAgencyExternalBasic,
     arenaProducer: MessageProducer,
     receiptProducer: MessageProducer,
-    session: Session,
-    altinnUserUsername: String,
-    altinnUserPassword: String
+    session: Session
 ) {
     val dataBatch = dataBatchUnmarshaller.unmarshal(StringReader(record.value().getBatch())) as DataBatch
     val payload = dataBatch.dataUnits.dataUnit.first().formTask.form.first().formData
@@ -107,6 +102,7 @@ fun handleAltinnFollowupPlan(
             orgnummer = incomingMetadata.senderOrgId
         }).isGyldigOrgnummer
     if (!validOrganizationNumber) {
+        log.error("Failed because the incoming organization ${incomingMetadata.senderOrgId} was invalid $logFormat", *logKeys)
         throw RuntimeException("Failed because the incoming organization ${incomingMetadata.senderOrgId} was invalid")
     }
 
@@ -130,7 +126,7 @@ fun handleAltinnFollowupPlan(
     }
     if (skjemainnhold.mottaksInformasjon.isOppfolgingsplanSendesTilFastlege) {
         handleDoctorFollowupPlanAltinn(fastlegeregisteret, dokumentProduksjonV3, adresseRegisterV1,
-                partnerEmottak, iCorrespondenceAgencyExternalBasic, arenaProducer, receiptProducer, session, incomingMetadata, incomingPersonInfo, fagmelding, altinnUserUsername, altinnUserPassword)
+                partnerEmottak, arenaProducer, receiptProducer, session, incomingMetadata, incomingPersonInfo, fagmelding)
     }
 }
 
@@ -139,15 +135,12 @@ fun handleDoctorFollowupPlanAltinn(
     dokumentProduksjonV3: DokumentproduksjonV3,
     adresseRegisterV1: ICommunicationPartyService,
     partnerEmottak: PartnerResource,
-    iCorrespondenceAgencyExternalBasic: ICorrespondenceAgencyExternalBasic,
     arenaProducer: MessageProducer,
     receiptProducer: MessageProducer,
     session: Session,
     incomingMetadata: IncomingMetadata,
     incomingPersonInfo: IncomingUserInfo,
-    fagmelding: ByteArray,
-    altinnUserUsername: String,
-    altinnUserPassword: String
+    fagmelding: ByteArray
 ) {
     val patientToGPContractAssociation = fastlegeregisteret.getPatientGPDetails(incomingMetadata.userPersonNumber)
 
@@ -193,8 +186,6 @@ fun handleDoctorFollowupPlanAltinn(
         }
         log.info("PhysicalLetter sendt to GP")
     } else {
-        createAltinnMessage(iCorrespondenceAgencyExternalBasic, incomingMetadata.archiveReference,
-                incomingMetadata.senderOrgId, fagmelding, altinnUserUsername, altinnUserPassword)
-        log.info("Oppfølginsplan sendt to altinn")
+        log.info("Oppfølginsplan kunne ikkje sendes, da det ikkje fantes ein fastlege på pasienten")
     }
 }
