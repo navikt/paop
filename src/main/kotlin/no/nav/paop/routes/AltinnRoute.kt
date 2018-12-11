@@ -186,6 +186,8 @@ fun handleDoctorFollowupPlanAltinn(
             }
             log.info("PhysicalLetter sendt to GP")
         } catch (e: IFlrReadOperationsGetPatientGPDetailsGenericFaultFaultFaultMessage) {
-    log.info("Oppfølginsplan kunne ikkje sendes, da det ikkje fantes ein fastlege på pasienten", e)
-    }
+                log.info("Oppfølginsplan kunne ikkje sendes, feil fra fastelegeregisteret", e)
+        } catch (e: Exception) {
+                log.info("Oppfølginsplan kunne ikkje sendes", e)
+        }
 }
