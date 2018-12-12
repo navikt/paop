@@ -67,9 +67,6 @@ fun main(args: Array<String>) = runBlocking(Executors.newFixedThreadPool(2).asCo
                     val consumerProperties = readConsumerConfig(env)
                     val altinnConsumer = KafkaConsumer<String, ExternalAttachment>(consumerProperties)
                     altinnConsumer.subscribe(listOf(env.kafkaTopicOppfolginsplan))
-                    // TODO change after testing
-                    // val navnoConsumer = KafkaConsumer<String, ExternalAttachment>(consumerProperties)
-                    // navnoConsumer.subscribe(listOf(env.kafkaNavOppfolgingsplanTopic))
 
                     val interceptorProperties = mapOf(
                         WSHandlerConstants.USER to env.srvPaopUsername,
