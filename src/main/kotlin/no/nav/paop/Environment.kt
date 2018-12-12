@@ -2,7 +2,6 @@ package no.nav.paop
 
 import java.util.Properties
 
-
 fun getEnvVar(name: String, default: String? = null): String =
         System.getenv(name) ?: default ?: throw RuntimeException("Missing variable $name")
 
