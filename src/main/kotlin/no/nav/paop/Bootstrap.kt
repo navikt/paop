@@ -21,16 +21,15 @@ import no.nav.paop.routes.handleAltinnFollowupPlan
 import no.nav.paop.ws.configureBasicAuthFor
 import no.nav.paop.ws.configureSTSFor
 import no.nav.syfo.api.registerNaisApi
+import no.nav.tjeneste.virksomhet.behandlejournal.v2.binding.BehandleJournalV2
 import no.nav.tjeneste.virksomhet.organisasjon.v4.binding.OrganisasjonV4
 import no.nav.tjeneste.virksomhet.organisasjonenhet.v2.binding.OrganisasjonEnhetV2
 import no.nav.tjeneste.virksomhet.person.v3.binding.PersonV3
-import no.nav.virksomhet.tjenester.arkiv.journalbehandling.v1.binding.Journalbehandling
 import no.nhn.adresseregisteret.ICommunicationPartyService
 import no.nhn.schemas.reg.flr.IFlrReadOperations
 import org.apache.cxf.ext.logging.LoggingFeature
 import org.apache.cxf.jaxws.JaxWsProxyFactoryBean
 import org.apache.cxf.ws.addressing.WSAddressingFeature
-import org.apache.cxf.ws.security.wss4j.WSS4JOutInterceptor
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.wss4j.common.ext.WSPasswordCallback
@@ -99,13 +98,13 @@ fun main(args: Array<String>) = runBlocking(Executors.newFixedThreadPool(2).asCo
                     configureSTSFor(organisasjonV4, env.srvPaopUsername,
                             env.srvPaopPassword, env.securityTokenServiceUrl)
 
-                    val journalbehandling = JaxWsProxyFactoryBean().apply {
-                        address = env.journalbehandlingEndpointURL
+                    val behandleJournalV2 = JaxWsProxyFactoryBean().apply {
+                        address = env.behandleJournalV2EndpointURL
                         features.add(LoggingFeature())
-                        features.add(WSAddressingFeature())
-                        outInterceptors.add(WSS4JOutInterceptor(interceptorProperties))
-                        serviceClass = Journalbehandling::class.java
-                    }.create() as Journalbehandling
+                        serviceClass = BehandleJournalV2::class.java
+                    }.create() as BehandleJournalV2
+                    configureSTSFor(behandleJournalV2, env.srvPaopUsername,
+                            env.srvPaopPassword, env.securityTokenServiceUrl)
 
                     val adresseRegisterV1 = JaxWsProxyFactoryBean().apply {
                         address = env.adresseregisteretV1EmottakEndpointURL
@@ -141,7 +140,7 @@ fun main(args: Array<String>) = runBlocking(Executors.newFixedThreadPool(2).asCo
                     val receiptProducer = session.createProducer(receiptQueue)
                     val httpClient = createHttpClient()
 
-                    blockingApplicationLogic(env, applicationState, httpClient, journalbehandling, fastlegeregisteret,
+                    blockingApplicationLogic(env, applicationState, httpClient, behandleJournalV2, fastlegeregisteret,
                             organisasjonV4, adresseRegisterV1, partnerEmottak, receiptProducer, session, altinnConsumer,
                             personV3, orgnaisasjonEnhet, kafkaproducer)
                 }
@@ -176,7 +175,7 @@ suspend fun blockingApplicationLogic(
     env: Environment,
     applicationState: ApplicationState,
     pdfClient: HttpClient,
-    journalbehandling: Journalbehandling,
+    behandleJournalV2: BehandleJournalV2,
     fastlegeregisteret: IFlrReadOperations,
     organisasjonV4: OrganisasjonV4,
     adresseRegisterV1: ICommunicationPartyService,
@@ -190,7 +189,7 @@ suspend fun blockingApplicationLogic(
 ) {
     while (applicationState.running) {
         consumer.poll(Duration.ofMillis(0)).forEach {
-            handleAltinnFollowupPlan(env, it, pdfClient, journalbehandling, fastlegeregisteret, organisasjonV4,
+            handleAltinnFollowupPlan(env, it, pdfClient, behandleJournalV2, fastlegeregisteret, organisasjonV4,
                     adresseRegisterV1, partnerEmottak, receiptProducer, session, personV3, organisasjonEnhetV2, kafkaproducer)
         }
         delay(100)

@@ -65,3 +65,5 @@ fasitResources:
         url: VIRKSOMHET_ORGANISASJONENHET_V2_ENDPOINTURL
     - alias: virksomhet:Person_v3
       resourceType: Webserviceendpoint
+    - alias: BehandleJournal_v2
+      resourceType: Webserviceendpoint

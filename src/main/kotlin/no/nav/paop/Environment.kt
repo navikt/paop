@@ -14,7 +14,7 @@ private val config = Properties().apply {
 data class Environment(
     val srvPaopUsername: String = getEnvVar("SRVPAOP_USERNAME"),
     val srvPaopPassword: String = getEnvVar("SRVPAOP_PASSWORD"),
-    val journalbehandlingEndpointURL: String = getEnvVar("JOARK_JOURNALBEHANDLING_WS_ENDPOINT_URL"),
+    val behandleJournalV2EndpointURL: String = getEnvVar("BEHANDLEJOURNAL_V2_ENDPOINTURL"),
     val securityTokenServiceUrl: String = getEnvVar("SECURITYTOKENSERVICE_URL"),
     val appName: String = getEnvVar("APP_NAME"),
     val appVersion: String = getEnvVar("APP_VERSION"),
@@ -26,6 +26,7 @@ data class Environment(
     val mqPassword: String = getEnvVar("SRVAPPSERVER_PASSWORD", ""),
     val fastlegeregiserHdirURL: String = getEnvVar("EKSTERN_HELSE_FASTLEGEINFORMASJON_ENDPOINTURL"),
     val pdfGeneratorURL: String = getEnvVar("PDF_GENERATOR_URL", "http://pdf-gen/api"),
+    val sakURL: String = getEnvVar("SAK_URL", "http://sak/api"),
     val organisasjonV4EndpointURL: String = getEnvVar("VIRKSOMHET_ORGANISASJON_V4_ENDPOINTURL"),
     val kafkaBootstrapServersURL: String = getEnvVar("KAFKA_BOOTSTRAP_SERVERS_URL"),
     val dokumentproduksjonV3EndpointURL: String = getEnvVar("DOKUMENTPRODUKSJON_V3_ENDPOINTURL"),
