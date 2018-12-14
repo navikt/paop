@@ -20,6 +20,7 @@ import no.nav.paop.Environment
 import no.nav.paop.client.createDialogmelding
 import no.nav.paop.client.generatePDF
 import no.nav.paop.client.generateSAK
+import no.nav.paop.client.objectMapper
 import no.nav.paop.client.sendDialogmeldingOppfolginsplan
 import no.nav.paop.log
 import no.nav.paop.mapping.mapFormdataToFagmelding
@@ -164,14 +165,10 @@ fun handleAltinnFollowupPlan(
 
         val sakResponse =
                 runBlocking {
-                    try {
-                        httpClient.generateSAK(env, OpprettSak(tema = "SYK", applikasjon = "PAOP",
-                                aktoerId = receivedOppfolginsplan.userPersonNumber, orgnr = receivedOppfolginsplan.senderOrgId, fagsakNr = saksId))
-                    } catch (e: Exception) {
-                            log.error("Exception from Sak:", e)
-                        }
-                    }
-        log.debug("Response from request to create sak, {}", keyValue("response", sakResponse))
+                    httpClient.generateSAK(env, OpprettSak(tema = "SYK", applikasjon = "PAOP",
+                            aktoerId = receivedOppfolginsplan.userPersonNumber, orgnr = receivedOppfolginsplan.senderOrgId, fagsakNr = saksId))
+                }
+        log.info("Response from request to create sak, {}", keyValue("response", sakResponse))
         log.info("Created a case $logKeys", *logValues)
 
         onJournalRequest(receivedOppfolginsplan, fagmelding, behandleJournalV2, saksId, logKeys, logValues)
@@ -289,12 +286,12 @@ fun createJournalpost(
                                                     .withFilnavn("oppfolginsplan.pdf")
                                                     .withFiltype(Arkivfiltyper().withValue("PDF"))
                                                     .withVariantformat(Variantformater().withValue("ARKIV"))
-                                                    .withInnhold(pdf)/* TODO,
+                                                    .withInnhold(pdf),
                                             StrukturertInnhold()
                                                     .withFilnavn("oppfolginsplan.xml")
                                                     .withFiltype(Arkivfiltyper().withValue("XML"))
                                                     .withVariantformat(Variantformater().withValue("ORIGINAL"))
-                                                    .withInnhold(objectMapper.writeValueAsBytes(recivedoppfolginsplan.oppfolginsplan))*/
+                                                    .withInnhold(objectMapper.writeValueAsBytes(recivedoppfolginsplan.oppfolginsplan))
                                     )
                             )
                     )
