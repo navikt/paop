@@ -20,7 +20,6 @@ import no.nav.paop.Environment
 import no.nav.paop.client.createDialogmelding
 import no.nav.paop.client.generatePDF
 import no.nav.paop.client.generateSAK
-import no.nav.paop.client.objectMapper
 import no.nav.paop.client.sendDialogmeldingOppfolginsplan
 import no.nav.paop.log
 import no.nav.paop.mapping.mapFormdataToFagmelding
@@ -290,12 +289,12 @@ fun createJournalpost(
                                                     .withFilnavn("oppfolginsplan.pdf")
                                                     .withFiltype(Arkivfiltyper().withValue("PDF"))
                                                     .withVariantformat(Variantformater().withValue("ARKIV"))
-                                                    .withInnhold(pdf),
+                                                    .withInnhold(pdf)/* TODO,
                                             StrukturertInnhold()
                                                     .withFilnavn("oppfolginsplan.xml")
                                                     .withFiltype(Arkivfiltyper().withValue("XML"))
                                                     .withVariantformat(Variantformater().withValue("ORIGINAL"))
-                                                    .withInnhold(objectMapper.writeValueAsBytes(recivedoppfolginsplan.oppfolginsplan))
+                                                    .withInnhold(objectMapper.writeValueAsBytes(recivedoppfolginsplan.oppfolginsplan))*/
                                     )
                             )
                     )
