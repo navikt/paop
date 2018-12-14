@@ -2,8 +2,8 @@ image: "repo.adeo.no:5443/integrasjon/paop"
 team: integrasjon
 replicas:
   min: 1
-  max: 4
-  cpuThresholdPercentage: 70
+  max: 2
+  cpuThresholdPercentage: 80
 port: 8080
 healthcheck:
   liveness:
