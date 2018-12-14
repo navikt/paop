@@ -7,7 +7,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import no.nav.paop.Environment
 
-suspend fun HttpClient.generateSAK(env: Environment, domainObject: Any): ByteArray = post {
+suspend fun HttpClient.generateSAK(env: Environment, domainObject: Any): String = post {
     contentType(ContentType.Application.Json)
     body = objectMapper.writeValueAsBytes(domainObject)
 

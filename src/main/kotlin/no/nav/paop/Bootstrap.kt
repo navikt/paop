@@ -32,9 +32,6 @@ import org.apache.cxf.jaxws.JaxWsProxyFactoryBean
 import org.apache.cxf.ws.addressing.WSAddressingFeature
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.clients.producer.KafkaProducer
-import org.apache.wss4j.common.ext.WSPasswordCallback
-import org.apache.wss4j.dom.WSConstants
-import org.apache.wss4j.dom.handler.WSHandlerConstants
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.time.Duration
@@ -42,7 +39,6 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import javax.jms.MessageProducer
 import javax.jms.Session
-import javax.security.auth.callback.CallbackHandler
 
 data class ApplicationState(var running: Boolean = true, var initialized: Boolean = false)
 
@@ -70,15 +66,6 @@ fun main(args: Array<String>) = runBlocking(Executors.newFixedThreadPool(2).asCo
 
                     val producerProperties = readProducerConfig(env, valueSerializer = JacksonKafkaSerializer::class)
                     val kafkaproducer = KafkaProducer<String, ReceivedOppfolginsplan>(producerProperties)
-
-                    val interceptorProperties = mapOf(
-                        WSHandlerConstants.USER to env.srvPaopUsername,
-                        WSHandlerConstants.ACTION to WSHandlerConstants.USERNAME_TOKEN,
-                        WSHandlerConstants.PASSWORD_TYPE to WSConstants.PW_TEXT,
-                        WSHandlerConstants.PW_CALLBACK_REF to CallbackHandler {
-                            (it[0] as WSPasswordCallback).password = env.srvPaopPassword
-                        }
-                        )
 
                     val fastlegeregisteret = JaxWsProxyFactoryBean().apply {
                         address = env.fastlegeregiserHdirURL
