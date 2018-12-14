@@ -25,6 +25,7 @@ import no.nav.paop.log
 import no.nav.paop.mapping.mapFormdataToFagmelding
 import no.nav.paop.model.IncomingMetadata
 import no.nav.paop.model.IncomingUserInfo
+import no.nav.paop.model.ReceivedOppfolginsplan
 import no.nav.paop.xml.dataBatchUnmarshaller
 import no.nav.paop.xml.extractGPFirstName
 import no.nav.paop.xml.extractGPFnr
@@ -46,6 +47,8 @@ import no.nhn.adresseregisteret.ICommunicationPartyService
 import no.nhn.schemas.reg.flr.IFlrReadOperations
 import no.nhn.schemas.reg.flr.IFlrReadOperationsGetPatientGPDetailsGenericFaultFaultFaultMessage
 import org.apache.kafka.clients.consumer.ConsumerRecord
+import org.apache.kafka.clients.producer.KafkaProducer
+import org.apache.kafka.clients.producer.ProducerRecord
 import java.io.StringReader
 import javax.jms.MessageProducer
 import javax.jms.Session
@@ -68,7 +71,8 @@ fun handleAltinnFollowupPlan(
     receiptProducer: MessageProducer,
     session: Session,
     personV3: PersonV3,
-    organisasjonEnhetV2: OrganisasjonEnhetV2
+    organisasjonEnhetV2: OrganisasjonEnhetV2,
+    kafkaproducer: KafkaProducer<String, ReceivedOppfolginsplan>
 ) {
     val dataBatch = dataBatchUnmarshaller.unmarshal(StringReader(record.value().getBatch())) as DataBatch
     val payload = dataBatch.dataUnits.dataUnit.first().formTask.form.first().formData
@@ -125,10 +129,18 @@ fun handleAltinnFollowupPlan(
             userPersonNumber = skjemainnhold.sykmeldtArbeidstaker.fnr
     )
 
+    val receivedOppfolginsplan = ReceivedOppfolginsplan(
+            oppfolginsplan = skjemainnhold,
+            userPersonNumber = skjemainnhold.sykmeldtArbeidstaker.fnr,
+            senderOrgId = skjemainnhold.arbeidsgiver.orgnr,
+            navLogId = navKontor.enhetId
+
+    )
+
     if (skjemainnhold.mottaksInformasjon.isOppfolgingsplanSendesTiNav) {
         val joarkRequest = createJoarkRequest(incomingMetadata, fagmelding)
         journalbehandling.lagreDokumentOgOpprettJournalpost(joarkRequest)
-        // TODO SEND TO KAFKA TOPIC
+        kafkaproducer.send(ProducerRecord(env.kafkaOutgoingTopicOppfolginsplan, receivedOppfolginsplan))
     }
     if (skjemainnhold.mottaksInformasjon.isOppfolgingsplanSendesTilFastlege) {
         handleDoctorFollowupPlanAltinn(fastlegeregisteret, adresseRegisterV1,

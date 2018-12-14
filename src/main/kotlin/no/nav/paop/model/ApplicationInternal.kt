@@ -14,10 +14,3 @@ data class IncomingUserInfo(
     val userGivenName: String?,
     val userPersonNumber: String
 )
-
-data class ArenaBistand(
-    val bistandNavHjelpemidler: Boolean,
-    val bistandNavVeiledning: Boolean,
-    val bistandDialogmote: Boolean,
-    val bistandVirkemidler: Boolean
-)

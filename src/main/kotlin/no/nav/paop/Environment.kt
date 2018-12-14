@@ -37,6 +37,7 @@ data class Environment(
 
     val applicationPort: Int = config.getProperty("application.port").toInt(),
     val applicationThreads: Int = config.getProperty("application.threads").toInt(),
-    val kafkaTopicOppfolginsplan: String = config.getProperty("kafka.appen.altinn.oppfolgingsplan.topic")
+    val kafkaIncommingTopicOppfolginsplan: String = config.getProperty("kafka.appen.altinn.oppfolgingsplan.topic"),
+    val kafkaOutgoingTopicOppfolginsplan: String = config.getProperty("kafka.privat.syfo.oppfolingsplan.topic")
 
 )

@@ -16,6 +16,7 @@ import kotlinx.coroutines.runBlocking
 import no.nav.altinnkanal.avro.ExternalAttachment
 import no.nav.emottak.schemas.PartnerResource
 import no.nav.paop.client.createHttpClient
+import no.nav.paop.model.ReceivedOppfolginsplan
 import no.nav.paop.routes.handleAltinnFollowupPlan
 import no.nav.paop.ws.configureBasicAuthFor
 import no.nav.paop.ws.configureSTSFor
@@ -31,6 +32,7 @@ import org.apache.cxf.jaxws.JaxWsProxyFactoryBean
 import org.apache.cxf.ws.addressing.WSAddressingFeature
 import org.apache.cxf.ws.security.wss4j.WSS4JOutInterceptor
 import org.apache.kafka.clients.consumer.KafkaConsumer
+import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.wss4j.common.ext.WSPasswordCallback
 import org.apache.wss4j.dom.WSConstants
 import org.apache.wss4j.dom.handler.WSHandlerConstants
@@ -65,7 +67,10 @@ fun main(args: Array<String>) = runBlocking(Executors.newFixedThreadPool(2).asCo
                     val receiptQueue = session.createQueue(env.receiptQueueName)
                     val consumerProperties = readConsumerConfig(env)
                     val altinnConsumer = KafkaConsumer<String, ExternalAttachment>(consumerProperties)
-                    altinnConsumer.subscribe(listOf(env.kafkaTopicOppfolginsplan))
+                    altinnConsumer.subscribe(listOf(env.kafkaIncommingTopicOppfolginsplan))
+
+                    val producerProperties = readProducerConfig(env, valueSerializer = JacksonKafkaSerializer::class)
+                    val kafkaproducer = KafkaProducer<String, ReceivedOppfolginsplan>(producerProperties)
 
                     val interceptorProperties = mapOf(
                         WSHandlerConstants.USER to env.srvPaopUsername,
@@ -138,7 +143,7 @@ fun main(args: Array<String>) = runBlocking(Executors.newFixedThreadPool(2).asCo
 
                     blockingApplicationLogic(env, applicationState, httpClient, journalbehandling, fastlegeregisteret,
                             organisasjonV4, adresseRegisterV1, partnerEmottak, receiptProducer, session, altinnConsumer,
-                            personV3, orgnaisasjonEnhet)
+                            personV3, orgnaisasjonEnhet, kafkaproducer)
                 }
             }.toList()
 
@@ -180,12 +185,13 @@ suspend fun blockingApplicationLogic(
     session: Session,
     consumer: KafkaConsumer<String, ExternalAttachment>,
     personV3: PersonV3,
-    organisasjonEnhetV2: OrganisasjonEnhetV2
+    organisasjonEnhetV2: OrganisasjonEnhetV2,
+    kafkaproducer: KafkaProducer<String, ReceivedOppfolginsplan>
 ) {
     while (applicationState.running) {
         consumer.poll(Duration.ofMillis(0)).forEach {
             handleAltinnFollowupPlan(env, it, pdfClient, journalbehandling, fastlegeregisteret, organisasjonV4,
-                    adresseRegisterV1, partnerEmottak, receiptProducer, session, personV3, organisasjonEnhetV2)
+                    adresseRegisterV1, partnerEmottak, receiptProducer, session, personV3, organisasjonEnhetV2, kafkaproducer)
         }
         delay(100)
     }
