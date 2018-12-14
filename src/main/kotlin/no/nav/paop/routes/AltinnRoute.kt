@@ -294,7 +294,7 @@ fun createJournalpost(
                                             StrukturertInnhold()
                                                     .withFilnavn("oppfolginsplan.xml")
                                                     .withFiltype(Arkivfiltyper().withValue("XML"))
-                                                    .withVariantformat(Variantformater().withValue("ARKIV"))
+                                                    .withVariantformat(Variantformater().withValue("ORIGINAL"))
                                                     .withInnhold(objectMapper.writeValueAsBytes(recivedoppfolginsplan.oppfolginsplan))
                                     )
                             )
