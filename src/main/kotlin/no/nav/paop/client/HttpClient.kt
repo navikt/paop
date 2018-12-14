@@ -13,7 +13,9 @@ import io.ktor.client.features.logging.DEFAULT
 import io.ktor.client.features.logging.Logging
 import io.ktor.client.features.logging.LogLevel
 import io.ktor.client.features.logging.Logger
+import io.ktor.util.KtorExperimentalAPI
 
+@KtorExperimentalAPI
 fun createHttpClient() = HttpClient(CIO) {
     install(JsonFeature) {
         serializer = JacksonSerializer {
@@ -32,4 +34,3 @@ val objectMapper: ObjectMapper = ObjectMapper()
         .registerModule(JavaTimeModule())
         .registerKotlinModule()
         .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
-        .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
