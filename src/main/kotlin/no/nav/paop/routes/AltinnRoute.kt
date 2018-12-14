@@ -33,6 +33,14 @@ import no.nav.paop.xml.extractGPLastName
 import no.nav.paop.xml.extractGPMiddleName
 import no.nav.tjeneste.virksomhet.organisasjon.v4.binding.OrganisasjonV4
 import no.nav.tjeneste.virksomhet.organisasjon.v4.meldinger.ValiderOrganisasjonRequest
+import no.nav.tjeneste.virksomhet.organisasjonenhet.v2.binding.OrganisasjonEnhetV2
+import no.nav.tjeneste.virksomhet.organisasjonenhet.v2.informasjon.Geografi
+import no.nav.tjeneste.virksomhet.organisasjonenhet.v2.meldinger.FinnNAVKontorRequest
+import no.nav.tjeneste.virksomhet.person.v3.binding.PersonV3
+import no.nav.tjeneste.virksomhet.person.v3.informasjon.NorskIdent
+import no.nav.tjeneste.virksomhet.person.v3.informasjon.PersonIdent
+import no.nav.tjeneste.virksomhet.person.v3.informasjon.Personidenter
+import no.nav.tjeneste.virksomhet.person.v3.meldinger.HentGeografiskTilknytningRequest
 import no.nav.virksomhet.tjenester.arkiv.journalbehandling.v1.binding.Journalbehandling
 import no.nhn.adresseregisteret.ICommunicationPartyService
 import no.nhn.schemas.reg.flr.IFlrReadOperations
@@ -58,7 +66,9 @@ fun handleAltinnFollowupPlan(
     adresseRegisterV1: ICommunicationPartyService,
     partnerEmottak: PartnerResource,
     receiptProducer: MessageProducer,
-    session: Session
+    session: Session,
+    personV3: PersonV3,
+    organisasjonEnhetV2: OrganisasjonEnhetV2
 ) {
     val dataBatch = dataBatchUnmarshaller.unmarshal(StringReader(record.value().getBatch())) as DataBatch
     val payload = dataBatch.dataUnits.dataUnit.first().formTask.form.first().formData
@@ -95,6 +105,19 @@ fun handleAltinnFollowupPlan(
         log.error("Failed because the incoming organization ${incomingMetadata.senderOrgId} was invalid $logKeys", *logValues)
         throw RuntimeException("Failed because the incoming organization ${incomingMetadata.senderOrgId} was invalid")
     }
+
+    val geografiskTilknytning = personV3.hentGeografiskTilknytning(HentGeografiskTilknytningRequest().withAktoer(PersonIdent().withIdent(
+            NorskIdent()
+                    .withIdent(incomingMetadata.userPersonNumber)
+                    .withType(Personidenter().withValue("FNR"))))).geografiskTilknytning
+
+    val navKontor = organisasjonEnhetV2.finnNAVKontor(FinnNAVKontorRequest().apply {
+        this.geografiskTilknytning = Geografi().apply {
+            this.value = geografiskTilknytning?.geografiskTilknytning ?: "0"
+        }
+    }).navKontor
+
+    log.info("Personen sitt nav kontor: ${navKontor.enhetId}")
 
     val incomingPersonInfo = IncomingUserInfo(
             userFamilyName = skjemainnhold.sykmeldtArbeidstaker?.fornavn,

@@ -136,7 +136,9 @@ fun main(args: Array<String>) = runBlocking(Executors.newFixedThreadPool(2).asCo
                     val receiptProducer = session.createProducer(receiptQueue)
                     val httpClient = createHttpClient()
 
-                    blockingApplicationLogic(env, applicationState, httpClient, journalbehandling, fastlegeregisteret, organisasjonV4, adresseRegisterV1, partnerEmottak, receiptProducer, session, altinnConsumer)
+                    blockingApplicationLogic(env, applicationState, httpClient, journalbehandling, fastlegeregisteret,
+                            organisasjonV4, adresseRegisterV1, partnerEmottak, receiptProducer, session, altinnConsumer,
+                            personV3, orgnaisasjonEnhet)
                 }
             }.toList()
 
@@ -176,12 +178,14 @@ suspend fun blockingApplicationLogic(
     partnerEmottak: PartnerResource,
     receiptProducer: MessageProducer,
     session: Session,
-    consumer: KafkaConsumer<String, ExternalAttachment>
+    consumer: KafkaConsumer<String, ExternalAttachment>,
+    personV3: PersonV3,
+    organisasjonEnhetV2: OrganisasjonEnhetV2
 ) {
     while (applicationState.running) {
         consumer.poll(Duration.ofMillis(0)).forEach {
             handleAltinnFollowupPlan(env, it, pdfClient, journalbehandling, fastlegeregisteret, organisasjonV4,
-                    adresseRegisterV1, partnerEmottak, receiptProducer, session)
+                    adresseRegisterV1, partnerEmottak, receiptProducer, session, personV3, organisasjonEnhetV2)
         }
         delay(100)
     }
