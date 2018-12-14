@@ -18,7 +18,6 @@ data class Environment(
     val securityTokenServiceUrl: String = getEnvVar("SECURITYTOKENSERVICE_URL"),
     val appName: String = getEnvVar("APP_NAME"),
     val appVersion: String = getEnvVar("APP_VERSION"),
-    val arenaIAQueue: String = getEnvVar("EIA_QUEUE_ARENA_IA_QUEUENAME"),
     val mqHostname: String = getEnvVar("MQGATEWAY03_HOSTNAME"),
     val mqPort: Int = getEnvVar("MQGATEWAY03_PORT").toInt(),
     val mqQueueManagerName: String = getEnvVar("MQGATEWAY03_NAME"),
@@ -34,8 +33,8 @@ data class Environment(
     val adresseregisteretV1EmottakEndpointURL: String = getEnvVar("EKSTERN_HELSE_ADRESSEREGISTERET_V1_ENDPOINTURL"),
     val receiptQueueName: String = getEnvVar("MOTTAK_QUEUE_UTSENDING_QUEUENAME"),
     val behandlealtinnmeldingV1EndpointURL: String = getEnvVar("EKSTERN_ALTINN_BEHANDLEALTINNMELDING_V1_ENDPOINTURL"),
-    val altinnUserUsername: String = getEnvVar("ALTINNUSER_USERNAME"),
-    val altinnUserPassword: String = getEnvVar("ALTINNUSER_PASSWORD"),
+    val organisasjonEnhetV2EndpointURL: String = getEnvVar("VIRKSOMHET_ORGANISASJONENHET_V2_ENDPOINTURL"),
+    val personV3EndpointURL: String = getEnvVar("VIRKSOMHET_PERSON_V3_ENDPOINTURL"),
 
     val applicationPort: Int = config.getProperty("application.port").toInt(),
     val applicationThreads: Int = config.getProperty("application.threads").toInt(),

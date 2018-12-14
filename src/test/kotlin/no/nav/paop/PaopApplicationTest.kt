@@ -10,7 +10,6 @@ import no.nav.paop.model.IncomingUserInfo
 import no.nav.paop.routes.xmlMapper
 import no.nav.paop.xml.datatypeFactory
 import no.nav.paop.xml.extractDataBatch
-import no.nav.paop.xml.extractNavOppfPlan
 import no.nav.tjeneste.virksomhet.organisasjon.v4.binding.OrganisasjonV4
 import no.nav.tjeneste.virksomhet.organisasjon.v4.binding.ValiderOrganisasjonOrganisasjonIkkeFunnet
 import no.nav.tjeneste.virksomhet.organisasjon.v4.binding.ValiderOrganisasjonUgyldigInput
@@ -135,19 +134,6 @@ object PaopApplicationTest : Spek({
                     dataBatch.dataUnits.dataUnit.first().formTask.form.first().formData)
 
             op2012.skjemainnhold.arbeidsgiver.annenKontaktpersonEtternavn shouldEqual "Navnesen"
-        }
-    }
-
-    describe("tests the functions extractNavOppfPlan") {
-        it("Should set dataBatch.dataUnits.dataUnit.first().formTask.form.first().formData to NavOppfPlan") {
-            val dataBatch = extractDataBatch(getFileAsString(
-                    "src/test/resources/oppfolging_navoppfplan_rapportering_sykemeldte.xml"))
-            val form = dataBatch.dataUnits.dataUnit.first().formTask.form.first()
-            form.reference shouldEqual "rapportering-sykmeldte"
-
-            val navOppfPlan = extractNavOppfPlan(form.formData)
-
-            navOppfPlan.fodselsNr shouldEqual "01010112345"
         }
     }
 

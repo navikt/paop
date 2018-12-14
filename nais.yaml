@@ -39,10 +39,6 @@ fasitResources:
       resourceType: BaseUrl
     - alias: joark_journalbehandling_ws_endpoint
       resourceType: BaseUrl
-    - alias: eia_queue_arena_ia_outbound
-      resourceType: Queue
-      propertyMap:
-        queueName: EIA_QUEUE_ARENA_IA_QUEUENAME
     - alias: paop_channel
       resourceType: Channel
     - alias: mqGateway03
@@ -63,7 +59,9 @@ fasitResources:
       resourceType: Queue
       propertyMap:
         queueName: MOTTAK_QUEUE_UTSENDING_QUEUENAME
-    - alias: ekstern:altinn_behandlealtinnmelding_v1
+    - alias: virksomhet:OrganisasjonEnhet_v2
       resourceType: Webserviceendpoint
-    - alias: altinnUser
-      resourceType: Credential
+      propertyMap:
+        url: VIRKSOMHET_ORGANISASJONENHET_V2_ENDPOINTURL
+    - alias: virksomhet:Person_v3
+      resourceType: Webserviceendpoint

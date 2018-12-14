@@ -17,12 +17,12 @@ import no.nav.altinnkanal.avro.ExternalAttachment
 import no.nav.emottak.schemas.PartnerResource
 import no.nav.paop.client.createHttpClient
 import no.nav.paop.routes.handleAltinnFollowupPlan
-import no.nav.paop.routes.handleNAVFollowupPlan
 import no.nav.paop.ws.configureBasicAuthFor
 import no.nav.paop.ws.configureSTSFor
 import no.nav.syfo.api.registerNaisApi
-import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.DokumentproduksjonV3
 import no.nav.tjeneste.virksomhet.organisasjon.v4.binding.OrganisasjonV4
+import no.nav.tjeneste.virksomhet.organisasjonenhet.v2.binding.OrganisasjonEnhetV2
+import no.nav.tjeneste.virksomhet.person.v3.binding.PersonV3
 import no.nav.virksomhet.tjenester.arkiv.journalbehandling.v1.binding.Journalbehandling
 import no.nhn.adresseregisteret.ICommunicationPartyService
 import no.nhn.schemas.reg.flr.IFlrReadOperations
@@ -62,7 +62,6 @@ fun main(args: Array<String>) = runBlocking(Executors.newFixedThreadPool(2).asCo
             val listeners = (1..env.applicationThreads).map {
                 launch {
                     val session = connection.createSession()
-                    val arenaQueue = session.createQueue(env.arenaIAQueue)
                     val receiptQueue = session.createQueue(env.receiptQueueName)
                     val consumerProperties = readConsumerConfig(env)
                     val altinnConsumer = KafkaConsumer<String, ExternalAttachment>(consumerProperties)
@@ -103,15 +102,6 @@ fun main(args: Array<String>) = runBlocking(Executors.newFixedThreadPool(2).asCo
                         serviceClass = Journalbehandling::class.java
                     }.create() as Journalbehandling
 
-                    val dokumentProduksjonV3 = JaxWsProxyFactoryBean().apply {
-                        address = env.dokumentproduksjonV3EndpointURL
-                        features.add(LoggingFeature())
-                        features.add(WSAddressingFeature())
-                        serviceClass = DokumentproduksjonV3::class.java
-                    }.create() as DokumentproduksjonV3
-                    configureSTSFor(dokumentProduksjonV3, env.srvPaopUsername,
-                            env.srvPaopPassword, env.securityTokenServiceUrl)
-
                     val adresseRegisterV1 = JaxWsProxyFactoryBean().apply {
                         address = env.adresseregisteretV1EmottakEndpointURL
                         features.add(LoggingFeature())
@@ -129,13 +119,24 @@ fun main(args: Array<String>) = runBlocking(Executors.newFixedThreadPool(2).asCo
                     }.create() as PartnerResource
                     configureBasicAuthFor(partnerEmottak, env.srvPaopUsername, env.srvPaopPassword)
 
-                    val arenaProducer = session.createProducer(arenaQueue)
+                    val personV3 = JaxWsProxyFactoryBean().apply {
+                        address = env.personV3EndpointURL
+                        serviceClass = PersonV3::class.java
+                    }.create() as PersonV3
+                    configureSTSFor(personV3, env.srvPaopUsername,
+                            env.srvPaopPassword, env.securityTokenServiceUrl)
+
+                    val orgnaisasjonEnhet = JaxWsProxyFactoryBean().apply {
+                        address = env.organisasjonEnhetV2EndpointURL
+                        serviceClass = OrganisasjonEnhetV2::class.java
+                    }.create() as OrganisasjonEnhetV2
+                    configureSTSFor(orgnaisasjonEnhet, env.srvPaopUsername,
+                            env.srvPaopPassword, env.securityTokenServiceUrl)
+
                     val receiptProducer = session.createProducer(receiptQueue)
                     val httpClient = createHttpClient()
 
-                    blockingApplicationLogic(env, applicationState, httpClient, journalbehandling, fastlegeregisteret, organisasjonV4,
-                            dokumentProduksjonV3, adresseRegisterV1, partnerEmottak,
-                            arenaProducer, receiptProducer, session, altinnConsumer, altinnConsumer)
+                    blockingApplicationLogic(env, applicationState, httpClient, journalbehandling, fastlegeregisteret, organisasjonV4, adresseRegisterV1, partnerEmottak, receiptProducer, session, altinnConsumer)
                 }
             }.toList()
 
@@ -171,24 +172,16 @@ suspend fun blockingApplicationLogic(
     journalbehandling: Journalbehandling,
     fastlegeregisteret: IFlrReadOperations,
     organisasjonV4: OrganisasjonV4,
-    dokumentProduksjonV3: DokumentproduksjonV3,
     adresseRegisterV1: ICommunicationPartyService,
     partnerEmottak: PartnerResource,
-    arenaProducer: MessageProducer,
     receiptProducer: MessageProducer,
     session: Session,
-    consumer: KafkaConsumer<String, ExternalAttachment>,
-    navOppfPlanConsumer: KafkaConsumer<String, ExternalAttachment>
+    consumer: KafkaConsumer<String, ExternalAttachment>
 ) {
     while (applicationState.running) {
         consumer.poll(Duration.ofMillis(0)).forEach {
             handleAltinnFollowupPlan(env, it, pdfClient, journalbehandling, fastlegeregisteret, organisasjonV4,
-                    dokumentProduksjonV3, adresseRegisterV1, partnerEmottak,
-                    arenaProducer, receiptProducer, session)
-        }
-        navOppfPlanConsumer.poll(Duration.ofMillis(0)).forEach {
-            handleNAVFollowupPlan(it, journalbehandling, fastlegeregisteret, organisasjonV4, dokumentProduksjonV3,
-                    arenaProducer, session)
+                    adresseRegisterV1, partnerEmottak, receiptProducer, session)
         }
         delay(100)
     }

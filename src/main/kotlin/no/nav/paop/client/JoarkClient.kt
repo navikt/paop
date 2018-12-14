@@ -3,13 +3,6 @@ package no.nav.paop.client
 import no.nav.paop.PaopConstant
 import no.nav.paop.model.IncomingMetadata
 import no.nav.paop.xml.datatypeFactory
-import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.Dokumentbestillingsinformasjon
-import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.Fagomraader
-import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.Fagsystemer
-import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.Landkoder
-import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.NorskPostadresse
-import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.informasjon.Organisasjon
-import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.meldinger.ProduserIkkeredigerbartDokumentRequest
 import no.nav.virksomhet.tjenester.arkiv.journalbehandling.meldinger.v1.Bruker
 import no.nav.virksomhet.tjenester.arkiv.journalbehandling.meldinger.v1.DokumentInfo
 import no.nav.virksomhet.tjenester.arkiv.journalbehandling.meldinger.v1.Fildetaljer
@@ -64,48 +57,4 @@ fun createJoarkRequest(
     avsenderMottaker = metadata.senderOrgName
     avsenderMottakerId = metadata.senderOrgId
     opprettetAvNavn = PaopConstant.eiaAuto.string
-}
-
-fun createProduserIkkeredigerbartDokumentRequest(
-    incomingMetadata: IncomingMetadata,
-    receiverOrgNumber: String,
-    gpName: String,
-    postnummerString: String?,
-    poststedString: String?,
-    xmlContent: String
-): ProduserIkkeredigerbartDokumentRequest = ProduserIkkeredigerbartDokumentRequest().apply {
-    dokumentbestillingsinformasjon = Dokumentbestillingsinformasjon().apply {
-        dokumenttypeId = "000001"
-        bestillendeFagsystem = Fagsystemer().apply {
-            value = "AO01"
-        }
-        bruker = Organisasjon().apply {
-            navn = "ARBEIDS- OG VELFERDSETATEN"
-            orgnummer = "889640782"
-        }
-        mottaker = Organisasjon().apply {
-            navn = gpName
-            orgnummer = receiverOrgNumber
-        }
-        journalsakId = incomingMetadata.archiveReference
-        sakstilhoerendeFagsystem = Fagsystemer().apply {
-            value = "AO01"
-        }
-        dokumenttilhoerendeFagomraade = Fagomraader().apply {
-            value = "UFO"
-        }
-        journalfoerendeEnhet = "N/A"
-        saksbehandlernavn = "PAOP"
-        adresse = NorskPostadresse().apply {
-            adresselinje1 = "stat"
-            land = Landkoder().apply {
-                value = "NO"
-            }
-            postnummer = postnummerString
-            poststed = poststedString
-        }
-        isFerdigstillForsendelse = true
-        isInkludererEksterneVedlegg = false
-    }
-    brevdata = wrapFormData(xmlContent)
 }

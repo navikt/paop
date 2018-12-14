@@ -17,30 +17,20 @@ import no.nav.emottak.schemas.PartnerResource
 import no.nav.model.dataBatch.DataBatch
 import no.nav.model.oppfolgingsplan2016.Oppfoelgingsplan4UtfyllendeInfoM
 import no.nav.paop.Environment
-import no.nav.paop.client.createArenaBrevdata
 import no.nav.paop.client.createDialogmelding
 import no.nav.paop.client.createJoarkRequest
-import no.nav.paop.client.createPhysicalLetter
 import no.nav.paop.client.generatePDF
-import no.nav.paop.client.sendArenaOppfolginsplan
 import no.nav.paop.client.sendDialogmeldingOppfolginsplan
 import no.nav.paop.log
 import no.nav.paop.mapping.mapFormdataToFagmelding
-import no.nav.paop.model.ArenaBistand
 import no.nav.paop.model.IncomingMetadata
 import no.nav.paop.model.IncomingUserInfo
-import no.nav.paop.xml.arenabrevdataMarshaller
 import no.nav.paop.xml.dataBatchUnmarshaller
 import no.nav.paop.xml.extractGPFirstName
 import no.nav.paop.xml.extractGPFnr
 import no.nav.paop.xml.extractGPHprNumber
 import no.nav.paop.xml.extractGPLastName
 import no.nav.paop.xml.extractGPMiddleName
-import no.nav.paop.xml.extractGPName
-import no.nav.paop.xml.extractGPOfficePhysicalAddress
-import no.nav.paop.xml.extractGPOfficePostalCode
-import no.nav.paop.xml.toString
-import no.nav.tjeneste.virksomhet.dokumentproduksjon.v3.DokumentproduksjonV3
 import no.nav.tjeneste.virksomhet.organisasjon.v4.binding.OrganisasjonV4
 import no.nav.tjeneste.virksomhet.organisasjon.v4.meldinger.ValiderOrganisasjonRequest
 import no.nav.virksomhet.tjenester.arkiv.journalbehandling.v1.binding.Journalbehandling
@@ -65,10 +55,8 @@ fun handleAltinnFollowupPlan(
     journalbehandling: Journalbehandling,
     fastlegeregisteret: IFlrReadOperations,
     organisasjonV4: OrganisasjonV4,
-    dokumentProduksjonV3: DokumentproduksjonV3,
     adresseRegisterV1: ICommunicationPartyService,
     partnerEmottak: PartnerResource,
-    arenaProducer: MessageProducer,
     receiptProducer: MessageProducer,
     session: Session
 ) {
@@ -114,30 +102,21 @@ fun handleAltinnFollowupPlan(
             userPersonNumber = skjemainnhold.sykmeldtArbeidstaker.fnr
     )
 
-    val arenaBistand = ArenaBistand(
-            bistandNavHjelpemidler = skjemainnhold.tiltak.tiltaksinformasjon.any { it.isBistandHjelpemidler },
-            bistandNavVeiledning = skjemainnhold.tiltak.tiltaksinformasjon.any { it.isBistandRaadOgVeiledning },
-            bistandDialogmote = skjemainnhold.tiltak.tiltaksinformasjon.any { it.isBistandDialogMoeteMedNav },
-            bistandVirkemidler = skjemainnhold.tiltak.tiltaksinformasjon.any { it.isBistandArbeidsrettedeTiltakOgVirkemidler }
-    )
-
     if (skjemainnhold.mottaksInformasjon.isOppfolgingsplanSendesTiNav) {
         val joarkRequest = createJoarkRequest(incomingMetadata, fagmelding)
         journalbehandling.lagreDokumentOgOpprettJournalpost(joarkRequest)
-        sendArenaOppfolginsplan(arenaProducer, session, incomingMetadata, arenaBistand)
+        // TODO SEND TO KAFKA TOPIC
     }
     if (skjemainnhold.mottaksInformasjon.isOppfolgingsplanSendesTilFastlege) {
-        handleDoctorFollowupPlanAltinn(fastlegeregisteret, dokumentProduksjonV3, adresseRegisterV1,
-                partnerEmottak, arenaProducer, receiptProducer, session, incomingMetadata, incomingPersonInfo, fagmelding, logKeys, logValues)
+        handleDoctorFollowupPlanAltinn(fastlegeregisteret, adresseRegisterV1,
+                partnerEmottak, receiptProducer, session, incomingMetadata, incomingPersonInfo, fagmelding, logKeys, logValues)
     }
 }
 
 fun handleDoctorFollowupPlanAltinn(
     fastlegeregisteret: IFlrReadOperations,
-    dokumentProduksjonV3: DokumentproduksjonV3,
     adresseRegisterV1: ICommunicationPartyService,
     partnerEmottak: PartnerResource,
-    arenaProducer: MessageProducer,
     receiptProducer: MessageProducer,
     session: Session,
     incomingMetadata: IncomingMetadata,
@@ -149,14 +128,11 @@ fun handleDoctorFollowupPlanAltinn(
     try {
             log.info("Calling fastlegeregistert $logKeys", *logValues)
             val patientToGPContractAssociation = fastlegeregisteret.getPatientGPDetails(incomingMetadata.userPersonNumber)
-            val gpName = patientToGPContractAssociation.extractGPName()
             val gpFirstName = patientToGPContractAssociation.extractGPFirstName()!!
             val gpMiddleName = patientToGPContractAssociation.extractGPMiddleName()
             val gpLastName = patientToGPContractAssociation.extractGPLastName()!!
             val gpFnr = patientToGPContractAssociation.extractGPFnr()
             val gpHprNumber = patientToGPContractAssociation.extractGPHprNumber()
-            val gpOfficePostnr = patientToGPContractAssociation.extractGPOfficePostalCode()
-            val gpOfficePoststed = patientToGPContractAssociation.extractGPOfficePhysicalAddress()
 
             val gpHerIdFlr = patientToGPContractAssociation.gpHerId
 
@@ -185,12 +161,8 @@ fun handleDoctorFollowupPlanAltinn(
                 log.info("Dialogmessage sendt to GP $logKeys", *logValues)
             } else {
                 // TODO TMP
-                val brevdata = arenabrevdataMarshaller.toString(createArenaBrevdata())
-
-                createPhysicalLetter(dokumentProduksjonV3, arenaProducer, session, incomingMetadata, gpOfficeOrganizationNumber,
-                        gpName, gpOfficePostnr, gpOfficePoststed, brevdata)
+                log.info("Could not send Dialogmessage to GP $logKeys", *logValues)
             }
-            log.info("PhysicalLetter sendt to GP $logKeys", *logValues)
         } catch (e: IFlrReadOperationsGetPatientGPDetailsGenericFaultFaultFaultMessage) {
                 log.error("Oppfølginsplan kunne ikkje sendes, feil fra fastelegeregisteret $logKeys", *logValues, e)
         } catch (e: Exception) {
