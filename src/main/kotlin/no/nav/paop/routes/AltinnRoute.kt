@@ -165,9 +165,13 @@ fun handleAltinnFollowupPlan(
 
         val sakResponse =
                 runBlocking {
-                    httpClient.generateSAK(env, OpprettSak(tema = "SYK", applikasjon = "PAOP",
-                            aktoerId = receivedOppfolginsplan.userPersonNumber, orgnr = receivedOppfolginsplan.senderOrgId, fagsakNr = saksId))
-                }
+                    try {
+                        httpClient.generateSAK(env, OpprettSak(tema = "SYK", applikasjon = "PAOP",
+                                aktoerId = receivedOppfolginsplan.userPersonNumber, orgnr = receivedOppfolginsplan.senderOrgId, fagsakNr = saksId))
+                    } catch (e: Exception) {
+                            log.error("Exception from Sak:", e)
+                        }
+                    }
         log.debug("Response from request to create sak, {}", keyValue("response", sakResponse))
         log.info("Created a case $logKeys", *logValues)
 
