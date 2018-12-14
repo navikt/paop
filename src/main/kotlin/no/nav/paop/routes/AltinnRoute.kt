@@ -85,7 +85,7 @@ val xmlMapper: ObjectMapper = XmlMapper(JacksonXmlModule().apply {
 fun handleAltinnFollowupPlan(
     env: Environment,
     record: ConsumerRecord<String, ExternalAttachment>,
-    pdfClient: HttpClient,
+    httpClient: HttpClient,
     behandleJournalV2: BehandleJournalV2,
     fastlegeregisteret: IFlrReadOperations,
     organisasjonV4: OrganisasjonV4,
@@ -122,7 +122,7 @@ fun handleAltinnFollowupPlan(
 
     val fagmelding =
                 runBlocking {
-                    pdfClient.generatePDF(env, mapFormdataToFagmelding(skjemainnhold, incomingMetadata))
+                    httpClient.generatePDF(env, mapFormdataToFagmelding(skjemainnhold, incomingMetadata))
                 }
 
     val validOrganizationNumber = organisasjonV4.validerOrganisasjon(ValiderOrganisasjonRequest().apply {
@@ -165,7 +165,7 @@ fun handleAltinnFollowupPlan(
 
         val sakResponse =
                 runBlocking {
-                    pdfClient.generateSAK(env, OpprettSak(tema = "SYK", applikasjon = "PAOP",
+                    httpClient.generateSAK(env, OpprettSak(tema = "SYK", applikasjon = "PAOP",
                             aktoerId = receivedOppfolginsplan.userPersonNumber, orgnr = receivedOppfolginsplan.senderOrgId, fagsakNr = saksId))
                 }
         log.debug("Response from request to create sak, {}", keyValue("response", sakResponse))

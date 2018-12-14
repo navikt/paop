@@ -161,7 +161,7 @@ fun connectionFactory(environment: Environment) = MQConnectionFactory().apply {
 suspend fun blockingApplicationLogic(
     env: Environment,
     applicationState: ApplicationState,
-    pdfClient: HttpClient,
+    httpClient: HttpClient,
     behandleJournalV2: BehandleJournalV2,
     fastlegeregisteret: IFlrReadOperations,
     organisasjonV4: OrganisasjonV4,
@@ -176,7 +176,7 @@ suspend fun blockingApplicationLogic(
 ) {
     while (applicationState.running) {
         consumer.poll(Duration.ofMillis(0)).forEach {
-            handleAltinnFollowupPlan(env, it, pdfClient, behandleJournalV2, fastlegeregisteret, organisasjonV4,
+            handleAltinnFollowupPlan(env, it, httpClient, behandleJournalV2, fastlegeregisteret, organisasjonV4,
                     adresseRegisterV1, partnerEmottak, receiptProducer, session, personV3, organisasjonEnhetV2, kafkaproducer)
         }
         delay(100)
