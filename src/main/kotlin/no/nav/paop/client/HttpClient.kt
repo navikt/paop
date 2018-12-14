@@ -24,7 +24,7 @@ fun createHttpClient() = HttpClient(CIO) {
     }
     install(Logging) {
         logger = Logger.DEFAULT
-        level = LogLevel.HEADERS
+        level = LogLevel.ALL
     }
 }
 
