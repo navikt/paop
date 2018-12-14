@@ -69,6 +69,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.kafka.clients.producer.ProducerRecord
 import java.io.StringReader
+import java.time.LocalDateTime
 import java.time.ZonedDateTime
 import java.util.GregorianCalendar
 import java.util.UUID
@@ -165,8 +166,14 @@ fun handleAltinnFollowupPlan(
 
         val sakResponse =
                 runBlocking {
-                    httpClient.generateSAK(env, OpprettSak(tema = "SYK", applikasjon = "PAOP",
-                            aktoerId = receivedOppfolginsplan.userPersonNumber, orgnr = receivedOppfolginsplan.senderOrgId, fagsakNr = saksId))
+                    httpClient.generateSAK(env, OpprettSak(
+                            tema = "SYK",
+                            applikasjon = "PAOP",
+                            aktoerId = receivedOppfolginsplan.userPersonNumber,
+                            orgnr = receivedOppfolginsplan.senderOrgId,
+                            fagsakNr = saksId,
+                            opprettetTidspunkt = LocalDateTime.now(),
+                            opprettetAv = "Opprettet av en applikasjon PAOP"))
                 }
         log.info("Response from request to create sak, {}", keyValue("response", sakResponse))
         log.info("Created a case $logKeys", *logValues)
