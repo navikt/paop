@@ -162,18 +162,18 @@ fun handleAltinnFollowupPlan(
     )
 
     if (skjemainnhold.mottaksInformasjon.isOppfolgingsplanSendesTiNav) {
-        val saksId = UUID.randomUUID().toString()
+        val saksId = record.value().getArchiveReference()
 
         val sakResponse =
                 runBlocking {
                     httpClient.generateSAK(env, OpprettSak(
                             tema = "SYK",
-                            applikasjon = "PAOP",
+                            applikasjon = "FS22", //TODO PAOP
                             aktoerId = receivedOppfolginsplan.userPersonNumber,
                             orgnr = receivedOppfolginsplan.senderOrgId,
                             fagsakNr = saksId,
                             opprettetTidspunkt = LocalDateTime.now(),
-                            opprettetAv = "Opprettet av en applikasjon PAOP"))
+                            opprettetAv = env.srvPaopUsername))
                 }
         log.info("Response from request to create sak, {}", keyValue("response", sakResponse))
         log.info("Created a case $logKeys", *logValues)
