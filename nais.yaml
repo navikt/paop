@@ -65,3 +65,5 @@ fasitResources:
       resourceType: Webserviceendpoint
     - alias: BehandleJournal_v2
       resourceType: Webserviceendpoint
+    - alias: securityTokenService
+      resourceType: BaseUrl
