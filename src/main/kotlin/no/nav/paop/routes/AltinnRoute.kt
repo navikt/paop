@@ -167,8 +167,8 @@ fun handleAltinnFollowupPlan(
                 runBlocking {
                     httpClient.generateSAK(env, OpprettSak(
                             tema = "SYK",
-                            applikasjon = "FS22", // TODO PAOP
-                            aktoerId = receivedOppfolginsplan.userPersonNumber,
+                            applikasjon = "IT01", // TODO PAOP
+                            aktoerId = "", // TODO Remove?
                             orgnr = receivedOppfolginsplan.senderOrgId,
                             fagsakNr = saksId,
                             opprettetTidspunkt = LocalDateTime.now(),
