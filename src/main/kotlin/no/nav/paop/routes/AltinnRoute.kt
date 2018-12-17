@@ -72,7 +72,6 @@ import java.io.StringReader
 import java.time.LocalDateTime
 import java.time.ZonedDateTime
 import java.util.GregorianCalendar
-import java.util.UUID
 import javax.jms.MessageProducer
 import javax.jms.Session
 import javax.xml.datatype.XMLGregorianCalendar
@@ -168,7 +167,7 @@ fun handleAltinnFollowupPlan(
                 runBlocking {
                     httpClient.generateSAK(env, OpprettSak(
                             tema = "SYK",
-                            applikasjon = "FS22", //TODO PAOP
+                            applikasjon = "FS22", // TODO PAOP
                             aktoerId = receivedOppfolginsplan.userPersonNumber,
                             orgnr = receivedOppfolginsplan.senderOrgId,
                             fagsakNr = saksId,
