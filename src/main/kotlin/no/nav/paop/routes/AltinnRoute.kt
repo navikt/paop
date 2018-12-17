@@ -171,7 +171,7 @@ fun handleAltinnFollowupPlan(
                             applikasjon = "PAOP",
                             orgnr = receivedOppfolginsplan.senderOrgId,
                             fagsakNr = saksId,
-                            opprettetAv = env.srvPaopUsername), env.srvPaopUsername, env.srvPaopPassword)
+                            opprettetAv = env.srvPaopUsername))
                 }
         log.info("Response from request to create sak, {}", keyValue("response", sakResponse))
         log.info("Created a case $logKeys", *logValues)
