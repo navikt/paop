@@ -66,3 +66,6 @@ fasitResources:
       resourceType: Webserviceendpoint
     - alias: securityTokenService
       resourceType: BaseUrl
+      # TODO remove after inc: INC000001948805 is fixed
+    - alias: srvsyfoservice
+      resourceType: Credential

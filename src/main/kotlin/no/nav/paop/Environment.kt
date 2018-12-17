@@ -38,6 +38,9 @@ data class Environment(
     val organisasjonEnhetV2EndpointURL: String = getEnvVar("VIRKSOMHET_ORGANISASJONENHET_V2_ENDPOINTURL"),
     val personV3EndpointURL: String = getEnvVar("VIRKSOMHET_PERSON_V3_ENDPOINTURL"),
     val securityTokenServiceUrl: String = getEnvVar("SECURITYTOKENSERVICE_URL"),
+    // TODO remove after inc: INC000001948805 is fixed
+    val srvSyfoserviceUsername: String = getEnvVar("SRVSYFOSERVICE_USERNAME"),
+    val srvSyfoservicePassword: String = getEnvVar("SRVSYFOSERVICE_PASSWORD"),
 
     val applicationPort: Int = config.getProperty("application.port").toInt(),
     val applicationThreads: Int = config.getProperty("application.threads").toInt(),
