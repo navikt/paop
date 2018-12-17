@@ -128,7 +128,7 @@ fun main(args: Array<String>) = runBlocking(Executors.newFixedThreadPool(2).asCo
 
                     val pdfClient = PdfClient(env.pdfGeneratorURL, env.srvPaopUsername, env.srvPaopPassword)
 
-                    val sakClient = SakClient(env.sakURL, env.srvPaopUsername, env.srvPaopPassword)
+                    val sakClient = SakClient(env.sakURL)
 
                     blockingApplicationLogic(env, applicationState, pdfClient, sakClient, behandleJournalV2, fastlegeregisteret,
                             organisasjonV4, adresseRegisterV1, partnerEmottak, receiptProducer, session, altinnConsumer,

@@ -7,6 +7,7 @@ import com.fasterxml.jackson.dataformat.xml.XmlMapper
 import com.fasterxml.jackson.module.jaxb.JaxbAnnotationModule
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import io.ktor.util.InternalAPI
 import kotlinx.coroutines.runBlocking
 import net.logstash.logback.argument.StructuredArgument
 import net.logstash.logback.argument.StructuredArguments.keyValue
@@ -80,6 +81,7 @@ val xmlMapper: ObjectMapper = XmlMapper(JacksonXmlModule().apply {
         .registerKotlinModule()
         .configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true)
 
+@UseExperimental(InternalAPI::class)
 fun handleAltinnFollowupPlan(
     env: Environment,
     record: ConsumerRecord<String, ExternalAttachment>,
@@ -169,7 +171,7 @@ fun handleAltinnFollowupPlan(
                             applikasjon = "IT01", // TODO PAOP
                             orgnr = receivedOppfolginsplan.senderOrgId,
                             fagsakNr = saksId,
-                            opprettetAv = env.srvPaopUsername))
+                            opprettetAv = env.srvPaopUsername), env.srvPaopUsername, env.srvPaopPassword)
                 }
         log.info("Response from request to create sak, {}", keyValue("response", sakResponse))
         log.info("Created a case $logKeys", *logValues)
