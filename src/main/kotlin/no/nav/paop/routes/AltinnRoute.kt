@@ -68,7 +68,6 @@ import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.kafka.clients.producer.ProducerRecord
 import java.io.StringReader
-import java.time.LocalDateTime
 import java.time.ZonedDateTime
 import java.util.GregorianCalendar
 import javax.jms.MessageProducer
