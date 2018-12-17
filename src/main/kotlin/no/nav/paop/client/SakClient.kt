@@ -1,8 +1,5 @@
 package no.nav.paop.client
 
-import com.fasterxml.jackson.databind.SerializationFeature
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
-import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.engine.config
@@ -14,7 +11,7 @@ import io.ktor.client.request.post
 import io.ktor.client.request.url
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
-import no.nav.paop.log
+import no.nav.paop.model.OpprettSak
 import java.util.UUID
 
 class SakClient(private val endpointUrl: String, private val serviceUsername: String, private val servicePassword: String) {
@@ -33,21 +30,16 @@ class SakClient(private val endpointUrl: String, private val serviceUsername: St
             password = servicePassword
         }
         install(JsonFeature) {
-            serializer = JacksonSerializer {
-                registerKotlinModule()
-                registerModule(JavaTimeModule())
-                configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
-            }
+            serializer = JacksonSerializer()
         }
     }
 
-suspend fun generateSAK(domainObject: Any): String = client.post {
+suspend fun generateSAK(sak: OpprettSak): String = client.post {
     contentType(ContentType.Application.Json)
     headers {
         append("X-Correlation-ID", UUID.randomUUID().toString())
     }
-    body = objectMapper.writeValueAsBytes(domainObject)
-    log.info("Generate sak request: ${objectMapper.writeValueAsString(domainObject)}")
+    body = sak
     url("$endpointUrl/v1/saker")
 }
 }
