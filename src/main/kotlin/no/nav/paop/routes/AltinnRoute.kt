@@ -178,6 +178,7 @@ fun handleAltinnFollowupPlan(
 
         onJournalRequest(receivedOppfolginsplan, fagmelding, behandleJournalV2, saksId, logKeys, logValues)
         kafkaproducer.send(ProducerRecord(env.kafkaOutgoingTopicOppfolginsplan, receivedOppfolginsplan))
+        log.info("Oppfølginsplan sendt to kafka topic ${env.kafkaOutgoingTopicOppfolginsplan} $logKeys", *logValues)
     }
     if (skjemainnhold.mottaksInformasjon.isOppfolgingsplanSendesTilFastlege) {
         handleDoctorFollowupPlanAltinn(fastlegeregisteret, adresseRegisterV1,
