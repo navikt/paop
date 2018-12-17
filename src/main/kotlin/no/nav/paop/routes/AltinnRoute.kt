@@ -165,7 +165,7 @@ fun handleAltinnFollowupPlan(
 
         val sakResponse =
                 runBlocking {
-                    sakClient.generateSAK(env, OpprettSak(
+                    sakClient.generateSAK(OpprettSak(
                             tema = "SYK",
                             applikasjon = "IT01", // TODO PAOP
                             aktoerId = "", // TODO Remove?

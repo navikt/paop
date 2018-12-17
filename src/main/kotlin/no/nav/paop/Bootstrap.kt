@@ -16,7 +16,6 @@ import no.nav.altinnkanal.avro.ExternalAttachment
 import no.nav.emottak.schemas.PartnerResource
 import no.nav.paop.client.PdfClient
 import no.nav.paop.client.SakClient
-import no.nav.paop.client.StsOidcClient
 import no.nav.paop.model.ReceivedOppfolginsplan
 import no.nav.paop.routes.handleAltinnFollowupPlan
 import no.nav.paop.ws.configureBasicAuthFor
@@ -129,8 +128,7 @@ fun main(args: Array<String>) = runBlocking(Executors.newFixedThreadPool(2).asCo
 
                     val pdfClient = PdfClient(env.pdfGeneratorURL, env.srvPaopUsername, env.srvPaopPassword)
 
-                    val oidcClient = StsOidcClient(env.srvPaopUsername, env.srvPaopUsername)
-                    val sakClient = SakClient(env.sakURL, oidcClient)
+                    val sakClient = SakClient(env.sakURL, env.srvPaopUsername, env.srvPaopPassword)
 
                     blockingApplicationLogic(env, applicationState, pdfClient, sakClient, behandleJournalV2, fastlegeregisteret,
                             organisasjonV4, adresseRegisterV1, partnerEmottak, receiptProducer, session, altinnConsumer,
