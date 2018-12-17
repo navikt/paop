@@ -168,7 +168,7 @@ fun handleAltinnFollowupPlan(
                 runBlocking {
                     sakClient.generateSAK(OpprettSak(
                             tema = "SYK",
-                            applikasjon = "IT01", // TODO PAOP
+                            applikasjon = "PAOP",
                             orgnr = receivedOppfolginsplan.senderOrgId,
                             fagsakNr = saksId,
                             opprettetAv = env.srvPaopUsername), env.srvPaopUsername, env.srvPaopPassword)
