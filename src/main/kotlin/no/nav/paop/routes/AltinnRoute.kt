@@ -7,7 +7,6 @@ import com.fasterxml.jackson.dataformat.xml.XmlMapper
 import com.fasterxml.jackson.module.jaxb.JaxbAnnotationModule
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
-import io.ktor.client.HttpClient
 import kotlinx.coroutines.runBlocking
 import net.logstash.logback.argument.StructuredArgument
 import net.logstash.logback.argument.StructuredArguments.keyValue
@@ -17,9 +16,9 @@ import no.nav.emottak.schemas.PartnerResource
 import no.nav.model.dataBatch.DataBatch
 import no.nav.model.oppfolgingsplan2016.Oppfoelgingsplan4UtfyllendeInfoM
 import no.nav.paop.Environment
+import no.nav.paop.client.PdfClient
+import no.nav.paop.client.SakClient
 import no.nav.paop.client.createDialogmelding
-import no.nav.paop.client.generatePDF
-import no.nav.paop.client.generateSAK
 import no.nav.paop.client.objectMapper
 import no.nav.paop.client.sendDialogmeldingOppfolginsplan
 import no.nav.paop.log
@@ -85,7 +84,8 @@ val xmlMapper: ObjectMapper = XmlMapper(JacksonXmlModule().apply {
 fun handleAltinnFollowupPlan(
     env: Environment,
     record: ConsumerRecord<String, ExternalAttachment>,
-    httpClient: HttpClient,
+    pdfClient: PdfClient,
+    sakClient: SakClient,
     behandleJournalV2: BehandleJournalV2,
     fastlegeregisteret: IFlrReadOperations,
     organisasjonV4: OrganisasjonV4,
@@ -122,7 +122,7 @@ fun handleAltinnFollowupPlan(
 
     val fagmelding =
                 runBlocking {
-                    httpClient.generatePDF(env, mapFormdataToFagmelding(skjemainnhold, incomingMetadata))
+                    pdfClient.generatePDF(mapFormdataToFagmelding(skjemainnhold, incomingMetadata))
                 }
 
     val validOrganizationNumber = organisasjonV4.validerOrganisasjon(ValiderOrganisasjonRequest().apply {
@@ -165,7 +165,7 @@ fun handleAltinnFollowupPlan(
 
         val sakResponse =
                 runBlocking {
-                    httpClient.generateSAK(env, OpprettSak(
+                    sakClient.generateSAK(env, OpprettSak(
                             tema = "SYK",
                             applikasjon = "IT01", // TODO PAOP
                             aktoerId = "", // TODO Remove?

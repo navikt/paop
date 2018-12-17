@@ -15,7 +15,6 @@ data class Environment(
     val srvPaopUsername: String = getEnvVar("SRVPAOP_USERNAME"),
     val srvPaopPassword: String = getEnvVar("SRVPAOP_PASSWORD"),
     val behandleJournalV2EndpointURL: String = getEnvVar("BEHANDLEJOURNAL_V2_ENDPOINTURL"),
-    val securityTokenServiceUrl: String = getEnvVar("SECURITYTOKENSERVICE_URL"),
     val appName: String = getEnvVar("APP_NAME"),
     val appVersion: String = getEnvVar("APP_VERSION"),
     val mqHostname: String = getEnvVar("MQGATEWAY03_HOSTNAME"),
@@ -39,6 +38,7 @@ data class Environment(
     val applicationPort: Int = config.getProperty("application.port").toInt(),
     val applicationThreads: Int = config.getProperty("application.threads").toInt(),
     val kafkaIncommingTopicOppfolginsplan: String = config.getProperty("kafka.appen.altinn.oppfolgingsplan.topic"),
-    val kafkaOutgoingTopicOppfolginsplan: String = config.getProperty("kafka.privat.syfo.oppfolingsplan.topic")
+    val kafkaOutgoingTopicOppfolginsplan: String = config.getProperty("kafka.privat.syfo.oppfolingsplan.topic"),
+    val securityTokenServiceUrl: String = config.getProperty("security.token.service.url")
 
 )

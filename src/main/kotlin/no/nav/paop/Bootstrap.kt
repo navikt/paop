@@ -4,7 +4,6 @@ import com.ibm.mq.jms.MQConnectionFactory
 import com.ibm.msg.client.wmq.WMQConstants
 import com.ibm.msg.client.wmq.compat.base.internal.MQC
 import io.ktor.application.Application
-import io.ktor.client.HttpClient
 import io.ktor.routing.routing
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
@@ -15,7 +14,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import no.nav.altinnkanal.avro.ExternalAttachment
 import no.nav.emottak.schemas.PartnerResource
-import no.nav.paop.client.createHttpClient
+import no.nav.paop.client.PdfClient
+import no.nav.paop.client.SakClient
+import no.nav.paop.client.StsOidcClient
 import no.nav.paop.model.ReceivedOppfolginsplan
 import no.nav.paop.routes.handleAltinnFollowupPlan
 import no.nav.paop.ws.configureBasicAuthFor
@@ -125,9 +126,13 @@ fun main(args: Array<String>) = runBlocking(Executors.newFixedThreadPool(2).asCo
                             env.srvPaopPassword, env.securityTokenServiceUrl)
 
                     val receiptProducer = session.createProducer(receiptQueue)
-                    val httpClient = createHttpClient()
 
-                    blockingApplicationLogic(env, applicationState, httpClient, behandleJournalV2, fastlegeregisteret,
+                    val pdfClient = PdfClient(env.pdfGeneratorURL, env.srvPaopUsername, env.srvPaopPassword)
+
+                    val oidcClient = StsOidcClient(env.srvPaopUsername, env.srvPaopUsername)
+                    val sakClient = SakClient(env.sakURL, oidcClient)
+
+                    blockingApplicationLogic(env, applicationState, pdfClient, sakClient, behandleJournalV2, fastlegeregisteret,
                             organisasjonV4, adresseRegisterV1, partnerEmottak, receiptProducer, session, altinnConsumer,
                             personV3, orgnaisasjonEnhet, kafkaproducer)
                 }
@@ -161,7 +166,8 @@ fun connectionFactory(environment: Environment) = MQConnectionFactory().apply {
 suspend fun blockingApplicationLogic(
     env: Environment,
     applicationState: ApplicationState,
-    httpClient: HttpClient,
+    pdfClient: PdfClient,
+    sakClient: SakClient,
     behandleJournalV2: BehandleJournalV2,
     fastlegeregisteret: IFlrReadOperations,
     organisasjonV4: OrganisasjonV4,
@@ -176,7 +182,7 @@ suspend fun blockingApplicationLogic(
 ) {
     while (applicationState.running) {
         consumer.poll(Duration.ofMillis(0)).forEach {
-            handleAltinnFollowupPlan(env, it, httpClient, behandleJournalV2, fastlegeregisteret, organisasjonV4,
+            handleAltinnFollowupPlan(env, it, pdfClient, sakClient, behandleJournalV2, fastlegeregisteret, organisasjonV4,
                     adresseRegisterV1, partnerEmottak, receiptProducer, session, personV3, organisasjonEnhetV2, kafkaproducer)
         }
         delay(100)
