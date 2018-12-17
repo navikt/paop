@@ -33,8 +33,6 @@ resources:
     memory: 128Mi
 fasitResources:
   used:
-    - alias: srvpaop
-      resourceType: Credential
     - alias: joark_journalbehandling_ws_endpoint
       resourceType: BaseUrl
     - alias: paop_channel

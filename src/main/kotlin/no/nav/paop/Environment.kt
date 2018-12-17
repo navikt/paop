@@ -1,19 +1,24 @@
 package no.nav.paop
 
+import java.nio.file.Files
+import java.nio.file.Paths
 import java.util.Properties
 
 fun getEnvVar(name: String, default: String? = null): String =
         System.getenv(name) ?: default ?: throw RuntimeException("Missing variable $name")
 
+private val vaultApplicationPropertiesPath = Paths.get("/var/run/secrets/nais.io/vault/application.properties")
+
 private val config = Properties().apply {
     putAll(Properties().apply {
         load(Environment::class.java.getResourceAsStream("/application.properties"))
     })
+    if (Files.exists(vaultApplicationPropertiesPath)) {
+        load(Files.newInputStream(vaultApplicationPropertiesPath))
+    }
 }
 
 data class Environment(
-    val srvPaopUsername: String = getEnvVar("SRVPAOP_USERNAME"),
-    val srvPaopPassword: String = getEnvVar("SRVPAOP_PASSWORD"),
     val behandleJournalV2EndpointURL: String = getEnvVar("BEHANDLEJOURNAL_V2_ENDPOINTURL"),
     val appName: String = getEnvVar("APP_NAME"),
     val appVersion: String = getEnvVar("APP_VERSION"),
@@ -21,8 +26,6 @@ data class Environment(
     val mqPort: Int = getEnvVar("MQGATEWAY03_PORT").toInt(),
     val mqQueueManagerName: String = getEnvVar("MQGATEWAY03_NAME"),
     val mqChannelName: String = getEnvVar("PAOP_CHANNEL_NAME"),
-    val mqUsername: String = getEnvVar("SRVAPPSERVER_USERNAME", "srvappserver"),
-    val mqPassword: String = getEnvVar("SRVAPPSERVER_PASSWORD", ""),
     val fastlegeregiserHdirURL: String = getEnvVar("EKSTERN_HELSE_FASTLEGEINFORMASJON_ENDPOINTURL"),
     val pdfGeneratorURL: String = getEnvVar("PDF_GENERATOR_URL", "http://pdf-gen/api"),
     val sakURL: String = getEnvVar("SAK_URL", "http://sak/api"),
@@ -39,6 +42,10 @@ data class Environment(
     val applicationPort: Int = config.getProperty("application.port").toInt(),
     val applicationThreads: Int = config.getProperty("application.threads").toInt(),
     val kafkaIncommingTopicOppfolginsplan: String = config.getProperty("kafka.appen.altinn.oppfolgingsplan.topic"),
-    val kafkaOutgoingTopicOppfolginsplan: String = config.getProperty("kafka.privat.syfo.oppfolingsplan.topic")
+    val kafkaOutgoingTopicOppfolginsplan: String = config.getProperty("kafka.privat.syfo.oppfolingsplan.topic"),
+    val srvPaopUsername: String = config.getProperty("serviceuser.username"),
+    val srvPaopPassword: String = config.getProperty("serviceuser.password"),
+    val mqUsername: String = config.getProperty("mq.username"),
+    val mqPassword: String = config.getProperty("mq.password")
 
 )
