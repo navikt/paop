@@ -168,10 +168,8 @@ fun handleAltinnFollowupPlan(
                     sakClient.generateSAK(OpprettSak(
                             tema = "SYK",
                             applikasjon = "IT01", // TODO PAOP
-                            aktoerId = "", // TODO Remove?
                             orgnr = receivedOppfolginsplan.senderOrgId,
                             fagsakNr = saksId,
-                            opprettetTidspunkt = LocalDateTime.now(),
                             opprettetAv = env.srvPaopUsername))
                 }
         log.info("Response from request to create sak, {}", keyValue("response", sakResponse))
