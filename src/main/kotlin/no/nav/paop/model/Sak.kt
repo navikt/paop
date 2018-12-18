@@ -1,7 +1,6 @@
 package no.nav.paop.model
 
 import kotlinx.serialization.Serializable
-import java.time.LocalDateTime
 
 @Serializable
 data class OpprettSak(
@@ -21,5 +20,5 @@ data class ResponeSak(
     val opprettetAv: String,
     val fagsakNr: String,
     val aktoerId: String?,
-    val opprettetTidspunkt: LocalDateTime?
+    val opprettetTidspunkt: String?
 )

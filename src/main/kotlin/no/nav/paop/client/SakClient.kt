@@ -1,7 +1,5 @@
 package no.nav.paop.client
 
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
-import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.engine.config
@@ -30,10 +28,7 @@ class SakClient(private val endpointUrl: String, private val serviceUsername: St
         }
     }) {
         install(JsonFeature) {
-            serializer = JacksonSerializer {
-                registerKotlinModule()
-                registerModule(JavaTimeModule())
-            }
+            serializer = JacksonSerializer()
         }
         install(BasicAuth) {
             username = serviceUsername
