@@ -7,7 +7,8 @@ import com.fasterxml.jackson.dataformat.xml.XmlMapper
 import com.fasterxml.jackson.module.jaxb.JaxbAnnotationModule
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
-import io.ktor.util.InternalAPI
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import net.logstash.logback.argument.StructuredArgument
 import net.logstash.logback.argument.StructuredArguments.keyValue
@@ -81,8 +82,7 @@ val xmlMapper: ObjectMapper = XmlMapper(JacksonXmlModule().apply {
         .registerKotlinModule()
         .configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true)
 
-@UseExperimental(InternalAPI::class)
-fun handleAltinnFollowupPlan(
+fun CoroutineScope.handleAltinnFollowupPlan(
     env: Environment,
     record: ConsumerRecord<String, ExternalAttachment>,
     pdfClient: PdfClient,
@@ -121,29 +121,38 @@ fun handleAltinnFollowupPlan(
 
     log.info("Received a Altinn oppfølgingsplan $logKeys", *logValues)
 
-    val fagmelding =
-                runBlocking {
-                    pdfClient.generatePDF(mapFormdataToFagmelding(skjemainnhold, incomingMetadata))
-                }
+    val fagmeldingDeferred = async { pdfClient.generatePDF(mapFormdataToFagmelding(skjemainnhold, incomingMetadata)) }
 
-    val validOrganizationNumber = organisasjonV4.validerOrganisasjon(ValiderOrganisasjonRequest().apply {
+    val fagmelding = runBlocking { fagmeldingDeferred.await() }
+
+    val validOrganizationNumberDeferred = async {
+        organisasjonV4.validerOrganisasjon(ValiderOrganisasjonRequest().apply {
             orgnummer = incomingMetadata.senderOrgId
         }).isGyldigOrgnummer
+    }
+
+    val validOrganizationNumber = runBlocking { validOrganizationNumberDeferred.await() }
     if (!validOrganizationNumber) {
         log.error("Failed because the incoming organization ${incomingMetadata.senderOrgId} was invalid $logKeys", *logValues)
         throw RuntimeException("Failed because the incoming organization ${incomingMetadata.senderOrgId} was invalid")
     }
 
-    val geografiskTilknytning = personV3.hentGeografiskTilknytning(HentGeografiskTilknytningRequest().withAktoer(PersonIdent().withIdent(
-            NorskIdent()
-                    .withIdent(incomingMetadata.userPersonNumber)
-                    .withType(Personidenter().withValue("FNR"))))).geografiskTilknytning
+    val geografiskTilknytningDeferred = async {
+        personV3.hentGeografiskTilknytning(HentGeografiskTilknytningRequest().withAktoer(PersonIdent().withIdent(
+                NorskIdent()
+                        .withIdent(incomingMetadata.userPersonNumber)
+                        .withType(Personidenter().withValue("FNR"))))).geografiskTilknytning
+    }
 
-    val navKontor = organisasjonEnhetV2.finnNAVKontor(FinnNAVKontorRequest().apply {
-        this.geografiskTilknytning = Geografi().apply {
-            this.value = geografiskTilknytning?.geografiskTilknytning ?: "0"
-        }
-    }).navKontor
+    val navKontorDeferred = async {
+        organisasjonEnhetV2.finnNAVKontor(FinnNAVKontorRequest().apply {
+            this.geografiskTilknytning = Geografi().apply {
+                this.value = geografiskTilknytningDeferred.await()?.geografiskTilknytning ?: "0"
+            }
+        }).navKontor
+    }
+
+    val navKontor = runBlocking { navKontorDeferred.await() }
 
     log.info("Personen sitt nav kontor: ${navKontor.enhetId}")
 
@@ -164,19 +173,22 @@ fun handleAltinnFollowupPlan(
     if (skjemainnhold.mottaksInformasjon.isOppfolgingsplanSendesTiNav) {
         val saksId = record.value().getArchiveReference()
 
-        val sakResponse =
-                runBlocking {
-                    sakClient.generateSAK(OpprettSak(
-                            tema = "SYK",
-                            applikasjon = "PAOP",
-                            orgnr = receivedOppfolginsplan.senderOrgId,
-                            fagsakNr = saksId,
-                            opprettetAv = env.srvPaopUsername))
-                }
+        val sakResponseDeferred = async {
+            runBlocking {
+                sakClient.generateSAK(OpprettSak(
+                        tema = "SYK",
+                        applikasjon = "PAOP",
+                        orgnr = receivedOppfolginsplan.senderOrgId,
+                        fagsakNr = saksId,
+                        opprettetAv = env.srvPaopUsername))
+            }
+        }
+
+        val sakResponse = runBlocking { sakResponseDeferred.await() }
         log.info("Response from request to create sak, {}", keyValue("response", sakResponse))
         log.info("Created a case $logKeys", *logValues)
 
-        onJournalRequest(receivedOppfolginsplan, fagmelding, behandleJournalV2, saksId, logKeys, logValues)
+        onJournalRequest(receivedOppfolginsplan, fagmelding, behandleJournalV2, sakResponse, logKeys, logValues)
         kafkaproducer.send(ProducerRecord(env.kafkaOutgoingTopicOppfolginsplan, receivedOppfolginsplan))
         log.info("Oppfølginsplan sendt to kafka topic ${env.kafkaOutgoingTopicOppfolginsplan} $logKeys", *logValues)
     }
