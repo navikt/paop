@@ -7,7 +7,6 @@ import com.fasterxml.jackson.dataformat.xml.XmlMapper
 import com.fasterxml.jackson.module.jaxb.JaxbAnnotationModule
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
-import io.ktor.client.features.BadResponseStatusException
 import kotlinx.coroutines.runBlocking
 import net.logstash.logback.argument.StructuredArgument
 import net.logstash.logback.argument.StructuredArguments.keyValue
@@ -166,18 +165,13 @@ fun handleAltinnFollowupPlan(
     if (skjemainnhold.mottaksInformasjon.isOppfolgingsplanSendesTiNav) {
         val saksId = record.value().getArchiveReference()
 
-        val sakResponse =
-            runBlocking {
-                try {
+        val sakResponse = runBlocking {
                 sakClient.generateSAK(OpprettSak(
                         tema = "SYK",
                         applikasjon = "PAOP",
                         orgnr = receivedOppfolginsplan.senderOrgId,
                         fagsakNr = saksId,
                         opprettetAv = env.srvPaopUsername))
-            } catch (brse: BadResponseStatusException) {
-                    log.error("Bad respsone for sak", brse)
-                }
         }
 
         log.info("Response from request to create sak, {}", keyValue("response", sakResponse))
