@@ -12,9 +12,10 @@ import io.ktor.client.request.url
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import no.nav.paop.model.OpprettSak
+import no.nav.paop.model.ResponeSak
 import java.util.UUID
 
-@UseExperimental
+@io.ktor.util.KtorExperimentalAPI
 class SakClient(private val endpointUrl: String, private val serviceUsername: String, private val servicePassword: String) {
     private val client = HttpClient(CIO.config {
         maxConnectionsCount = 1000 // Maximum number of socket connections.
@@ -35,7 +36,7 @@ class SakClient(private val endpointUrl: String, private val serviceUsername: St
         }
     }
 
-suspend fun generateSAK(sak: OpprettSak): String = client.post {
+suspend fun generateSAK(sak: OpprettSak): ResponeSak = client.post {
     contentType(ContentType.Application.Json)
     headers {
         append("X-Correlation-ID", UUID.randomUUID().toString())

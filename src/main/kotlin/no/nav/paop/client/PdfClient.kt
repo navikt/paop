@@ -15,7 +15,7 @@ import io.ktor.client.request.url
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 
-@UseExperimental
+@io.ktor.util.KtorExperimentalAPI
 class PdfClient(private val endpointUrl: String, private val serviceUsername: String, private val servicePassword: String) {
     private val client = HttpClient(CIO.config {
         maxConnectionsCount = 1000 // Maximum number of socket connections.

@@ -178,7 +178,7 @@ fun handleAltinnFollowupPlan(
         log.info("Response from request to create sak, {}", keyValue("response", sakResponse))
         log.info("Created a case $logKeys", *logValues)
 
-        onJournalRequest(receivedOppfolginsplan, fagmelding, behandleJournalV2, sakResponse, logKeys, logValues)
+        onJournalRequest(receivedOppfolginsplan, fagmelding, behandleJournalV2, sakResponse.id, logKeys, logValues)
         kafkaproducer.send(ProducerRecord(env.kafkaOutgoingTopicOppfolginsplan, receivedOppfolginsplan))
         log.info("Oppfølginsplan sendt to kafka topic ${env.kafkaOutgoingTopicOppfolginsplan} $logKeys", *logValues)
     }
