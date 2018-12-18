@@ -121,17 +121,14 @@ fun CoroutineScope.handleAltinnFollowupPlan(
 
     log.info("Received a Altinn oppfølgingsplan $logKeys", *logValues)
 
-    val fagmeldingDeferred = async { pdfClient.generatePDF(mapFormdataToFagmelding(skjemainnhold, incomingMetadata)) }
+    val fagmelding = runBlocking { pdfClient.generatePDF(mapFormdataToFagmelding(skjemainnhold, incomingMetadata)) }
+    log.info("PDF laget")
 
-    val fagmelding = runBlocking { fagmeldingDeferred.await() }
-
-    val validOrganizationNumberDeferred = async {
+    val validOrganizationNumber =
         organisasjonV4.validerOrganisasjon(ValiderOrganisasjonRequest().apply {
             orgnummer = incomingMetadata.senderOrgId
         }).isGyldigOrgnummer
-    }
 
-    val validOrganizationNumber = runBlocking { validOrganizationNumberDeferred.await() }
     if (!validOrganizationNumber) {
         log.error("Failed because the incoming organization ${incomingMetadata.senderOrgId} was invalid $logKeys", *logValues)
         throw RuntimeException("Failed because the incoming organization ${incomingMetadata.senderOrgId} was invalid")
