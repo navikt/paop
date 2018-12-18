@@ -31,7 +31,7 @@ class SakClient(private val endpointUrl: String, private val serviceUsername: St
         }
     }) {
         install(JsonFeature) {
-            serializer = JacksonSerializer{
+            serializer = JacksonSerializer {
                 registerKotlinModule()
                 registerModule(JavaTimeModule())
                 configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
