@@ -152,8 +152,6 @@ object PaopApplicationTest : Spek({
             val dataBatch = extractDataBatch(getFileAsString(
                     "src/test/resources/oppfolging_2913_02.xml"))
 
-            val serviceCode = "2913"
-            val serviceEditionCode = "2"
             val formData = dataBatch.dataUnits.dataUnit.first().formTask.form.first().formData
             val skjemainnhold = xmlMapper.readValue<Oppfoelgingsplan4UtfyllendeInfoM>(formData).skjemainnhold
 

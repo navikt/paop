@@ -8,7 +8,6 @@ import io.ktor.routing.routing
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.prometheus.client.hotspot.DefaultExports
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -162,7 +161,7 @@ fun connectionFactory(environment: Environment) = MQConnectionFactory().apply {
     setIntProperty(WMQConstants.JMS_IBM_CHARACTER_SET, 1208)
 }
 
-suspend fun CoroutineScope.blockingApplicationLogic(
+suspend fun blockingApplicationLogic(
     env: Environment,
     applicationState: ApplicationState,
     pdfClient: PdfClient,

@@ -14,6 +14,7 @@ import io.ktor.http.contentType
 import no.nav.paop.model.OpprettSak
 import java.util.UUID
 
+@UseExperimental
 class SakClient(private val endpointUrl: String, private val serviceUsername: String, private val servicePassword: String) {
     private val client = HttpClient(CIO.config {
         maxConnectionsCount = 1000 // Maximum number of socket connections.

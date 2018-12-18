@@ -7,8 +7,6 @@ import com.fasterxml.jackson.dataformat.xml.XmlMapper
 import com.fasterxml.jackson.module.jaxb.JaxbAnnotationModule
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import net.logstash.logback.argument.StructuredArgument
 import net.logstash.logback.argument.StructuredArguments.keyValue
@@ -82,7 +80,7 @@ val xmlMapper: ObjectMapper = XmlMapper(JacksonXmlModule().apply {
         .registerKotlinModule()
         .configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true)
 
-fun CoroutineScope.handleAltinnFollowupPlan(
+fun handleAltinnFollowupPlan(
     env: Environment,
     record: ConsumerRecord<String, ExternalAttachment>,
     pdfClient: PdfClient,
@@ -134,22 +132,18 @@ fun CoroutineScope.handleAltinnFollowupPlan(
         throw RuntimeException("Failed because the incoming organization ${incomingMetadata.senderOrgId} was invalid")
     }
 
-    val geografiskTilknytningDeferred = async {
+    val geografiskTilknytning =
         personV3.hentGeografiskTilknytning(HentGeografiskTilknytningRequest().withAktoer(PersonIdent().withIdent(
                 NorskIdent()
                         .withIdent(incomingMetadata.userPersonNumber)
                         .withType(Personidenter().withValue("FNR"))))).geografiskTilknytning
-    }
 
-    val navKontorDeferred = async {
+    val navKontor =
         organisasjonEnhetV2.finnNAVKontor(FinnNAVKontorRequest().apply {
             this.geografiskTilknytning = Geografi().apply {
-                this.value = geografiskTilknytningDeferred.await()?.geografiskTilknytning ?: "0"
+                this.value = geografiskTilknytning.geografiskTilknytning ?: "0"
             }
         }).navKontor
-    }
-
-    val navKontor = runBlocking { navKontorDeferred.await() }
 
     log.info("Personen sitt nav kontor: ${navKontor.enhetId}")
 
@@ -170,7 +164,7 @@ fun CoroutineScope.handleAltinnFollowupPlan(
     if (skjemainnhold.mottaksInformasjon.isOppfolgingsplanSendesTiNav) {
         val saksId = record.value().getArchiveReference()
 
-        val sakResponseDeferred = async {
+        val sakResponse =
             runBlocking {
                 sakClient.generateSAK(OpprettSak(
                         tema = "SYK",
@@ -178,10 +172,8 @@ fun CoroutineScope.handleAltinnFollowupPlan(
                         orgnr = receivedOppfolginsplan.senderOrgId,
                         fagsakNr = saksId,
                         opprettetAv = env.srvPaopUsername))
-            }
         }
 
-        val sakResponse = runBlocking { sakResponseDeferred.await() }
         log.info("Response from request to create sak, {}", keyValue("response", sakResponse))
         log.info("Created a case $logKeys", *logValues)
 
