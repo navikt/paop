@@ -155,6 +155,7 @@ fun handleAltinnFollowupPlan(
 
     val receivedOppfolginsplan = ReceivedOppfolginsplan(
             oppfolginsplan = skjemainnhold,
+            pdf = fagmelding,
             userPersonNumber = skjemainnhold.sykmeldtArbeidstaker.fnr,
             senderOrgId = skjemainnhold.arbeidsgiver.orgnr,
             navLogId = navKontor.enhetId
