@@ -3,7 +3,7 @@
     {
       "topicName": "privat-syfo-oppfolginsplan-modia",
       "members": [
-        {"member":"srvpaop", "role":"CONSUMER"},
+        {"member":"srvop-modia", "role":"CONSUMER"},
         {"member":"srvpaop", "role":"PRODUCER"}
       ],
       "numPartitions": 3
