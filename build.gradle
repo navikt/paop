@@ -37,6 +37,7 @@ buildscript {
     ext.mockito_version = '2.22.0'
     ext.nav_person_v3_version = '3.2.0'
     ext.nav_organisasjonEnhet_v2 = '2.1.0'
+    ext.oppfolgingsplan = "1.0.0-SNAPSHOT"
 
     ext.jaxb2SourceDir = file("$buildDir/generated-sources/jaxb2")
 }
@@ -110,16 +111,6 @@ class Jaxb2Task extends DefaultTask {
                 'encoding': 'UTF-8',
                 'fork': 'true'
         )
-
-        ant.xjc(
-                'destdir': outputDir,
-                'package': 'no.nav.model.oppfolgingsplan2016',
-                'schema': "$sourceDir/Oppfolgingsplan201607_2.xsd",
-                'encoding': 'UTF-8',
-                'fork': 'true'
-        ) {
-            binding(dir: xjbDir, includes: "binding.xml")
-        }
 
         ant.xjc(
                 'destdir': outputDir,
@@ -268,6 +259,7 @@ dependencies {
     navWsdl "no.nav.tjenester:partner-nav-emottak-partner-web:$partner_emottak_version@zip"
     navWsdl "no.nav.syfo.tjenester:adresseregisteretV1-tjenestespesifikasjon:$adresseregisteretV1_version"
     navWsdl "no.nav.tjenester:ekstern-helse-fastlegeinformasjon-tjenestespesifikasjon:$ekstern_helse_fastlegeinformasjon_tjenestespesifikasjon_version@zip"
+    implementation "no.nav.helse.xml:oppfolgingsplan:$oppfolgingsplan"
 
     implementation "io.confluent:kafka-avro-serializer:$confluent_version"
     implementation "org.apache.kafka:kafka_2.12:$kafka_version"

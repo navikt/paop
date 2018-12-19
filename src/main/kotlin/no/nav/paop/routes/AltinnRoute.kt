@@ -13,8 +13,8 @@ import net.logstash.logback.argument.StructuredArguments.keyValue
 import no.nav.altinnkanal.avro.ExternalAttachment
 import no.nav.emottak.schemas.HentPartnerIDViaOrgnummerRequest
 import no.nav.emottak.schemas.PartnerResource
+import no.nav.helse.op2016.Oppfoelgingsplan4UtfyllendeInfoM
 import no.nav.model.dataBatch.DataBatch
-import no.nav.model.oppfolgingsplan2016.Oppfoelgingsplan4UtfyllendeInfoM
 import no.nav.paop.Environment
 import no.nav.paop.client.PdfClient
 import no.nav.paop.client.SakClient

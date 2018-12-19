@@ -3,7 +3,7 @@ package no.nav.paop
 import com.fasterxml.jackson.module.kotlin.readValue
 import no.kith.xmlstds.msghead._2006_05_24.XMLMsgHead
 import no.nav.emottak.schemas.PartnerInformasjon
-import no.nav.model.oppfolgingsplan2016.Oppfoelgingsplan4UtfyllendeInfoM
+import no.nav.helse.op2016.Oppfoelgingsplan4UtfyllendeInfoM
 import no.nav.paop.client.createDialogmelding
 import no.nav.paop.model.IncomingMetadata
 import no.nav.paop.model.IncomingUserInfo

@@ -1,6 +1,6 @@
 package no.nav.paop.model
 
-import no.nav.model.oppfolgingsplan2016.Skjemainnhold
+import no.nav.helse.op2016.Skjemainnhold
 
 data class ReceivedOppfolginsplan(
     val oppfolginsplan: Skjemainnhold,

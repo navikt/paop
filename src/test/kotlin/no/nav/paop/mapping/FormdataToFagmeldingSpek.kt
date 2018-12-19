@@ -1,7 +1,7 @@
 package no.nav.paop.mapping
 
 import com.fasterxml.jackson.module.kotlin.readValue
-import no.nav.model.oppfolgingsplan2016.Oppfoelgingsplan4UtfyllendeInfoM
+import no.nav.helse.op2016.Oppfoelgingsplan4UtfyllendeInfoM
 import no.nav.paop.getFileAsString
 import no.nav.paop.model.IncomingMetadata
 import no.nav.paop.routes.xmlMapper

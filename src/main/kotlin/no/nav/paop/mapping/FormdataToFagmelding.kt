@@ -1,6 +1,6 @@
 package no.nav.paop.mapping
 
-import no.nav.model.oppfolgingsplan2016.Skjemainnhold
+import no.nav.helse.op2016.Skjemainnhold
 import no.nav.paop.model.ArbeidstakersDeltakelse
 import no.nav.paop.model.BehovForBistandFraAndre
 import no.nav.paop.model.BehovForBistandFraNav
@@ -14,8 +14,9 @@ import no.nav.paop.model.Tiltak
 import no.nav.paop.model.TiltaketGjennonforesIPerioden
 import no.nav.paop.model.Underskift
 import no.nav.paop.model.VurderingEffektAvTiltak
+import java.time.LocalDate
+import java.time.ZoneId
 import java.time.ZonedDateTime
-import javax.xml.datatype.XMLGregorianCalendar
 
 fun mapFormdataToFagmelding(skjemainnhold: Skjemainnhold, incomingMetadata: IncomingMetadata): Fagmelding = Fagmelding(
         nokkelopplysninger = Nokkelopplysninger(
@@ -92,4 +93,4 @@ fun mapFormdataToFagmelding(skjemainnhold: Skjemainnhold, incomingMetadata: Inco
         utfyllendeInfo = skjemainnhold.utfyllendeOpplysninger
 )
 
-fun XMLGregorianCalendar.toZonedDateTime(): ZonedDateTime = toGregorianCalendar().toZonedDateTime()
+fun LocalDate.toZonedDateTime(): ZonedDateTime = atStartOfDay(ZoneId.systemDefault())
