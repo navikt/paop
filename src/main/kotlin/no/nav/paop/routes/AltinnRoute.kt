@@ -108,7 +108,7 @@ fun handleAltinnFollowupPlan(
     log.info("Received a Altinn oppfølgingsplan $logKeys", *logValues)
 
     val fagmelding = runBlocking { pdfClient.generatePDF(mapFormdataToFagmelding(skjemainnhold, incomingMetadata)) }
-    log.info("PDF laget")
+    log.info("PDF laget $logKeys", *logValues)
 
     val validOrganizationNumber =
         organisasjonV4.validerOrganisasjon(ValiderOrganisasjonRequest().apply {
