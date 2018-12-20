@@ -7,6 +7,7 @@ import com.fasterxml.jackson.dataformat.xml.XmlMapper
 import com.fasterxml.jackson.module.jaxb.JaxbAnnotationModule
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import io.ktor.util.KtorExperimentalAPI
 import kotlinx.coroutines.runBlocking
 import net.logstash.logback.argument.StructuredArgument
 import net.logstash.logback.argument.StructuredArguments.keyValue
@@ -19,7 +20,7 @@ import no.nav.paop.Environment
 import no.nav.paop.client.PdfClient
 import no.nav.paop.client.SakClient
 import no.nav.paop.client.createDialogmelding
-import no.nav.paop.client.objectMapper
+import no.nav.paop.client.onJournalRequest
 import no.nav.paop.client.sendDialogmeldingOppfolginsplan
 import no.nav.paop.log
 import no.nav.paop.mapping.mapFormdataToFagmelding
@@ -28,29 +29,12 @@ import no.nav.paop.model.IncomingUserInfo
 import no.nav.paop.model.OpprettSak
 import no.nav.paop.model.ReceivedOppfolginsplan
 import no.nav.paop.xml.dataBatchUnmarshaller
-import no.nav.paop.xml.datatypeFactory
 import no.nav.paop.xml.extractGPFirstName
 import no.nav.paop.xml.extractGPFnr
 import no.nav.paop.xml.extractGPHprNumber
 import no.nav.paop.xml.extractGPLastName
 import no.nav.paop.xml.extractGPMiddleName
 import no.nav.tjeneste.virksomhet.behandlejournal.v2.binding.BehandleJournalV2
-import no.nav.tjeneste.virksomhet.behandlejournal.v2.informasjon.behandlejournal.Arkivfiltyper
-import no.nav.tjeneste.virksomhet.behandlejournal.v2.informasjon.behandlejournal.Arkivtemaer
-import no.nav.tjeneste.virksomhet.behandlejournal.v2.informasjon.behandlejournal.Dokumenttyper
-import no.nav.tjeneste.virksomhet.behandlejournal.v2.informasjon.behandlejournal.EksternPart
-import no.nav.tjeneste.virksomhet.behandlejournal.v2.informasjon.behandlejournal.Kommunikasjonskanaler
-import no.nav.tjeneste.virksomhet.behandlejournal.v2.informasjon.behandlejournal.Organisasjon
-import no.nav.tjeneste.virksomhet.behandlejournal.v2.informasjon.behandlejournal.Person
-import no.nav.tjeneste.virksomhet.behandlejournal.v2.informasjon.behandlejournal.Sak
-import no.nav.tjeneste.virksomhet.behandlejournal.v2.informasjon.behandlejournal.Signatur
-import no.nav.tjeneste.virksomhet.behandlejournal.v2.informasjon.behandlejournal.StrukturertInnhold
-import no.nav.tjeneste.virksomhet.behandlejournal.v2.informasjon.behandlejournal.Variantformater
-import no.nav.tjeneste.virksomhet.behandlejournal.v2.informasjon.journalfoerinngaaendehenvendelse.DokumentinfoRelasjon
-import no.nav.tjeneste.virksomhet.behandlejournal.v2.informasjon.journalfoerinngaaendehenvendelse.JournalfoertDokumentInfo
-import no.nav.tjeneste.virksomhet.behandlejournal.v2.informasjon.journalfoerinngaaendehenvendelse.Journalpost
-import no.nav.tjeneste.virksomhet.behandlejournal.v2.meldinger.JournalfoerInngaaendeHenvendelseRequest
-import no.nav.tjeneste.virksomhet.behandlejournal.v2.meldinger.JournalfoerInngaaendeHenvendelseResponse
 import no.nav.tjeneste.virksomhet.organisasjon.v4.binding.OrganisasjonV4
 import no.nav.tjeneste.virksomhet.organisasjon.v4.meldinger.ValiderOrganisasjonRequest
 import no.nav.tjeneste.virksomhet.organisasjonenhet.v2.binding.OrganisasjonEnhetV2
@@ -68,11 +52,8 @@ import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.kafka.clients.producer.ProducerRecord
 import java.io.StringReader
-import java.time.ZonedDateTime
-import java.util.GregorianCalendar
 import javax.jms.MessageProducer
 import javax.jms.Session
-import javax.xml.datatype.XMLGregorianCalendar
 
 val xmlMapper: ObjectMapper = XmlMapper(JacksonXmlModule().apply {
     setDefaultUseWrapper(false)
@@ -80,6 +61,7 @@ val xmlMapper: ObjectMapper = XmlMapper(JacksonXmlModule().apply {
         .registerKotlinModule()
         .configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true)
 
+@UseExperimental(KtorExperimentalAPI::class)
 fun handleAltinnFollowupPlan(
     env: Environment,
     record: ConsumerRecord<String, ExternalAttachment>,
@@ -107,6 +89,12 @@ fun handleAltinnFollowupPlan(
             senderOrgId = skjemainnhold.arbeidsgiver.orgnr,
             senderSystemName = skjemainnhold.avsenderSystem.systemNavn,
             senderSystemVersion = skjemainnhold.avsenderSystem.systemVersjon,
+            userPersonNumber = skjemainnhold.sykmeldtArbeidstaker.fnr
+    )
+
+    val incomingPersonInfo = IncomingUserInfo(
+            userFamilyName = skjemainnhold.sykmeldtArbeidstaker?.fornavn,
+            userGivenName = skjemainnhold.sykmeldtArbeidstaker?.etternavn,
             userPersonNumber = skjemainnhold.sykmeldtArbeidstaker.fnr
     )
 
@@ -145,14 +133,6 @@ fun handleAltinnFollowupPlan(
             }
         }).navKontor
 
-    log.info("Personen sitt nav kontor: ${navKontor.enhetId}")
-
-    val incomingPersonInfo = IncomingUserInfo(
-            userFamilyName = skjemainnhold.sykmeldtArbeidstaker?.fornavn,
-            userGivenName = skjemainnhold.sykmeldtArbeidstaker?.etternavn,
-            userPersonNumber = skjemainnhold.sykmeldtArbeidstaker.fnr
-    )
-
     val receivedOppfolginsplan = ReceivedOppfolginsplan(
             oppfolginsplan = skjemainnhold,
             pdf = fagmelding,
@@ -174,12 +154,11 @@ fun handleAltinnFollowupPlan(
                         opprettetAv = env.srvPaopUsername))
         }
 
-        log.info("Response from request to create sak, {}", keyValue("response", sakResponse))
-        log.info("Created a case $logKeys", *logValues)
+        log.info("Created a case with caseid ${sakResponse.id} $logKeys", *logValues)
 
         onJournalRequest(receivedOppfolginsplan, fagmelding, behandleJournalV2, sakResponse.id, logKeys, logValues)
         kafkaproducer.send(ProducerRecord(env.kafkaOutgoingTopicOppfolginsplan, receivedOppfolginsplan))
-        log.info("Oppfølginsplan sendt to kafka topic ${env.kafkaOutgoingTopicOppfolginsplan} $logKeys", *logValues)
+        log.info("Oppfølginsplan is sendt to kafka topic ${env.kafkaOutgoingTopicOppfolginsplan} $logKeys", *logValues)
     }
     if (skjemainnhold.mottaksInformasjon.isOppfolgingsplanSendesTilFastlege) {
         handleDoctorFollowupPlanAltinn(fastlegeregisteret, adresseRegisterV1,
@@ -207,13 +186,10 @@ fun handleDoctorFollowupPlanAltinn(
             val gpLastName = patientToGPContractAssociation.extractGPLastName()!!
             val gpFnr = patientToGPContractAssociation.extractGPFnr()
             val gpHprNumber = patientToGPContractAssociation.extractGPHprNumber()
-
             val gpHerIdFlr = patientToGPContractAssociation.gpHerId
 
             log.info("Calling adresseregisteret $logKeys", *logValues)
             val getCommunicationPartyDetailsResponse = adresseRegisterV1.getOrganizationPersonDetails(gpHerIdFlr)
-
-            // Should only return one org
             val herIDAdresseregister = getCommunicationPartyDetailsResponse.organizations.organization.first().herId
             val gpOfficeOrganizationNumber = getCommunicationPartyDetailsResponse.organizations.organization.first().organizationNumber.toString()
             val gpOfficeOrganizationName = getCommunicationPartyDetailsResponse.organizations.organization.first().name
@@ -238,72 +214,8 @@ fun handleDoctorFollowupPlanAltinn(
                 log.info("Could not send Dialogmessage to GP $logKeys", *logValues)
             }
         } catch (e: IFlrReadOperationsGetPatientGPDetailsGenericFaultFaultFaultMessage) {
-                log.error("Oppfølginsplan kunne ikkje sendes, feil fra fastelegeregisteret $logKeys", *logValues, e)
+                log.error("Error from fastlegeregistert $logKeys", *logValues, e)
         } catch (e: Exception) {
-                log.error("Oppfølginsplan kunne ikkje sendes $logKeys", *logValues, e)
+                log.error("General error occurred $logKeys", *logValues, e)
         }
 }
-fun onJournalRequest(
-    receivedOppfolginsplan: ReceivedOppfolginsplan,
-    fagmelding: ByteArray,
-    behandleJournalV2: BehandleJournalV2,
-    caseId: String,
-    logKeys: String,
-    logValues: Array<StructuredArgument>
-) {
-
-    val journalpost = createJournalpost(behandleJournalV2, receivedOppfolginsplan, fagmelding, caseId)
-
-    log.info("Message successfully persisted in Joark {} $logKeys", keyValue("journalpostId", journalpost.journalpostId), *logValues)
-}
-
-fun createJournalpost(
-    behandleJournalV2: BehandleJournalV2,
-    recivedoppfolginsplan: ReceivedOppfolginsplan,
-    pdf: ByteArray,
-    caseId: String
-): JournalfoerInngaaendeHenvendelseResponse =
-    behandleJournalV2.journalfoerInngaaendeHenvendelse(JournalfoerInngaaendeHenvendelseRequest()
-            .withApplikasjonsID("PAOP")
-            .withJournalpost(Journalpost()
-                    .withDokumentDato(now())
-                    .withJournalfoerendeEnhetREF(GOSYS)
-                    .withKanal(Kommunikasjonskanaler().withValue("ALTINN"))
-                    .withSignatur(Signatur().withSignert(true))
-                    .withArkivtema(Arkivtemaer().withValue("SYK"))
-                    .withForBruker(Person().withIdent(no.nav.tjeneste.virksomhet.behandlejournal.v2.informasjon.behandlejournal.NorskIdent().withIdent(recivedoppfolginsplan.userPersonNumber)))
-                    .withOpprettetAvNavn("PAOPSak")
-                    .withInnhold("Oppfoløginsplan")
-                    .withEksternPart(EksternPart()
-                            .withNavn(recivedoppfolginsplan.senderOrgId)
-                            .withEksternAktoer(Organisasjon().withOrgnummer(recivedoppfolginsplan.senderOrgId))
-                    )
-                    .withGjelderSak(Sak().withSaksId(caseId).withFagsystemkode(GOSYS))
-                    .withMottattDato(now())
-                    .withDokumentinfoRelasjon(DokumentinfoRelasjon()
-                            .withTillknyttetJournalpostSomKode("HOVEDDOKUMENT")
-                            .withJournalfoertDokument(JournalfoertDokumentInfo()
-                                    .withBegrensetPartsInnsyn(false)
-                                    .withDokumentType(Dokumenttyper().withValue("ES"))
-                                    .withSensitivitet(true)
-                                    .withTittel("Oppfoløginsplan")
-                                    .withKategorikode("ES")
-                                    .withBeskriverInnhold(
-                                            StrukturertInnhold()
-                                                    .withFilnavn("oppfolginsplan.pdf")
-                                                    .withFiltype(Arkivfiltyper().withValue("PDF"))
-                                                    .withVariantformat(Variantformater().withValue("ARKIV"))
-                                                    .withInnhold(pdf),
-                                            StrukturertInnhold()
-                                                    .withFilnavn("oppfolginsplan.xml")
-                                                    .withFiltype(Arkivfiltyper().withValue("XML"))
-                                                    .withVariantformat(Variantformater().withValue("ORIGINAL"))
-                                                    .withInnhold(objectMapper.writeValueAsBytes(recivedoppfolginsplan.oppfolginsplan))
-                                    )
-                            )
-                    )
-            )
-    )
-
-const val GOSYS = "FS22"
-fun now(): XMLGregorianCalendar = datatypeFactory.newXMLGregorianCalendar(GregorianCalendar.from(ZonedDateTime.now()))

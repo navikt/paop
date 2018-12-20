@@ -7,6 +7,7 @@ import io.ktor.application.Application
 import io.ktor.routing.routing
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
+import io.ktor.util.KtorExperimentalAPI
 import io.prometheus.client.hotspot.DefaultExports
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.delay
@@ -44,6 +45,7 @@ data class ApplicationState(var running: Boolean = true, var initialized: Boolea
 
 val log: Logger = LoggerFactory.getLogger("nav.paop-application")
 
+@KtorExperimentalAPI
 fun main(args: Array<String>) = runBlocking(Executors.newFixedThreadPool(2).asCoroutineDispatcher()) {
     DefaultExports.initialize()
     val env = Environment()
@@ -161,6 +163,7 @@ fun connectionFactory(environment: Environment) = MQConnectionFactory().apply {
     setIntProperty(WMQConstants.JMS_IBM_CHARACTER_SET, 1208)
 }
 
+@KtorExperimentalAPI
 suspend fun blockingApplicationLogic(
     env: Environment,
     applicationState: ApplicationState,
